@@ -4,7 +4,11 @@ import { VideoInfo, PlayerState } from '../../types';
 import { Timeline } from '../Timeline/Timeline';
 import { Viewer } from '../Viewer/Viewer';
 
-const TWITCH_CLIENT_ID = 'r69vc9claq1m3n960hrkuszot4nx54';
+// Instructions here: https://dev.twitch.tv/docs/authentication/register-app/
+// Has these redirect URLs:
+// - https://twitch-vod-sync.github.io (for production)
+// - http://localhost (for local development)
+const TWITCH_CLIENT_ID = 'm0bgzop0z8m62bacx50hxh6v0rkiwe';
 
 // Assumed aspect ratio
 const ASPECT_RATIO = 16.0 / 9.0;
