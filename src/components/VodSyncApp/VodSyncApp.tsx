@@ -280,17 +280,22 @@ export class VodSyncApp extends React.PureComponent<
 
   render() {
     if (!this.state.accessToken) {
-      // Redirecting back to the current URL so that we can return to where we came from (e.g. dev vs production)
-      const redirectUri = encodeURIComponent(window.location.origin);
-      setTimeout(() => {
-        window.location.href =
-          'https://id.twitch.tv/oauth2/authorize?client_id=' +
-          TWITCH_CLIENT_ID +
-          '&redirect_uri=' +
-          redirectUri +
-          '&response_type=token&scope=';
-      }, 2000);
-      return <p>Redirecting you to Twitch to authorize use of their API...</p>;
+      // Note that this encodes the current URL so that we can return to where we came from (e.g. dev vs production)
+      const twitchAuth =
+        'https://id.twitch.tv/oauth2/authorize?client_id=' +
+        TWITCH_CLIENT_ID +
+        '&redirect_uri=' +
+        encodeURIComponent(window.location.origin) +
+        '&response_type=token&scope=';
+      return (
+        <p>
+          This application uses the Twitch APIs to load VOD information.<br />
+          None of the APIs it calls are private, however it still needs a user token to call them.<br />
+          This token is not persisted; it is only kept in the browser's URL.<br />
+          Please click below to redirect to Twitch to authorize this application, or close this page and find an alternative.<br />
+          <a href={twitchAuth} style={{ height: 200, width: 500, fontSize: "2em" }}>Click here</a>
+        </p>
+        );
     }
 
     const viewers = [];
