@@ -289,13 +289,24 @@ export class VodSyncApp extends React.PureComponent<
         '&response_type=token&scope=';
       return (
         <p>
-          This application uses the Twitch APIs to load VOD information.<br />
-          None of the APIs it calls are private, however it still needs a user token to call them.<br />
-          This token is not persisted; it is only kept in the browser's URL.<br />
-          Please click below to redirect to Twitch to authorize this application, or close this page and find an alternative.<br />
-          <a href={twitchAuth} style={{ height: 200, width: 500, fontSize: "2em" }}>Click here</a>
+          This application uses the Twitch APIs to load VOD information.
+          <br />
+          None of the APIs it calls are private, however it still needs a token
+          to call them.
+          <br />
+          This token is not persisted; it is only kept in the browser's URL.
+          <br />
+          Please click below to authorize this application, or close this page
+          and find an alternative.
+          <br />
+          <a
+            href={twitchAuth}
+            style={{ height: 200, width: 500, fontSize: '2em' }}
+          >
+            Click here
+          </a>
         </p>
-        );
+      );
     }
 
     const viewers = [];
