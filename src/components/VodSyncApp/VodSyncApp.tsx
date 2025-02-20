@@ -7,7 +7,7 @@ import { Viewer } from '../Viewer/Viewer';
 // Instructions here: https://dev.twitch.tv/docs/authentication/register-app/
 // Has these redirect URLs:
 // - https://twitch-vod-sync.github.io (for production)
-// - http://localhost (for local development)
+// - http://localhost:3000 (for local development)
 const TWITCH_CLIENT_ID = 'm0bgzop0z8m62bacx50hxh6v0rkiwe';
 
 // Assumed aspect ratio
@@ -280,8 +280,8 @@ export class VodSyncApp extends React.PureComponent<
 
   render() {
     if (!this.state.accessToken) {
-      // Before redirecting, capture the current URL so that we can return to where we came from
-      const redirectUri = encodeURIComponent(window.location.href);
+      // Redirecting back to the current URL so that we can return to where we came from (e.g. dev vs production)
+      const redirectUri = encodeURIComponent(window.location.origin);
       setTimeout(() => {
         window.location.href =
           'https://id.twitch.tv/oauth2/authorize?client_id=' +
