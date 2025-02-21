@@ -288,8 +288,11 @@ export class VodSyncApp extends React.PureComponent<
         encodeURIComponent(window.location.origin) +
         '&response_type=token&scope=';
       return (
-        <p>
-          This application uses the Twitch APIs to load VOD information.
+        <center>
+          This website lets you watch multiple Twitch VODs at the same time,
+          so that you can watch a race (or similar) after the fact.
+          <br />
+          However, to do so it needs to call the Twitch APIs to get VOD details.
           <br />
           None of the APIs it calls are private, however it still needs a token
           to call them.
@@ -299,13 +302,15 @@ export class VodSyncApp extends React.PureComponent<
           Please click below to authorize this application, or close this page
           and find an alternative.
           <br />
+          <input type="checkbox"></input>Automatically redirect me to Twitch from this browser
+          <br />
           <a
             href={twitchAuth}
             style={{ height: 200, width: 500, fontSize: '2em' }}
           >
             Click here
           </a>
-        </p>
+        </center>
       );
     }
 
