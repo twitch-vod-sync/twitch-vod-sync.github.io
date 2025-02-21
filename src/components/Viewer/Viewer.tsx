@@ -256,7 +256,7 @@ export class Viewer extends React.PureComponent<ViewerProps, ViewerState> {
           }}
         >
           <div id={'player' + this.props.id} className="player"></div>
-          <div className="options">
+          <div className="options" style="display:none">
             <form onSubmit={this.handleDelayChange}>
               Delay:{' '}
               <input
