@@ -7,6 +7,7 @@ setup steps:
 - You should now be all set for development. Edit files, refresh the page, click buttons, repeat.
 
 - Once you're ready, run `npm run check` to validate your code is warnings-free.
+(you can also use `npm run fix` to automatically fix some errors)
 This may return one of a few errors:
 - Typescript warnings-as-errors (like using 'let' instead of 'const') -> These appear in red, with line numbers
 - Linter errors (like spacing or line length) -> These appear in patch format, with + lines as the required change.

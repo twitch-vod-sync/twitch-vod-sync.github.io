@@ -278,39 +278,70 @@ export class VodSyncApp extends React.PureComponent<
     }
   }
 
+  doTwitchRedirect() {
+    // Note that this encodes the current URL so that we can return to where we came from (e.g. dev vs production)
+    const twitchAuth =
+      'https://id.twitch.tv/oauth2/authorize?client_id=' +
+      TWITCH_CLIENT_ID +
+      '&redirect_uri=' +
+      encodeURIComponent(window.location.origin) +
+      '&response_type=token&scope=';
+
+    const autoRedirect = document.getElementById(
+      'autoRedirect'
+    ) as HTMLInputElement;
+
+    // May be null if the checkbox didn't render; i.e. we are already auto-redirecting
+    if (autoRedirect !== null && autoRedirect.checked) {
+      window.localStorage.setItem('autoRedirect', 'true');
+    }
+
+    window.location.href = twitchAuth;
+  }
+
   render() {
     if (!this.state.accessToken) {
-      // Note that this encodes the current URL so that we can return to where we came from (e.g. dev vs production)
-      const twitchAuth =
-        'https://id.twitch.tv/oauth2/authorize?client_id=' +
-        TWITCH_CLIENT_ID +
-        '&redirect_uri=' +
-        encodeURIComponent(window.location.origin) +
-        '&response_type=token&scope=';
+      if (window.localStorage.getItem('autoRedirect') === 'true') {
+        this.doTwitchRedirect();
+      }
+
       return (
-        <center>
-          This website lets you watch multiple Twitch VODs at the same time,
-          so that you can watch a race (or similar) after the fact.
+        <div
+          style={{
+            width: '50%',
+            textAlign: 'center',
+            margin: 'auto',
+          }}
+        >
+          This website lets you watch multiple Twitch VODs at the same time, so
+          that you can watch a race (or similar) after the fact.
           <br />
           However, to do so it needs to call the Twitch APIs to get VOD details.
           <br />
           None of the APIs it calls are private, however it still needs a token
           to call them.
           <br />
-          This token is not persisted; it is only kept in the browser's URL.
+          This token is not persisted; it is only kept in this browser's URL.
           <br />
           Please click below to authorize this application, or close this page
           and find an alternative.
           <br />
-          <input type="checkbox"></input>Automatically redirect me to Twitch from this browser
           <br />
-          <a
-            href={twitchAuth}
-            style={{ height: 200, width: 500, fontSize: '2em' }}
-          >
-            Click here
-          </a>
-        </center>
+          <input type="checkbox" id="autoRedirect" />
+          <label htmlFor="autoRedirect" style={{ userSelect: 'none' }}>
+            In the future, automatically redirect me to Twitch
+          </label>
+          <br />
+          <br />
+          <input
+            type="button"
+            value="Click here"
+            style={{
+              fontSize: '2em',
+            }}
+            onClick={this.doTwitchRedirect}
+          />
+        </div>
       );
     }
 
