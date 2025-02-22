@@ -147,8 +147,8 @@ export class VodSyncApp extends React.PureComponent<
 
       // Update the player state to fall within at least one video
       let playerState = state.playerState;
-      if (state.videos.size > 0) {
-        const videosArray = Array.from(state.videos.values());
+      if (videos.size > 0) {
+        const videosArray = Array.from(videos.values());
         const start = Math.min(...videosArray.map(v => v.startDate.getTime()));
         const end = Math.max(
           ...videosArray.map(v => v.startDate.getTime() + v.duration * 1000)

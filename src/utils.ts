@@ -23,13 +23,23 @@ export function formatDate(d: Date): string {
 }
 
 export function parseDuration(s: string): number {
-  const m = s.match(/(?:([0-9]+)h)?([0-9]+)m([0-9]+)s/);
+  const m = s.match(/(?:([0-9]+)h)?(?:([0-9]+)m)?([0-9]+)s/);
+  //                  ^ ^      ^  ^^  ^      ^  ^^      ^
+  //                  | +------+  ||  |      |  |+------+
+  //                  |  hours    ||  +------+  | seconds
+  //                  |  (int)    ||  minutes   |  (int)
+  //                  +-----------+|   (int)    |
+  //                     optional  +------------+
+  //                      hours   optional minutes
+  //
   if (!m) {
     throw Error('Invalid duration');
   } else if (m[1]) {
     return Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]);
-  } else {
+  } else if (m[2]) {
     return Number(m[2]) * 60 + Number(m[3]);
+  } else {
+    return Number(m[3]);
   }
 }
 
