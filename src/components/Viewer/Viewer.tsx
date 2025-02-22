@@ -165,9 +165,11 @@ export class Viewer extends React.PureComponent<ViewerProps, ViewerState> {
           videoInfo.id
         );
         this.createPlayer(videoInfo);
-        break;
+        return;
       }
     }
+
+    console.warn('Found no overlapping video from channel ' + channel);
   }
 
   async handleVideoPicked(video: number) {
