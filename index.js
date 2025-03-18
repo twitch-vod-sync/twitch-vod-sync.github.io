@@ -114,6 +114,7 @@ window.onload = function() {
       } else if (firstPausedVideo != null) {
         firstPausedVideo.player.play()
       }
+    /* TODO: Seems like the twitch player isn't updating getCurrentTime when I seek_paused. Eesh.
     } else if (event.key == 'ArrowLeft') {
       var firstVideo = firstPlayingVideo || firstPausedVideo
       if (firstVideo != null) {
@@ -126,6 +127,7 @@ window.onload = function() {
         var duration = firstVideo.player.getCurrentTime()
         firstVideo.player.seek(duration + 10)
       }
+    */
     }
   })
 }
@@ -403,7 +405,7 @@ function twitchEvent(event, playerId, data) {
         console.log('vodsync', 'User has manually seeked', playerId, 'seeking all other players')
         var targetDuration = data.position // Note that the seek position comes from the javascript event's data
         var timestamp = video.startTime + Math.floor(targetDuration * 1000)
-        seekVideosTo(timestamp, (video.state == PLAYING ? 'play' : 'pause')
+        seekVideosTo(timestamp, (video.state == PLAYING ? 'play' : 'pause'))
         break
     }
   } else if (event == 'play') {
