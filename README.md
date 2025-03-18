@@ -12,5 +12,6 @@ This application can bring up multiple VOD (recorded streams), obtain their star
 Current status
 --------------
 
-This project is a fork of [the original](https://github.com/remram44/twitch-vod-sync) from remram44, where I (jbzdarkid) can do a bit of extended development. The project is mostly feature-complete -- just a few tweaks and additions, as I see/want them.
-I'll probably try to tackle some of the [issues](https://github.com/remram44/twitch-vod-sync/issues) from the original project; feel free to leave feedback here, though.
+This project is a fork of [the original](https://github.com/remram44/twitch-vod-sync) from remram44, where I (jbzdarkid) can do a bit of extended development.
+I have taken some efforts to clean up the UX (and fix a couple of bugs with the players), but haven't added any groundbreaking functionality.
+I did port the code to pure JS, though, since I find react + typescript to be an unnecessary headache.
