@@ -9,19 +9,47 @@
   <title>Twitch VOD Sync</title>
   <style>
     .body-bg { background: white; }
-    @media (prefers-color-scheme: dark) {
-      .body-bg { background: #222; }
-    }
-
+    .body-text { color: black; }
     .timeline-bg { background: white; }
     @media (prefers-color-scheme: dark) {
+      .body-bg { background: #222; }
+      .body-text { color: white; }
       .timeline-bg { background: #888; }
     }
   </style>
 </head>
 <body class="body-bg" style="margin: 0; padding: 0; overflow: hidden">
   <div id="app" style="display: flex; flex-flow: column nowrap; position: absolute; top: 0; left: 0; right: 0; bottom: 0">
+    <div id="twitchRedirect" class="body-text" style="display: none; text-align: center">
+      This website lets you watch multiple Twitch VODs at the same time, so that you can watch a race (or similar) after the fact.
+      <br />
+      To accurately line up the videos, this app needs to call the Twitch /videos API (to get the precise VOD start time).
+      It also uses the APIs to find matching videos when you search by channel name.
+      <br />
+      None of the APIs it calls load personal data, but we still need a token to call them.
+      For safety, this app requests a token with zero scopes, so it only has basic permissions.
+      <br />
+      The token is persisted in your browser's localStorage, which can only be accessed from this domain.
+      To remove the token, clear your browser's "site data" for the current website.
+      <br />
+      Click below to be redirected to Twitch, or close this page and find an alternative.
+      <br />
+      <br />
+      <form onsubmit="doTwitchRedirect(event)">
+        <input type="radio" name="authPrefs" value="neverSave" id="neverSave" />
+        <label for="neverSave">Do not persist my token, always show this warning</label>
+        <br />
+        <input type="radio" name="authPrefs" value="prompt" id="prompt" />
+        <label for="prompt">Persist my token but show me this warning whenever it needs to be refreshed</label>
+        <br />
+        <input type="radio" name="authPrefs" value="autoRedirect" id="autoRedirect" checked />
+        <label for="autoRedirect">Persist my token and automatically redirect me to Twitch when my token needs to be refreshed</label>
+        <br />
+        <input type="submit" value="Redirect me to Twitch" />
+      </form>
+    </div>
     <div id="players" style="flex: 1 1 auto; display: flex; flex-flow: row wrap"></div>
+    <div id="timeline"></div>
   </div>
 </body>
 </html>

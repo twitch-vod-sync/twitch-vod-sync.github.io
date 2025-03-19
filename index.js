@@ -15,6 +15,21 @@ const AFTER_END     = 7
 var MIN_PLAYERS = 1
 var MAX_PLAYERS = 4
 window.onload = function() {
+  // There's a small chance we didn't get a 'page closing' event fired, so if this setting is still set and we have a token,
+  // delete the localstorage so we show the prompt again.
+  if (window.localStorage.getItem('authPrefs') == 'neverSave' && window.localStorage.getItem('twitchAuthToken') != null) {
+    window.localStorage.clear()
+
+    // Normal lifecycle has a pagehide event fire before the window closes. While this is not guaranteed to fire on mobile,
+    // (A) this app sucks on mobile and (B) I don't want to clear tokens just because you tabbed away from the page.
+    // Note that we only add this listener if 'neverSave' was set on page load, otherwise we clear preferences as we do the twitch redirect,
+    // and don't save the fact that the user doesn't want us to persist their token.
+    window.addEventListener('pagehide', (event) => {
+      if (event.persisted) return // Page is being disabled but only temporarily, no need to clean up
+      if (window.localStorage.getItem('authPrefs') == 'neverSave') window.localStorage.clear()
+    })
+  }
+
   var authToken = null
   if (window.location.hash != null && window.location.hash.length > 1) {
     var params = new URLSearchParams(window.location.hash.substring(1))
@@ -26,7 +41,7 @@ window.onload = function() {
   }
 
   if (authToken == null) {
-    doTwitchRedirect()
+    showTwitchRedirect()
     return
   }
 
@@ -143,7 +158,7 @@ function addPlayer() {
 
   var form = document.createElement('form')
   newPlayer.appendChild(form)
-  form.addEventListener('submit', submitForm)
+  form.addEventListener('submit', searchVideo)
 
   var textInput = document.createElement('input')
   form.appendChild(textInput)
@@ -220,7 +235,7 @@ function resizePlayers() {
 
 const VIDEO_ID_MATCH =   /^(?:https?:\/\/(?:www\.|m\.)?twitch\.tv\/videos\/)?([0-9]+)(?:\?.*)?$/
 const CHANNEL_ID_MATCH = /^(?:https?:\/\/(?:www\.|m\.)?twitch\.tv\/)?([a-zA-Z0-9]\w+)\/?(?:\?.*)?$/
-function submitForm(event) {
+function searchVideo(event) {
   event.preventDefault()
 
   var form = event.target
@@ -243,8 +258,7 @@ function submitForm(event) {
   // Otherwise, check to see if it's a channel (in which case we can look for a matching video)
   m = form.elements['video'].value.match(CHANNEL_ID_MATCH)
   if (m != null) {
-    getChannelId(m[1])
-    .then(channelId => getChannelVideos(channelId))
+    getChannelVideos(m[1])
     .then(videos => {
       var [timelineStart, timelineEnd] = getTimelineBounds()
       var bestVideo = null
