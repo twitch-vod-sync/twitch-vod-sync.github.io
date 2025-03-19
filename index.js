@@ -1,19 +1,9 @@
 var FEATURES = {
   'HIDE_ENDING_TIMES': true,
+  'MAX_PLAYERS': 4,
 }
 
-// Player states
-const LOADING       = 0
-const READY         = 1
-const SEEKING_PLAY  = 2
-const PLAYING       = 3
-const SEEKING_PAUSE = 4
-const PAUSED        = 5
-const BEFORE_START  = 6
-const AFTER_END     = 7
-
 var MIN_PLAYERS = 1
-var MAX_PLAYERS = 4
 window.onload = function() {
   // There's a small chance we didn't get a 'page closing' event fired, so if this setting is still set and we have a token,
   // delete the localstorage so we show the prompt again.
@@ -58,23 +48,23 @@ window.onload = function() {
   window.addPlayer()
   window.addPlayer()
 
-  for (var i = 0; i < MAX_PLAYERS; i++) {
+  for (var i = 0; i < FEATURES.MAX_PLAYERS; i++) {
     // Copy the loop variable to avoid javascript lambda-in-loop bug
     ;((i) => {
       if (params.has('player' + i)) {
-        var player = document.getElementById('player' + i)
-        while (player == null) {
+        var playerElem = document.getElementById('player' + i)
+        while (playerElem == null) {
           window.addPlayer()
-          player = document.getElementById('player' + i)
+          playerElem = document.getElementById('player' + i)
         }
 
-        playerVideos.set(player.id, {'state': LOADING}) // Small placeholder to indicate that we're still loading
-        var form = player.getElementsByTagName('form')[0]
+        players.set(playerElem.id, new Player())
+        var form = playerElem.getElementsByTagName('form')[0]
         var videoId = params.get('player' + i)
         getVideoDetails(videoId)
         .then(videoDetails => loadVideo(form, videoDetails))
         .catch(r => {
-          var error = player.getElementsByTagName('div')[0]
+          var error = playerElem.getElementsByTagName('div')[0]
           error.innerText = 'Could not process video "' + videoId + '":\n' + r
           error.style.display = null
         })
@@ -86,7 +76,7 @@ window.onload = function() {
 
   // Auto-update the timeline cursor so it moves properly while the video is playing
   window.setInterval(() => {
-    var timestamp = getAverageVideoTimestamp()
+    var timestamp = latestSeekTarget
     var cursor = document.getElementById('timelineCursor')
     var label = document.getElementById('timelineCurrent')
 
@@ -104,9 +94,9 @@ window.onload = function() {
       if (label) label.innerText = new Date(timestamp).toLocaleString(TIMELINE_DATE_FORMAT)
     }
 
-    for (var video of playerVideos.values()) {
-      if (video.state == BEFORE_START && timestamp >= video.startTime) {
-        video.player.play()
+    for (var player of players.values()) {
+      if (player.state == BEFORE_START && timestamp >= player.startTime) {
+        player.play()
       }
     }
   }, 100)
@@ -116,44 +106,58 @@ window.onload = function() {
   document.addEventListener('keydown', (event) => {
     var firstPlayingVideo = null
     var firstPausedVideo = null
-    for (var otherVideo of playerVideos.values()) {
-      if (otherVideo.state == PLAYING || otherVideo.state == SEEKING_PLAY) {
-        if (firstPlayingVideo == null) firstPlayingVideo = otherVideo
-      } else if (otherVideo.state == PAUSED || otherVideo.state == SEEKING_PAUSE) {
-        if (firstPausedVideo == null) firstPausedVideo = otherVideo
+    var anyVideoInAsync = false
+    for (var player of players.values()) {
+      if (player.state == PLAYING || player.state == SEEKING_PLAY) {
+        if (firstPlayingVideo == null) firstPlayingVideo = player
+      } else if (player.state == PAUSED || player.state == SEEKING_PAUSE) {
+        if (firstPausedVideo == null) firstPausedVideo = player
+      } else if (player.state == ASYNC) {
+        anyVideoInAsync = true
       }
     }
-    if (event.key == ' ') {
-      if (firstPlayingVideo != null) {
-        firstPlayingVideo.player.pause()
-      } else if (firstPausedVideo != null) {
-        firstPausedVideo.player.play()
+
+    // Spacebar pauses (if anyone is playing) or plays (if everyone is paused)
+    // Left and right seek based on the location of the first video (assuming any video is loaded)
+    if (firstPlayingVideo != null) {
+      if (event.key == ' ') firstPlayingVideo.pause()
+      if (event.key == 'ArrowLeft')  seekPlayersTo(firstPlayingVideo.getCurrentTimestamp() - 10000, 'play')
+      if (event.key == 'ArrowRight') seekPlayersTo(firstPlayingVideo.getCurrentTimestamp() + 10000, 'play')
+    } else if (firstPausedVideo != null) {
+      if (event.key == ' ') firstPausedVideo.play()
+      if (event.key == 'ArrowLeft')  seekPlayersTo(firstPausedVideo.getCurrentTimestamp() - 10000, 'pause')
+      if (event.key == 'ArrowRight') seekPlayersTo(firstPausedVideo.getCurrentTimestamp() + 10000, 'pause')
+    }
+
+    if (event.key == 'a') {
+      // On the first press, bring all videos into 'async mode', where they can be adjusted freely.
+      if (!anyVideoInAsync) {
+        for (var player of players.values()) {
+          player.state = ASYNC
+          player.pause()
+        }
+
+      // On the second press, realign all videos based on the current player time, then start all players.
+      } else {
+        var earliestSync = Number.MIN_VALUE
+        for (var player of players.values()) {
+          player.offset -= (player.getCurrentTimestamp() - player.startTime) // TODO: TEST!
+          if (player.startTime > earliestSync) earliestSync = player.startTime
+        }
+        console.log('vodsync', 'Resuming all players after async alignment')
+        seekPlayersTo(earliestSync, 'pause')
       }
-    /* TODO: Seems like the twitch player isn't updating getCurrentTime when I seek_paused. Eesh.
-    } else if (event.key == 'ArrowLeft') {
-      var firstVideo = firstPlayingVideo || firstPausedVideo
-      if (firstVideo != null) {
-        var duration = firstVideo.player.getCurrentTime()
-        firstVideo.player.seek(duration - 10)
-      }
-    } else if (event.key == 'ArrowRight') {
-      var firstVideo = firstPlayingVideo || firstPausedVideo
-      if (firstVideo != null) {
-        var duration = firstVideo.player.getCurrentTime()
-        firstVideo.player.seek(duration + 10)
-      }
-    */
     }
   })
 }
 
 function addPlayer() {
-  var players = document.getElementById('players')
-  if (players.childElementCount >= MAX_PLAYERS) return
+  var playersDiv = document.getElementById('players')
+  if (playersDiv.childElementCount >= FEATURES.MAX_PLAYERS) return
 
   var newPlayer = document.createElement('div')
-  newPlayer.id = 'player' + players.childElementCount
-  players.appendChild(newPlayer)
+  newPlayer.id = 'player' + playersDiv.childElementCount
+  playersDiv.appendChild(newPlayer)
   newPlayer.style = 'flex: 1 0 50%; display: flex; flex-direction: column; justify-content: center; align-items: center'
 
   var form = document.createElement('form')
@@ -179,11 +183,11 @@ function addPlayer() {
 }
 
 function removePlayer() {
-  var players = document.getElementById('players')
+  var playersDiv = document.getElementById('players')
 
-  var lastPlayer = players.childNodes[players.childElementCount - 1]
-  if (playerVideos.has(lastPlayer.id)) {
-    playerVideos.delete(lastPlayer.id)
+  var lastPlayer = playersDiv.childNodes[playersDiv.childElementCount - 1]
+  if (players.has(lastPlayer.id)) {
+    players.delete(lastPlayer.id)
     reloadTimeline()
 
     // Update displayed query params to remove this video
@@ -193,25 +197,25 @@ function removePlayer() {
 
     lastPlayer.remove()
     addPlayer() // If there was a video, the '-' button just resets it back to the picker
-  } else if (players.childElementCount > MIN_PLAYERS) {
+  } else if (playersDiv.childElementCount > MIN_PLAYERS) {
     lastPlayer.remove() // Otherwise, it removes the entire box
     resizePlayers()
   }
 }
 
 function resizePlayers() {
-  var players = document.getElementById('players')
+  var playersDiv = document.getElementById('players')
 
   var aspectRatio = 16.0 / 9.0 // Aspect ratio of twitch videos
 
   // Test all row counts (full horizontal through full vertical) to determine the one which fits the most videos.
   var bestNorm = 0
   var perColumn = 1
-  for (var rows = 1; rows <= players.childElementCount; rows++) {
+  for (var rows = 1; rows <= playersDiv.childElementCount; rows++) {
     // Compute the maximum possible size of each player
-    var cols = Math.ceil(players.childElementCount / rows)
-    var width = players.clientWidth / cols
-    var height = players.clientHeight / rows
+    var cols = Math.ceil(playersDiv.childElementCount / rows)
+    var width = playersDiv.clientWidth / cols
+    var height = playersDiv.clientHeight / rows
 
     // In practice, one of the two dimensions will be smaller, so the other is capped.
     var actualWidth  = Math.min(width, height * aspectRatio)
@@ -227,9 +231,9 @@ function resizePlayers() {
 
   // We actually care about the width of each player (for flex purposes), not the number of rows -- flexbox will do that for us.
 
-  var players = document.getElementById('players')
-  for (var player of players.childNodes) {
-    player.style.flexBasis = 100 / perColumn + '%' // Note: I'm using integer division here so that we don't have float rounding issues.
+  var playersDiv = document.getElementById('players')
+  for (var playerElem of playersDiv.childNodes) {
+    playerElem.style.flexBasis = 100 / perColumn + '%' // Note: I'm using integer division here so that we don't have float rounding issues.
   }
 }
 
@@ -286,7 +290,7 @@ function searchVideo(event) {
   error.style.display = null
 }
 
-var playerVideos = new Map()
+var players = new Map()
 function loadVideo(form, videoDetails) {
   form.style.display = 'none'
   var div = form.parentElement
@@ -303,110 +307,77 @@ function loadVideo(form, videoDetails) {
     autoplay: false,
     muted: true,
   }
-  var player = new Twitch.Player(div.id, options)
-  videoDetails['player'] = player
-  videoDetails['state'] = LOADING
-  playerVideos.set(div.id, videoDetails)
+  var twitchPlayer = new Twitch.Player(div.id, options)
+  players.set(div.id, new Player(videoDetails, twitchPlayer))
   reloadTimeline() // Note: This will get called several times in a row in loadVideo. Whatever.
 
-  player.addEventListener('ready', () => {
+  twitchPlayer.addEventListener('ready', () => {
     var playerId = div.id
-    var video = playerVideos.get(playerId)
+    var thisPlayer = players.get(playerId)
     console.log('vodsync', playerId, 'has loaded')
 
     // Only hook events once the player has loaded, so we don't have to worry about interactions during loading.
-    video.player.addEventListener('seek', (eventData) => twitchEvent('seek', playerId, eventData))
-    video.player.addEventListener('play', () => twitchEvent('play', playerId))
-    video.player.addEventListener('pause', () => twitchEvent('pause', playerId))
-    video.player.addEventListener('ended', () => twitchEvent('ended', playerId))
+    thisPlayer.player.addEventListener('seek', (eventData) => twitchEvent('seek', playerId, eventData))
+    thisPlayer.player.addEventListener('play', () => twitchEvent('play', playerId))
+    thisPlayer.player.addEventListener('pause', () => twitchEvent('pause', playerId))
+    thisPlayer.player.addEventListener('ended', () => twitchEvent('ended', playerId))
 
     // TODO: Consider doing another last-past-the-post sync up when we get a 'playing' event?
-    // video.player.addEventListener('playing', () => twitchEvent('playing', playerId))
+    // thisPlayer.player.addEventListener('playing', () => twitchEvent('playing', playerId))
     // TODO: Test video buffering, somehow.
 
     // Check to see if we're the last player to load (from initial load)
-    video.state = READY
+    thisPlayer.state = READY
 
     var anyVideoStillLoading = false
     var anyVideoIsPlaying = false
     var anyVideoIsPaused = false
-    for (var otherVideo of playerVideos.values()) {
-      if (otherVideo == video) continue
-      if (otherVideo.state == LOADING) anyVideoStillLoading = true
-      if (otherVideo.state == PLAYING || otherVideo.state == SEEKING_PLAY)  anyVideoIsPlaying = true
-      if (otherVideo.state == PAUSED  || otherVideo.state == SEEKING_PAUSE) anyVideoIsPaused = true
+    for (var player of players.values()) {
+      if (player == thisPlayer) continue
+      if (player.state == LOADING) anyVideoStillLoading = true
+      if (player.state == PLAYING || player.state == SEEKING_PLAY)  anyVideoIsPlaying = true
+      if (player.state == PAUSED  || player.state == SEEKING_PAUSE) anyVideoIsPaused = true
       // If there is a video BEFORE_START (or AFTER_END) at this point, treat it like READY,
       // so that we resync all videos to a shared, valid startpoint
     }
 
     if (anyVideoIsPlaying) {
       console.log('vodsync', playerId, 'loaded while another video was playing, syncing to others and starting')
-      var timestamp = getAverageVideoTimestamp()
-      seekVideoTo(timestamp, 'play')
+      var timestamp = latestSeekTarget
+      thisPlayer.seekTo(timestamp, 'play')
     } else if (anyVideoIsPaused) {
-      console.log('vodsync', playerId, 'loaded while another video was paused, syncing to others')
+      console.log('vodsync', playerId, 'loaded while all other videos were paused, resyncing playhead')
       // Try to line up with the other videos' sync point if possible, but if it's out of range we probably were just manually loaded later,
       // and should pick a sync time that works for all videos.
-      var timestamp = getAverageVideoTimestamp()
-      if (timestamp < video.startTime) timestamp = video.startTime
-      seekVideoTo(timestamp, 'pause')
+      var timestamp = latestSeekTarget
+      if (timestamp < thisPlayer.startTime) timestamp = thisPlayer.startTime
+      seekPlayersTo(timestamp, 'pause')
     } else if (!anyVideoStillLoading) {
       // If nobody is playing or paused, and everyone is done loading (we're last to load), then sync all videos to the earliest timestamp.
       var earliestSync = Number.MIN_VALUE
-      for (var otherVideo of playerVideos.values()) {
-        if (otherVideo.startTime > earliestSync) earliestSync = otherVideo.startTime
+      for (var player of players.values()) {
+        if (player.startTime > earliestSync) earliestSync = player.startTime
       }
       console.log('vodsync', playerId, 'was last to load, syncing all videos to', earliestSync)
-      seekVideosTo(earliestSync, 'pause')
+      seekPlayersTo(earliestSync, 'pause')
     }
   })
 }
 
-function seekVideosTo(timestamp, playOrPause) {
-  for (var video of playerVideos.values()) seekTo(video, timestamp, playOrPause)
-}
-
-function seekTo(video, timestamp, playOrPause) {
-  if (timestamp < video.startTime) {
-    var durationSeconds = 0.001
-    video.state = BEFORE_START
-    video.player.pause()
-    video.player.seek(durationSeconds)
-  } else if (timestamp >= video.endTime) {
-    // Once a video has ended, 'play' is the only way to interact with it automatically.
-    // After this, twitch will issue a seek to the beginning then a play command (which we handle later).
-    video.state = AFTER_END // TODO: The twitch player seems to behave oddly after this event... I may need to remove and recreate the player entity. Yikes.
-    video.player.play()
-  } else {
-    var durationSeconds = (timestamp - video.startTime) / 1000.0
-    if (durationSeconds == 0) durationSeconds = 0.001 // I think seek(0) does something wrong, so.
-
-    if (playOrPause == 'pause') {
-      video.state = SEEKING_PAUSE
-      video.player.pause()
-      video.player.seek(durationSeconds)
-    } else if (playOrPause == 'play') {
-      video.state = SEEKING_PLAY
-      video.player.seek(durationSeconds)
-      video.player.play()
-    }
-  }
-}
-
 function twitchEvent(event, playerId, data) {
-  var video = playerVideos.get(playerId)
-  var stateStr = 'loading,ready,seeking_play,playing,seeking_pause,paused,before_start,after_end'.split(',')[video.state]
+  var thisPlayer = players.get(playerId)
+  var stateStr = 'loading,ready,seeking_play,playing,seeking_pause,paused,before_start,after_end'.split(',')[thisPlayer.state]
   console.log('vodsync', 'raw', playerId, stateStr, event)
 
   if (event == 'seek') {
-    switch (video.state) {
+    switch (thisPlayer.state) {
       // These two states are expected to have a seek event based on automatic seeking actions,
       // so even though it could be a user action we ignore it since it's unlikely.
       case SEEKING_PAUSE:
-        video.state = PAUSED
+        thisPlayer.state = PAUSED
         break
       case SEEKING_PLAY:
-        video.state = PLAYING
+        thisPlayer.state = PLAYING
         break
       case BEFORE_START: // Also set by automation (and followed by a seek event)
       case AFTER_END: // Also set by automation (and followed by a seek event)
@@ -418,35 +389,34 @@ function twitchEvent(event, playerId, data) {
       case READY: // If we're still waiting for some other video to load (but this one is ready), treat it like PAUSED.
         console.log('vodsync', 'User has manually seeked', playerId, 'seeking all other players')
         var targetDuration = data.position // Note that the seek position comes from the javascript event's data
-        var timestamp = video.startTime + Math.floor(targetDuration * 1000)
-        seekVideosTo(timestamp, (video.state == PLAYING ? 'play' : 'pause'))
+        var timestamp = thisPlayer.startTime + Math.floor(targetDuration * 1000)
+        seekPlayersTo(timestamp, (thisPlayer.state == PLAYING ? 'play' : 'pause'))
         break
     }
   } else if (event == 'play') {
-    switch (video.state) {
+    switch (thisPlayer.state) {
       case PAUSED: // If the user manually starts a fully paused video, sync all other videos to it.
       case READY: // A manual play on a 'ready' video (before other players have loaded)
       case BEFORE_START: // If the user attempts to play a video that's waiting at the start, just sync everyone to this. (TODO: more testing needed)
         console.log('vodsync', 'User has manually started', playerId, 'starting all players')
-        var currentDuration = video.player.getCurrentTime()
-        var timestamp = video.startTime + Math.floor(currentDuration * 1000)
-        seekVideosTo(timestamp, 'play')
+        var timestamp = thisPlayer.getCurrentTimestamp()
+        seekPlayersTo(timestamp, 'play')
         break
 
       case SEEKING_PAUSE: // However, if the video is currently seeking, we don't know its seek target, so we just swap to SEEKING_PLAY
         console.log('vodsync', 'User has manually started', playerId, 'while it was seeking_paused, switching to seeking_play')
-        for (var otherVideo of playerVideos.values()) {
+        for (var player of players.values()) {
           // Most commonly, all other videos will also be SEEKING_PAUSE (as part of the seekTo).
-          if (otherVideo.state == SEEKING_PAUSE) {
-            otherVideo.state = SEEKING_PLAY
-            otherVideo.player.play()
+          if (player.state == SEEKING_PAUSE) {
+            player.state = SEEKING_PLAY
+            player.play()
 
           // It is possible that some of them have finished seeking (and are in PAUSED)
           // or that we are loading into a paused state, in which case all other videos are PAUSED.
           // In either case, resume those videos as they are already at the right spot.
-          } else if (otherVideo.state == PAUSED) {
-            otherVideo.state = PLAYING
-            otherVideo.player.play()
+          } else if (player.state == PAUSED) {
+            player.state = PLAYING
+            player.play()
           }
 
           // If a video seeked already and found BEFORE_START or AFTER_END, no further action is needed.
@@ -454,17 +424,17 @@ function twitchEvent(event, playerId, data) {
         break
 
       case AFTER_END: // Indicates that we've restarted playback after reaching the end of the video.
-        var durationSeconds = (timestamp - video.startTime) / 1000.0
-        video.player.pause()
+        var durationSeconds = (timestamp - thisPlayer.startTime) / 1000.0 // TODO: What
+        thisPlayer.pause()
         break
 
       case SEEKING_PLAY: // Unexpected (?) but no action needed.
       case PLAYING: // Should be impossible.
-        console.log('vodsync', 'Unhandled case', playerId, event, video.state)
+        console.log('vodsync', 'Unhandled case', playerId, event, thisPlayer.state)
         break
     }
   } else if (event == 'pause') {
-    switch (video.state) {
+    switch (thisPlayer.state) {
       case SEEKING_PLAY:
       case PLAYING:
         console.log('vodsync', 'User has manually paused', playerId, 'while it was playing, pausing all other players')
@@ -472,10 +442,10 @@ function twitchEvent(event, playerId, data) {
         // Unfortunately, the first of these events (pause) looks identical to the user just pausing the player.
         // As a result, we just pause all videos, which will cause twitch to only issue a 'seek', not a 'play'.
         // This results in all videos doing a SEEKING_PAUSE, which is fairly close to the user's intent anyways.
-        for (var otherVideo of playerVideos.values()) {
-          if (otherVideo.state == SEEKING_PLAY) otherVideo.state = SEEKING_PAUSE
-          if (otherVideo.state == PLAYING)      otherVideo.state = PAUSED
-          otherVideo.player.pause()
+        for (var player of players.values()) {
+          if (player.state == SEEKING_PLAY) player.state = SEEKING_PAUSE
+          if (player.state == PLAYING)      player.state = PAUSED
+          player.pause()
         }
         break
 
@@ -485,13 +455,13 @@ function twitchEvent(event, playerId, data) {
       case PAUSED:
       case AFTER_END: // Fired when the player is automatically paused after reaching end of VOD
       case BEFORE_START:
-        console.log('vodsync', 'Unhandled case', playerId, event, video.state)
+        console.log('vodsync', 'Unhandled case', playerId, event, thisPlayer.state)
         break
     }
   } else if (event == 'ended') {
-    switch (video.state) {
+    switch (thisPlayer.state) {
       case PLAYING: // I *think* this is the only valid case, but SEEKING_PLAY might also be possible?
-        seekTo(video, video.endTime, 'pause')
+        thisPlayer.seekTo(thisPlayer.endTime, 'pause')
         break
 
       case READY:
@@ -500,39 +470,27 @@ function twitchEvent(event, playerId, data) {
       case SEEKING_PLAY:
       case BEFORE_START:
       case AFTER_END:
-        console.log('vodsync', 'Unhandled case', playerId, event, video.state)
+        console.log('vodsync', 'Unhandled case', playerId, event, thisPlayer.state)
         break
     }
   }
 }
 
+var latestSeekTarget = null
+function seekPlayersTo(timestamp, playOrPause) {
+  latestSeekTarget = timestamp
+  for (var player of players.values()) player.seekTo(timestamp, playOrPause)
+}
+
 function getTimelineBounds() {
   var timelineStart = Number.MAX_VALUE
   var timelineEnd = Number.MIN_VALUE
-  for (var video of playerVideos.values()) {
-    if (video.startTime < timelineStart) timelineStart = video.startTime
-    if (video.endTime > timelineEnd) timelineEnd = video.endTime
+  for (var player of players.values()) {
+    if (player.startTime < timelineStart) timelineStart = player.startTime
+    if (player.endTime > timelineEnd) timelineEnd = player.endTime
   }
 
   return [timelineStart, timelineEnd]
-}
-
-// Returns a timestamp (milliseconds since epoch) of the average of all videos.
-function getAverageVideoTimestamp() {
-  var sum = 0
-  var count = 0
-  for (var video of playerVideos.values()) {
-    // We only care about the timestamp of videos which are synced.
-    if (video.player != null && [SEEKING_PLAY, PLAYING, SEEKING_PAUSE, PAUSED].includes(video.state)) {
-      var currentDuration = video.player.getCurrentTime()
-      sum += video.startTime + Math.floor(currentDuration * 1000)
-      count += 1
-    }
-  }
-
-  if (count == 0) return null
-
-  return sum / count
 }
 
 var TIMELINE_COLORS = ['#aaf', '#faa', '#afa', '#aff', '#faf', '#ffa']
@@ -540,15 +498,15 @@ var TIMELINE_DATE_FORMAT = new Intl.DateTimeFormat({}, {'dateStyle': 'short', 't
 function reloadTimeline() {
   var timeline = document.getElementById('timeline')
   if (timeline != null) timeline.remove()
-  if (playerVideos.size == 0) {
+  if (players.size == 0) {
     document.title = 'Twitch VOD Sync'
     return // If there are no active videos, there's no need to show a timeline
   }
 
   var streamers = []
-  for (var i = 0; i < MAX_PLAYERS; i++) {
-    if (!playerVideos.has('player' + i)) continue
-    var streamer = playerVideos.get('player' + i).streamer
+  for (var i = 0; i < FEATURES.MAX_PLAYERS; i++) {
+    if (!players.has('player' + i)) continue
+    var streamer = players.get('player' + i).streamer
     if (streamer != null) streamers.push(streamer)
   }
   document.title = 'TVS: ' + streamers.join(' vs ')
@@ -580,10 +538,10 @@ function reloadTimeline() {
   graphic.style = 'position: absolute; width: 100%; height: 100%; z-index: -1'
 
   var [timelineStart, timelineEnd] = getTimelineBounds()
-  var rowHeight = 100.0 / playerVideos.size
-  for (var i = 0; i < MAX_PLAYERS; i++) {
-    if (!playerVideos.has('player' + i)) continue
-    var videoDetails = playerVideos.get('player' + i)
+  var rowHeight = 100.0 / players.size
+  for (var i = 0; i < FEATURES.MAX_PLAYERS; i++) {
+    if (!players.has('player' + i)) continue
+    var videoDetails = players.get('player' + i)
 
     var rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
     graphic.appendChild(rect)
