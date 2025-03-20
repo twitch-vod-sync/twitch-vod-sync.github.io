@@ -1,9 +1,10 @@
 var FEATURES = {
   'HIDE_ENDING_TIMES': true,
-  'MAX_PLAYERS': 4,
+  'MAX_PLAYERS': 6,
 }
 
 var MIN_PLAYERS = 1
+var ASYNC_ALIGN = 1500000000000 // An arbitrary timestamp where we align videos while async-ing. Still considerably lower than Number.MAX_SAFE_INTEGER.
 window.onload = function() {
   // There's a small chance we didn't get a 'page closing' event fired, so if this setting is still set and we have a token,
   // delete the localstorage so we show the prompt again.
@@ -131,21 +132,42 @@ window.onload = function() {
 
     if (event.key == 'a') {
       // On the first press, bring all videos into 'async mode', where they can be adjusted freely.
+      // We need to start by aligning all videos based on their current time.
       if (!anyVideoInAsync) {
         for (var player of players.values()) {
           player.state = ASYNC
           player.pause()
+
+          // Initially align all videos to ASYNC_ALIGN, then the user can manually adjust relative to a known startpoint.
+          var pausedTimestamp = player.getCurrentTimestamp()
+          player.offset += (ASYNC_ALIGN - pausedTimestamp)
+        }
+        // The videos will now respond to 'seek' and 'pause' events and adjust their offsets accordingly.
+
+      // Once the user hits 'a' again, we normalize the offsets so that the earliest video is at the "true" time,
+      // so that the timeline shows something reasonable.
+      } else {
+        var largestOffset = -ASYNC_ALIGN
+        for (var player of players.values()) {
+          if (player.offset > largestOffset) largestOffset = player.offset
         }
 
-      // On the second press, realign all videos based on the current player time, then start all players.
-      } else {
-        var earliestSync = Number.MIN_VALUE
-        for (var player of players.values()) {
-          player.offset -= (player.getCurrentTimestamp() - player.startTime) // TODO: TEST!
-          if (player.startTime > earliestSync) earliestSync = player.startTime
+        // Normalize offsets then save to the URL
+        var params = new URLSearchParams(window.location.search);
+        for (var [playerId, player] of players.entries()) {
+          player.offset += largestOffset
+          params.set(playerId + 'offset', player.offset)
         }
+        history.pushState(null, null, '?' + params.toString())
+
         console.log('vodsync', 'Resuming all players after async alignment')
-        seekPlayersTo(earliestSync, 'pause')
+        for (var player of players.values()) {
+          player.state = PLAYING
+          player.play()
+        }
+
+        // TODO: Somehow this is showing 2009. Oops.
+        reloadTimeline() // Reload now that the videos have comparable timers
       }
     }
   })
@@ -193,6 +215,7 @@ function removePlayer() {
     // Update displayed query params to remove this video
     var params = new URLSearchParams(window.location.search);
     params.delete(lastPlayer.id)
+    params.delete(lastPlayer.id + 'offset')
     history.pushState(null, null, '?' + params.toString())
 
     lastPlayer.remove()
@@ -309,6 +332,9 @@ function loadVideo(form, videoDetails) {
   }
   var twitchPlayer = new Twitch.Player(div.id, options)
   players.set(div.id, new Player(videoDetails, twitchPlayer))
+  if (params.has(div.id + 'offset')) {
+    players.get(div.id).offset = parseInt(params.get(div.id + 'offset'))
+  }
   reloadTimeline() // Note: This will get called several times in a row in loadVideo. Whatever.
 
   twitchPlayer.addEventListener('ready', () => {
@@ -354,7 +380,7 @@ function loadVideo(form, videoDetails) {
       seekPlayersTo(timestamp, 'pause')
     } else if (!anyVideoStillLoading) {
       // If nobody is playing or paused, and everyone is done loading (we're last to load), then sync all videos to the earliest timestamp.
-      var earliestSync = Number.MIN_VALUE
+      var earliestSync = 0
       for (var player of players.values()) {
         if (player.startTime > earliestSync) earliestSync = player.startTime
       }
@@ -381,6 +407,11 @@ function twitchEvent(event, playerId, data) {
         break
       case BEFORE_START: // Also set by automation (and followed by a seek event)
       case AFTER_END: // Also set by automation (and followed by a seek event)
+        break
+
+      case ASYNC: // If the videos are async'd and the user seeks, update the video's offset to match the seek.
+        var seekTimestamp = thisPlayer.startTime + Math.floor(data.position * 1000)
+        thisPlayer.offset += (ASYNC_ALIGN - seekTimestamp)
         break
 
       // All other states indicate the user manually seeking the video.
@@ -428,6 +459,9 @@ function twitchEvent(event, playerId, data) {
         thisPlayer.pause()
         break
 
+      case ASYNC: // No action needed. The user is likely resuming the video so they can watch and sync it up.
+        break
+
       case SEEKING_PLAY: // Unexpected (?) but no action needed.
       case PLAYING: // Should be impossible.
         console.log('vodsync', 'Unhandled case', playerId, event, thisPlayer.state)
@@ -449,6 +483,11 @@ function twitchEvent(event, playerId, data) {
         }
         break
 
+      case ASYNC: // Either the automatic pause at the start of asyncing, or the user manually paused the video to align it.
+        var pausedTimestamp = thisPlayer.getCurrentTimestamp()
+        thisPlayer.offset += (ASYNC_ALIGN - pausedTimestamp)
+        break
+
       // Should be impossible in all other cases, since the player is already paused.
       case READY:
       case SEEKING_PAUSE:
@@ -464,6 +503,7 @@ function twitchEvent(event, playerId, data) {
         thisPlayer.seekTo(thisPlayer.endTime, 'pause')
         break
 
+      case ASYNC:
       case READY:
       case SEEKING_PAUSE:
       case PAUSED:
@@ -483,8 +523,8 @@ function seekPlayersTo(timestamp, playOrPause) {
 }
 
 function getTimelineBounds() {
-  var timelineStart = Number.MAX_VALUE
-  var timelineEnd = Number.MIN_VALUE
+  var timelineStart = Number.POSITIVE_INFINITY
+  var timelineEnd = Number.NEGATIVE_INFINITY
   for (var player of players.values()) {
     if (player.startTime < timelineStart) timelineStart = player.startTime
     if (player.endTime > timelineEnd) timelineEnd = player.endTime
