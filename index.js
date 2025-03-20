@@ -105,32 +105,11 @@ window.onload = function() {
   // Handle space, left, and right as global listeners, in case you don't actually have a stream selected
   // Each of these just calls an event (play, pause, seek) on one of the players, so it'll fall through into the default handler.
   document.addEventListener('keydown', (event) => {
-    var firstPlayingVideo = null
-    var firstPausedVideo = null
-    var anyVideoInAsync = false
-    for (var player of players.values()) {
-      if (player.state == PLAYING || player.state == SEEKING_PLAY) {
-        if (firstPlayingVideo == null) firstPlayingVideo = player
-      } else if (player.state == PAUSED || player.state == SEEKING_PAUSE) {
-        if (firstPausedVideo == null) firstPausedVideo = player
-      } else if (player.state == ASYNC) {
-        anyVideoInAsync = true
-      }
-    }
+    if (event.key == 'h') {
+      FEATURES.HIDE_ENDING_TIMES = !FEATURES.HIDE_ENDING_TIMES
+      reloadTimeline()
 
-    // Spacebar pauses (if anyone is playing) or plays (if everyone is paused)
-    // Left and right seek based on the location of the first video (assuming any video is loaded)
-    if (firstPlayingVideo != null) {
-      if (event.key == ' ') firstPlayingVideo.pause()
-      if (event.key == 'ArrowLeft')  seekPlayersTo(firstPlayingVideo.getCurrentTimestamp() - 10000, 'play')
-      if (event.key == 'ArrowRight') seekPlayersTo(firstPlayingVideo.getCurrentTimestamp() + 10000, 'play')
-    } else if (firstPausedVideo != null) {
-      if (event.key == ' ') firstPausedVideo.play()
-      if (event.key == 'ArrowLeft')  seekPlayersTo(firstPausedVideo.getCurrentTimestamp() - 10000, 'pause')
-      if (event.key == 'ArrowRight') seekPlayersTo(firstPausedVideo.getCurrentTimestamp() + 10000, 'pause')
-    }
-
-    if (event.key == 'a') {
+    } else if (event.key == 'a') {
       // On the first press, bring all videos into 'async mode', where they can be adjusted freely.
       // We need to start by aligning all videos based on their current time.
       if (!anyVideoInAsync) {
@@ -155,7 +134,7 @@ window.onload = function() {
         // Normalize offsets then save to the URL
         var params = new URLSearchParams(window.location.search);
         for (var [playerId, player] of players.entries()) {
-          player.offset += largestOffset
+          player.offset -= largestOffset
           params.set(playerId + 'offset', player.offset)
         }
         history.pushState(null, null, '?' + params.toString())
@@ -168,6 +147,31 @@ window.onload = function() {
 
         // TODO: Somehow this is showing 2009. Oops.
         reloadTimeline() // Reload now that the videos have comparable timers
+      }
+    } else {
+      var firstPlayingVideo = null
+      var firstPausedVideo = null
+      var anyVideoInAsync = false
+      for (var player of players.values()) {
+        if (player.state == PLAYING || player.state == SEEKING_PLAY) {
+          if (firstPlayingVideo == null) firstPlayingVideo = player
+        } else if (player.state == PAUSED || player.state == SEEKING_PAUSE) {
+          if (firstPausedVideo == null) firstPausedVideo = player
+        } else if (player.state == ASYNC) {
+          anyVideoInAsync = true
+        }
+      }
+
+      // Spacebar pauses (if anyone is playing) or plays (if everyone is paused)
+      // Left and right seek based on the location of the first video (assuming any video is loaded)
+      if (firstPlayingVideo != null) {
+        if (event.key == ' ') firstPlayingVideo.pause()
+        if (event.key == 'ArrowLeft')  seekPlayersTo(firstPlayingVideo.getCurrentTimestamp() - 10000, 'play')
+        if (event.key == 'ArrowRight') seekPlayersTo(firstPlayingVideo.getCurrentTimestamp() + 10000, 'play')
+      } else if (firstPausedVideo != null) {
+        if (event.key == ' ') firstPausedVideo.play()
+        if (event.key == 'ArrowLeft')  seekPlayersTo(firstPausedVideo.getCurrentTimestamp() - 10000, 'pause')
+        if (event.key == 'ArrowRight') seekPlayersTo(firstPausedVideo.getCurrentTimestamp() + 10000, 'pause')
       }
     }
   })

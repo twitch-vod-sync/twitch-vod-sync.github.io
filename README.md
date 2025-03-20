@@ -10,6 +10,7 @@ This app is *not* for watching live streams. If you want to watch multiple lives
 - Enter streams by ID or by channel name (if you've already entered one video, it will find overlapping videos from another channel)
 - Control streams using the native Twitch player controls (left/right, play/pause, or seek with the cursor)
 - Share the URL with others to show the same videos
+- The timeline will hide video end times by default (to avoid spoilers). You can click on the timeline and press 'h' to toggle this functionality.
 - Align videos which were not simultanous with the "async" mode:
    - Click on the timeline and press "a"
    - Use each player's controls to adjust them to the same time (e.g. the start of the race)
