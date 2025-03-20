@@ -112,6 +112,20 @@ window.onload = function() {
   // Handle space, left, and right as global listeners, in case you don't actually have a stream selected
   // Each of these just calls an event (play, pause, seek) on one of the players, so it'll fall through into the default handler.
   document.addEventListener('keydown', (event) => {
+    // Used in a variety of key handlers. These are pretty cheap to compute so I don't mind running them even if we don't need them.
+    var firstPlayingVideo = null
+    var firstPausedVideo = null
+    var anyVideoInAsync = false
+    for (var player of players.values()) {
+      if (player.state == PLAYING || player.state == SEEKING_PLAY) {
+        if (firstPlayingVideo == null) firstPlayingVideo = player
+      } else if (player.state == PAUSED || player.state == SEEKING_PAUSE) {
+        if (firstPausedVideo == null) firstPausedVideo = player
+      } else if (player.state == ASYNC) {
+        anyVideoInAsync = true
+      }
+    }
+
     if (event.key == 'h') {
       FEATURES.HIDE_ENDING_TIMES = !FEATURES.HIDE_ENDING_TIMES
       reloadTimeline()
@@ -155,19 +169,6 @@ window.onload = function() {
         reloadTimeline() // Reload now that the videos have comparable timers
       }
     } else {
-      var firstPlayingVideo = null
-      var firstPausedVideo = null
-      var anyVideoInAsync = false
-      for (var player of players.values()) {
-        if (player.state == PLAYING || player.state == SEEKING_PLAY) {
-          if (firstPlayingVideo == null) firstPlayingVideo = player
-        } else if (player.state == PAUSED || player.state == SEEKING_PAUSE) {
-          if (firstPausedVideo == null) firstPausedVideo = player
-        } else if (player.state == ASYNC) {
-          anyVideoInAsync = true
-        }
-      }
-
       // Spacebar pauses (if anyone is playing) or plays (if everyone is paused)
       // Left and right seek based on the location of the first video (assuming any video is loaded)
       if (firstPlayingVideo != null) {
