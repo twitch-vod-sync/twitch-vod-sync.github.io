@@ -75,28 +75,35 @@ window.onload = function() {
 
   window.addEventListener('resize', resizePlayers)
 
-  // Auto-update the timeline cursor so it moves properly while the video is playing
+  // Auto-update the timeline cursor and label so they stay up to date with the current videos
   window.setInterval(() => {
-    var timestamp = latestSeekTarget
-    var cursor = document.getElementById('timelineCursor')
-    var label = document.getElementById('timelineCurrent')
-
-    if (timestamp == null) {
-      if (cursor != null) cursor.style.display = 'none'
-      if (label != null) label.style.display = 'none'
-    } else {
-      if (cursor != null) cursor.style.display = null
-      if (label != null) label.style.display = null
-
-      var [timelineStart, timelineEnd] = getTimelineBounds()
-      var perc = 100.0 * (timestamp - timelineStart) / (timelineEnd - timelineStart)
-      if (cursor != null) cursor.setAttribute('x', perc + '%')
-
-      if (label) label.innerText = new Date(timestamp).toLocaleString(TIMELINE_DATE_FORMAT)
+    // Start by computing the average timestamp of all videos to use as the position (and text) of the cursor.
+    var sum = 0
+    var count = 0
+    for (var player of players.values()) {
+      // We only care about the timestamp of videos which are synced up
+      if (player.state == PLAYING || player.state == PAUSED) {
+        sum += player.getCurrentTimestamp()
+        count += 1
+      }
     }
 
+    if (count == 0) return // No videos are ready, leave the cursor where it is
+
+    var timestamp = sum / count
+    var [timelineStart, timelineEnd] = getTimelineBounds()
+
+    var cursor = document.getElementById('timelineCursor')
+    var perc = 100.0 * (timestamp - timelineStart) / (timelineEnd - timelineStart)
+    if (cursor != null) cursor.setAttribute('x', perc + '%')
+
+    var label = document.getElementById('timelineCurrent')
+    if (label != null) label.innerText = new Date(timestamp).toLocaleString(TIMELINE_DATE_FORMAT)
+
+    // This is also a convenient moment to check if any players are waiting to start because we seeked before their starttime.
     for (var player of players.values()) {
       if (player.state == BEFORE_START && timestamp >= player.startTime) {
+        player.state = PLAYING
         player.play()
       }
     }
@@ -145,7 +152,6 @@ window.onload = function() {
           player.play()
         }
 
-        // TODO: Somehow this is showing 2009. Oops.
         reloadTimeline() // Reload now that the videos have comparable timers
       }
     } else {
@@ -432,30 +438,15 @@ function twitchEvent(event, playerId, data) {
     switch (thisPlayer.state) {
       case PAUSED: // If the user manually starts a fully paused video, sync all other videos to it.
       case READY: // A manual play on a 'ready' video (before other players have loaded)
-      case BEFORE_START: // If the user attempts to play a video that's waiting at the start, just sync everyone to this. (TODO: more testing needed)
+      case BEFORE_START: // If the user attempts to play a video that's waiting at the start, just sync everyone to this.
         console.log('vodsync', 'User has manually started', playerId, 'starting all players')
         var timestamp = thisPlayer.getCurrentTimestamp()
         seekPlayersTo(timestamp, 'play')
         break
 
-      case SEEKING_PAUSE: // However, if the video is currently seeking, we don't know its seek target, so we just swap to SEEKING_PLAY
-        console.log('vodsync', 'User has manually started', playerId, 'while it was seeking_paused, switching to seeking_play')
-        for (var player of players.values()) {
-          // Most commonly, all other videos will also be SEEKING_PAUSE (as part of the seekTo).
-          if (player.state == SEEKING_PAUSE) {
-            player.state = SEEKING_PLAY
-            player.play()
-
-          // It is possible that some of them have finished seeking (and are in PAUSED)
-          // or that we are loading into a paused state, in which case all other videos are PAUSED.
-          // In either case, resume those videos as they are already at the right spot.
-          } else if (player.state == PAUSED) {
-            player.state = PLAYING
-            player.play()
-          }
-
-          // If a video seeked already and found BEFORE_START or AFTER_END, no further action is needed.
-        }
+      case SEEKING_PAUSE: // If the video is currently seeking, just resync all videos to the last target but make them play.
+        console.log('vodsync', 'User has manually started', playerId, 'while it was seeking, re-seeking all videos')
+        seekPlayersTo(latestSeekTarget, 'play')
         break
 
       case AFTER_END: // Indicates that we've restarted playback after reaching the end of the video.
@@ -507,13 +498,13 @@ function twitchEvent(event, playerId, data) {
         thisPlayer.seekTo(thisPlayer.endTime, 'pause')
         break
 
-      case ASYNC:
       case READY:
       case SEEKING_PAUSE:
       case PAUSED:
       case SEEKING_PLAY:
       case BEFORE_START:
       case AFTER_END:
+      case ASYNC:
         console.log('vodsync', 'Unhandled case', playerId, event, thisPlayer.state)
         break
     }
