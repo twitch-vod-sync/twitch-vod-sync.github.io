@@ -134,6 +134,7 @@ window.onload = function() {
       // On the first press, bring all videos into 'async mode', where they can be adjusted freely.
       // We need to start by aligning all videos based on their current time.
       if (!anyVideoInAsync) {
+        console.log('vodsync', 'Entering async mode')
         for (var player of players.values()) {
           player.state = ASYNC
           player.pause()
@@ -369,16 +370,21 @@ function loadVideo(form, videoDetails) {
     var anyVideoStillLoading = false
     var anyVideoIsPlaying = false
     var anyVideoIsPaused = false
+    var anyVideoInAsync = false
     for (var player of players.values()) {
       if (player == thisPlayer) continue
       if (player.state == LOADING) anyVideoStillLoading = true
       if (player.state == PLAYING || player.state == SEEKING_PLAY)  anyVideoIsPlaying = true
       if (player.state == PAUSED  || player.state == SEEKING_PAUSE) anyVideoIsPaused = true
+      if (player.state == ASYNC) anyVideoInAsync = true
       // If there is a video BEFORE_START (or AFTER_END) at this point, treat it like READY,
       // so that we resync all videos to a shared, valid startpoint
     }
 
-    if (anyVideoIsPlaying) {
+    if (anyVideoInAsync) {
+      console.log('vodsync', playerId, 'loaded while another video was async, putting it into async too')
+      thisPlayer.state = ASYNC
+    } else if (anyVideoIsPlaying) {
       console.log('vodsync', playerId, 'loaded while another video was playing, syncing to others and starting')
       var timestamp = latestSeekTarget
       thisPlayer.seekTo(timestamp, 'play')
@@ -403,8 +409,8 @@ function loadVideo(form, videoDetails) {
 
 function twitchEvent(event, playerId, data) {
   var thisPlayer = players.get(playerId)
-  var stateStr = 'loading,ready,seeking_play,playing,seeking_pause,paused,before_start,after_end'.split(',')[thisPlayer.state]
-  console.log('vodsync', 'raw', playerId, stateStr, event)
+  var stateStr = 'LOADING,READY,SEEKING_PLAY,PLAYING,SEEKING_PAUSE,PAUSED,BEFORE_START,RESTARTING,AFTER_END,ASYNC'.split(',')[thisPlayer.state]
+  console.log('vodsync', 'raw', playerId, stateStr, event) // TODO: Delete this when I'm done with state testing... or just have a 'log unexpected' instead.
 
   if (event == 'seek') {
     switch (thisPlayer.state) {
@@ -417,12 +423,11 @@ function twitchEvent(event, playerId, data) {
         thisPlayer.state = PLAYING
         break
       case BEFORE_START: // Also set by automation (and followed by a seek event)
-      case AFTER_END: // Also set by automation (and followed by a seek event)
         break
 
       case ASYNC: // If the videos are async'd and the user seeks, update the video's offset to match the seek.
-        var seekTimestamp = thisPlayer.startTime + Math.floor(data.position * 1000)
-        thisPlayer.offset += (ASYNC_ALIGN - seekTimestamp)
+        var timestamp = thisPlayer.startTime + Math.floor(data.position * 1000) // Note that the seek position comes from the javascript event's data
+        thisPlayer.offset += (ASYNC_ALIGN - timestamp)
         break
 
       // All other states indicate the user manually seeking the video.
@@ -430,9 +435,12 @@ function twitchEvent(event, playerId, data) {
       case PAUSED:
       case READY: // If we're still waiting for some other video to load (but this one is ready), treat it like PAUSED.
         console.log('vodsync', 'User has manually seeked', playerId, 'seeking all other players')
-        var targetDuration = data.position // Note that the seek position comes from the javascript event's data
-        var timestamp = thisPlayer.startTime + Math.floor(targetDuration * 1000)
+        var timestamp = thisPlayer.startTime + Math.floor(data.position * 1000) // Note that the seek position comes from the javascript event's data
         seekPlayersTo(timestamp, (thisPlayer.state == PLAYING ? 'play' : 'pause'))
+        break
+
+      case RESTARTING:
+        console.log('vodsync', 'Unhandled case', playerId, event, thisPlayer.state)
         break
     }
   } else if (event == 'play') {
@@ -450,9 +458,9 @@ function twitchEvent(event, playerId, data) {
         seekPlayersTo(latestSeekTarget, 'play')
         break
 
-      case AFTER_END: // Indicates that we've restarted playback after reaching the end of the video.
-        var durationSeconds = (timestamp - thisPlayer.startTime) / 1000.0 // TODO: What
-        thisPlayer.pause()
+      case RESTARTING: // We want ended videos to sit somewhere near the end mark, for clarity.
+        console.log('vodsync', 'Finished restarting the video after it ended, seeking to a safe end point and pausing')
+        thisPlayer.seekToEnd()
         break
 
       case ASYNC: // No action needed. The user is likely resuming the video so they can watch and sync it up.
@@ -460,6 +468,7 @@ function twitchEvent(event, playerId, data) {
 
       case SEEKING_PLAY: // Unexpected (?) but no action needed.
       case PLAYING: // Should be impossible.
+      case RESTARTING:
         console.log('vodsync', 'Unhandled case', playerId, event, thisPlayer.state)
         break
     }
@@ -488,24 +497,31 @@ function twitchEvent(event, playerId, data) {
       case READY:
       case SEEKING_PAUSE:
       case PAUSED:
-      case AFTER_END: // Fired when the player is automatically paused after reaching end of VOD
       case BEFORE_START:
+      case RESTARTING:
         console.log('vodsync', 'Unhandled case', playerId, event, thisPlayer.state)
         break
     }
   } else if (event == 'ended') {
     switch (thisPlayer.state) {
-      case PLAYING: // I *think* this is the only valid case, but SEEKING_PLAY might also be possible?
-        thisPlayer.seekTo(thisPlayer.endTime, 'pause')
+      case PLAYING: // If the player naturally plays past the end, trigger the AFTER_END state by seeking.
+      case SEEKING_PLAY: // Other states are possible by seeking (if the video is short enough)
+      case PAUSED:
+      case SEEKING_PAUSE:
+      case BEFORE_START: // TODO: Better handling for this case? I wonder if this will cause desync.
+      case AFTER_END:
+        // Once a video as ended, 'play' is the only way to interact with it automatically.
+        console.log('vodsync', 'restarting', playerId)
+        thisPlayer.state = RESTARTING
+        thisPlayer.play() // This play command will trigger a seek to the beginning first, then a play.
+        break
+
+      case ASYNC: // If this happens while asyncing, just restart the player (but don't change state). The user is responsible here anyways.
+        thisPlayer.play()
         break
 
       case READY:
-      case SEEKING_PAUSE:
-      case PAUSED:
-      case SEEKING_PLAY:
-      case BEFORE_START:
-      case AFTER_END:
-      case ASYNC:
+      case RESTARTING:
         console.log('vodsync', 'Unhandled case', playerId, event, thisPlayer.state)
         break
     }

@@ -54,10 +54,9 @@ const TWITCH_DURATION_MATCH = /(([0-9]+)h)?(([0-9]+)m)?([0-9]+)s/
 function parseVideo(videoDetails) {
   m = videoDetails.duration.match(TWITCH_DURATION_MATCH)
   if (m == null) throw Error('Internal error: Twitch duration was unparseable: ' + videoDetails.duration)
-  var millis = 0
-  millis += Number(m[2]) * 60 * 60 * 1000 // Hours
-  millis += Number(m[4]) * 60 * 1000 // Minutes
-  millis += Number(m[5]) * 1000 // Seconds
+  var millis = Number(m[5]) * 1000 // Seconds
+  if (m[4] != null) millis += Number(m[4]) * 60 * 1000 // Minutes
+  if (m[2] != null) millis += Number(m[2]) * 60 * 60 * 1000 // Hours
 
   return {
     'id': videoDetails.id,

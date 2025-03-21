@@ -6,8 +6,9 @@ const PLAYING       = 3
 const SEEKING_PAUSE = 4
 const PAUSED        = 5
 const BEFORE_START  = 6
-const AFTER_END     = 7
-const ASYNC         = 8
+const RESTARTING    = 7
+const AFTER_END     = 8
+const ASYNC         = 9
 
 class Player {
   constructor(videoDetails, twitchPlayer) {
@@ -33,15 +34,12 @@ class Player {
   pause() { this.player.pause() }
   seekTo(timestamp, playOrPause) {
     if (timestamp < this.startTime) {
-      var durationSeconds = 0.001
+      var durationSeconds = 0.001 // I think seek(0) does something wrong, so.
       this.state = BEFORE_START
       this.player.pause()
       this.player.seek(durationSeconds)
-    } else if (timestamp >= this.endTime) {
-      // Once a this has ended, 'play' is the only way to interact with it automatically.
-      // After this, twitch will issue a seek to the beginning then a play command (which we handle later).
-      this.state = AFTER_END // TODO: The twitch player seems to behave oddly after this event... I may need to remove and recreate the player entity. Yikes.
-      this.player.play()
+    //} else if (timestamp >= this.endTime - 10) {
+    //  // Seeking within the last 10 seconds will auto-end the video. TODO: Handle this safely? Or just rely on 'ended'?
     } else {
       var durationSeconds = (timestamp - this.startTime) / 1000.0
       if (durationSeconds == 0) durationSeconds = 0.001 // I think seek(0) does something wrong, so.
@@ -56,5 +54,12 @@ class Player {
         this.player.play()
       }
     }
+  }
+
+  seekToEnd() {
+    this.state = AFTER_END
+    this.player.pause()
+    var totalDurationSeconds = (this.endTime - this.startTime) / 1000.0
+    this.player.seek(totalDurationSeconds - 10) // If you seek within the last 10 seconds, twitch auto-ends the video.
   }
 }
