@@ -8,13 +8,16 @@ This app is *not* for watching live streams. If you want to watch multiple lives
 ## Features
 - Watch up to 6 streams at the same time (use the + and - buttons next to the timeline)
 - Enter streams by ID or by channel name (if you've already entered one video, it will find overlapping videos from another channel)
-- Control streams using the native Twitch player controls (left/right, play/pause, or seek with the cursor)
-- Share the URL with others to show the same videos
+- Control streams using the native Twitch player controls (left/right, play/pause, or seek with the timeline)
+- Share the URL with others to share the same videos
 - The timeline will hide video end times by default (to avoid spoilers). You can click on the timeline and press 'h' to toggle this functionality.
-- Align videos which were not simultanous with the "async" mode:
+- The players can handle (with occasional hiccups) videos with significantly different lengths.
+  - Videos will pause at their start and wait for other videos before starting automatically
+  - Videos will pause if they reach the end and allow other videos to continue playing
+- You can manually re-align videos which were not simultanous with the "async" mode:
    - Click on the timeline and press "a"
    - Use each player's controls to adjust them to the same time (e.g. the start of the race)
-   - Click on the timeline and press "a" again to confirm
+   - Click on the timeline and press "a" again to confirm alignment
 
 **[Head over here to get started](https://twitch-vod-sync.github.io)**
 

@@ -354,15 +354,14 @@ function loadVideo(form, videoDetails) {
     var thisPlayer = players.get(playerId)
     console.log('vodsync', playerId, 'has loaded')
 
-    // Only hook events once the player has loaded, so we don't have to worry about interactions during loading.
+    // Only hook events once the player has loaded, so we don't have to worry about events in the LOADING state.
     thisPlayer.player.addEventListener('seek', (eventData) => twitchEvent('seek', playerId, eventData))
     thisPlayer.player.addEventListener('play', () => twitchEvent('play', playerId))
     thisPlayer.player.addEventListener('pause', () => twitchEvent('pause', playerId))
     thisPlayer.player.addEventListener('ended', () => twitchEvent('ended', playerId))
 
-    // TODO: Consider doing another last-past-the-post sync up when we get a 'playing' event?
-    // thisPlayer.player.addEventListener('playing', () => twitchEvent('playing', playerId))
-    // TODO: Test video buffering, somehow.
+    // I did not end up using the 'playing' event -- for the most part, twitch pauses videos when the buffer runs out,
+    // which is a sufficient signal to sync up the videos again (although they don't start playing automatically again).
 
     // Check to see if we're the last player to load (from initial load)
     thisPlayer.state = READY
@@ -409,8 +408,6 @@ function loadVideo(form, videoDetails) {
 
 function twitchEvent(event, playerId, data) {
   var thisPlayer = players.get(playerId)
-  var stateStr = STATE_STRINGS[thisPlayer.state]
-  console.log('vodsync', 'raw', playerId, stateStr, event) // TODO: Delete this when I'm done with state testing... or just have a 'log unexpected' instead.
 
   if (event == 'seek') {
     switch (thisPlayer.state) {
@@ -442,7 +439,7 @@ function twitchEvent(event, playerId, data) {
         break
 
       case RESTARTING:
-        console.log('vodsync', 'Unhandled case', playerId, event, thisPlayer.state)
+        console.log('vodsync', playerId, 'had an unhandled event', event, 'while in state', STATE_STRINGS[thisPlayer.state])
         break
     }
   } else if (event == 'play') {
@@ -474,7 +471,7 @@ function twitchEvent(event, playerId, data) {
 
       case SEEKING_START:
       case RESTARTING:
-        console.log('vodsync', 'Unhandled case', playerId, event, thisPlayer.state)
+        console.log('vodsync', playerId, 'had an unhandled event', event, 'while in state', STATE_STRINGS[thisPlayer.state])
         break
     }
   } else if (event == 'pause') {
@@ -506,7 +503,7 @@ function twitchEvent(event, playerId, data) {
       case SEEKING_START:
       case BEFORE_START:
       case RESTARTING:
-        console.log('vodsync', 'Unhandled case', playerId, event, thisPlayer.state)
+        console.log('vodsync', playerId, 'had an unhandled event', event, 'while in state', STATE_STRINGS[thisPlayer.state])
         break
     }
   } else if (event == 'ended') {
@@ -533,7 +530,7 @@ function twitchEvent(event, playerId, data) {
       case READY:
       case SEEKING_START:
       case RESTARTING:
-        console.log('vodsync', 'Unhandled case', playerId, event, thisPlayer.state)
+        console.log('vodsync', playerId, 'had an unhandled event', event, 'while in state', STATE_STRINGS[thisPlayer.state])
         break
     }
   }
