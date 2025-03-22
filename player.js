@@ -47,7 +47,7 @@ class Player {
 
   play() { this.player.play() }
   pause() { this.player.pause() }
-  seekTo(timestamp, playOrPause) {
+  seekTo(timestamp, targetState) {
     if (timestamp < this.startTime) {
       var durationSeconds = 0.001 // I think seek(0) does something wrong, so.
       this.state = SEEKING_START
@@ -59,11 +59,11 @@ class Player {
       var durationSeconds = (timestamp - this.startTime) / 1000.0
       if (durationSeconds === 0) durationSeconds = 0.001 // I think seek(0) does something wrong, so.
 
-      if (playOrPause == 'pause') {
+      if (targetState === PAUSED) {
         this.state = SEEKING_PAUSE
         this.player.pause()
         this.player.seek(durationSeconds)
-      } else if (playOrPause == 'play') {
+      } else if (targetState === PLAYING) {
         this.state = SEEKING_PLAY
         this.player.seek(durationSeconds)
         this.player.play()

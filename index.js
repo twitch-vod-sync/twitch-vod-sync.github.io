@@ -174,12 +174,12 @@ window.onload = function() {
       // Left and right seek based on the location of the first video (assuming any video is loaded)
       if (firstPlayingVideo != null) {
         if (event.key == ' ') firstPlayingVideo.pause()
-        if (event.key == 'ArrowLeft')  seekPlayersTo(firstPlayingVideo.getCurrentTimestamp() - 10000, 'play')
-        if (event.key == 'ArrowRight') seekPlayersTo(firstPlayingVideo.getCurrentTimestamp() + 10000, 'play')
+        if (event.key == 'ArrowLeft')  seekPlayersTo(firstPlayingVideo.getCurrentTimestamp() - 10000, PLAYING)
+        if (event.key == 'ArrowRight') seekPlayersTo(firstPlayingVideo.getCurrentTimestamp() + 10000, PLAYING)
       } else if (firstPausedVideo != null) {
         if (event.key == ' ') firstPausedVideo.play()
-        if (event.key == 'ArrowLeft')  seekPlayersTo(firstPausedVideo.getCurrentTimestamp() - 10000, 'pause')
-        if (event.key == 'ArrowRight') seekPlayersTo(firstPausedVideo.getCurrentTimestamp() + 10000, 'pause')
+        if (event.key == 'ArrowLeft')  seekPlayersTo(firstPausedVideo.getCurrentTimestamp() - 10000, PAUSED)
+        if (event.key == 'ArrowRight') seekPlayersTo(firstPausedVideo.getCurrentTimestamp() + 10000, PAUSED)
       }
     }
   })
@@ -386,14 +386,14 @@ function loadVideo(form, videoDetails) {
     } else if (anyVideoIsPlaying) {
       console.log('vodsync', playerId, 'loaded while another video was playing, syncing to others and starting')
       var timestamp = latestSeekTarget
-      thisPlayer.seekTo(timestamp, 'play')
+      thisPlayer.seekTo(timestamp, PLAYING)
     } else if (anyVideoIsPaused) {
       console.log('vodsync', playerId, 'loaded while all other videos were paused, resyncing playhead')
       // Try to line up with the other videos' sync point if possible, but if it's out of range we probably were just manually loaded later,
       // and should pick a sync time that works for all videos.
       var timestamp = latestSeekTarget
       if (timestamp < thisPlayer.startTime) timestamp = thisPlayer.startTime
-      seekPlayersTo(timestamp, 'pause')
+      seekPlayersTo(timestamp, PAUSED)
     } else if (!anyVideoStillLoading) {
       // If nobody is playing or paused, and everyone is done loading (we're last to load), then sync all videos to the earliest timestamp.
       var earliestSync = 0
@@ -401,7 +401,7 @@ function loadVideo(form, videoDetails) {
         if (player.startTime > earliestSync) earliestSync = player.startTime
       }
       console.log('vodsync', playerId, 'was last to load, syncing all videos to', earliestSync)
-      seekPlayersTo(earliestSync, 'pause')
+      seekPlayersTo(earliestSync, PAUSED)
     }
   })
 }
@@ -435,7 +435,7 @@ function twitchEvent(event, playerId, data) {
       case BEFORE_START: // If we're waiting to start it's kinda like we're paused at 0.
         console.log('vodsync', 'User has manually seeked', playerId, 'seeking all other players')
         var timestamp = thisPlayer.startTime + Math.floor(data.position * 1000) // Note that the seek position comes from the javascript event's data
-        seekPlayersTo(timestamp, (thisPlayer.state === PLAYING ? 'play' : 'pause'))
+        seekPlayersTo(timestamp, (thisPlayer.state === PLAYING ? PLAYING : PAUSED))
         break
 
       case RESTARTING:
@@ -450,12 +450,12 @@ function twitchEvent(event, playerId, data) {
       case BEFORE_START: // If the user attempts to play a video that's waiting at the start, just sync everyone to this.
         console.log('vodsync', 'User has manually started', playerId, 'starting all players')
         var timestamp = thisPlayer.getCurrentTimestamp()
-        seekPlayersTo(timestamp, 'play')
+        seekPlayersTo(timestamp, PLAYING)
         break
 
       case SEEKING_PAUSE: // If the video is currently seeking, just resync all videos to the last target but make them play.
         console.log('vodsync', 'User has manually started', playerId, 'while it was seeking, re-seeking all videos')
-        seekPlayersTo(latestSeekTarget, 'play')
+        seekPlayersTo(latestSeekTarget, PLAYING)
         break
 
       case RESTARTING: // We want ended videos to sit somewhere near the end mark, for clarity.
@@ -522,7 +522,7 @@ function twitchEvent(event, playerId, data) {
         break
 
       case BEFORE_START: // If the user seeks to the end of this video while we're waiting to start, treat it like a normal seek event.
-        seekPlayersTo(thisPlayer.endTime)
+        seekPlayersTo(thisPlayer.endTime, PAUSED)
         break
 
       case ASYNC: // If this happens while asyncing, just restart the player (but don't change state). The user is responsible here anyways.
@@ -540,9 +540,9 @@ function twitchEvent(event, playerId, data) {
 }
 
 var latestSeekTarget = null
-function seekPlayersTo(timestamp, playOrPause) {
+function seekPlayersTo(timestamp, targetState) {
   latestSeekTarget = timestamp
-  for (var player of players.values()) player.seekTo(timestamp, playOrPause)
+  for (var player of players.values()) player.seekTo(timestamp, targetState)
 }
 
 function getTimelineBounds() {
