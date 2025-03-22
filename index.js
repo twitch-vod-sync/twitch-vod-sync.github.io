@@ -409,7 +409,7 @@ function loadVideo(form, videoDetails) {
 
 function twitchEvent(event, playerId, data) {
   var thisPlayer = players.get(playerId)
-  var stateStr = 'LOADING,READY,SEEKING_PLAY,PLAYING,SEEKING_PAUSE,PAUSED,BEFORE_START,RESTARTING,AFTER_END,ASYNC'.split(',')[thisPlayer.state]
+  var stateStr = STATE_STRINGS[thisPlayer.state]
   console.log('vodsync', 'raw', playerId, stateStr, event) // TODO: Delete this when I'm done with state testing... or just have a 'log unexpected' instead.
 
   if (event == 'seek') {
@@ -422,7 +422,8 @@ function twitchEvent(event, playerId, data) {
       case SEEKING_PLAY:
         thisPlayer.state = PLAYING
         break
-      case BEFORE_START: // Also set by automation (and followed by a seek event)
+      case SEEKING_START:
+        thisPlayer.state = BEFORE_START
         break
 
       case ASYNC: // If the videos are async'd and the user seeks, update the video's offset to match the seek.
@@ -434,6 +435,7 @@ function twitchEvent(event, playerId, data) {
       case PLAYING:
       case PAUSED:
       case READY: // If we're still waiting for some other video to load (but this one is ready), treat it like PAUSED.
+      case BEFORE_START: // If we're waiting to start it's kinda like we're paused at 0.
         console.log('vodsync', 'User has manually seeked', playerId, 'seeking all other players')
         var timestamp = thisPlayer.startTime + Math.floor(data.position * 1000) // Note that the seek position comes from the javascript event's data
         seekPlayersTo(timestamp, (thisPlayer.state == PLAYING ? 'play' : 'pause'))
@@ -466,8 +468,11 @@ function twitchEvent(event, playerId, data) {
       case ASYNC: // No action needed. The user is likely resuming the video so they can watch and sync it up.
         break
 
-      case SEEKING_PLAY: // Unexpected (?) but no action needed.
-      case PLAYING: // Should be impossible.
+      case SEEKING_PLAY:
+      case PLAYING:
+        break // Already in the correct state.
+
+      case SEEKING_START:
       case RESTARTING:
         console.log('vodsync', 'Unhandled case', playerId, event, thisPlayer.state)
         break
@@ -493,10 +498,12 @@ function twitchEvent(event, playerId, data) {
         thisPlayer.offset += (ASYNC_ALIGN - pausedTimestamp)
         break
 
-      // Should be impossible in all other cases, since the player is already paused.
-      case READY:
       case SEEKING_PAUSE:
       case PAUSED:
+        break // Already in the correct state.
+
+      case READY:
+      case SEEKING_START:
       case BEFORE_START:
       case RESTARTING:
         console.log('vodsync', 'Unhandled case', playerId, event, thisPlayer.state)
@@ -508,7 +515,6 @@ function twitchEvent(event, playerId, data) {
       case SEEKING_PLAY: // Other states are possible by seeking (if the video is short enough)
       case PAUSED:
       case SEEKING_PAUSE:
-      case BEFORE_START: // TODO: Better handling for this case? I wonder if this will cause desync.
       case AFTER_END:
         // Once a video as ended, 'play' is the only way to interact with it automatically.
         console.log('vodsync', 'restarting', playerId)
@@ -516,11 +522,16 @@ function twitchEvent(event, playerId, data) {
         thisPlayer.play() // This play command will trigger a seek to the beginning first, then a play.
         break
 
+      case BEFORE_START: // If the user seeks to the end of this video while we're waiting to start, treat it like a normal seek event.
+        seekPlayersTo(thisPlayer.endTime)
+        break
+
       case ASYNC: // If this happens while asyncing, just restart the player (but don't change state). The user is responsible here anyways.
         thisPlayer.play()
         break
 
       case READY:
+      case SEEKING_START:
       case RESTARTING:
         console.log('vodsync', 'Unhandled case', playerId, event, thisPlayer.state)
         break
@@ -531,7 +542,10 @@ function twitchEvent(event, playerId, data) {
 var latestSeekTarget = null
 function seekPlayersTo(timestamp, playOrPause) {
   latestSeekTarget = timestamp
-  for (var player of players.values()) player.seekTo(timestamp, playOrPause)
+  for (var [playerId, player] of players.entries()) {
+    console.log('vodsync', playerId, 'seeking to', timestamp, playOrPause)
+    player.seekTo(timestamp, playOrPause)
+  }
 }
 
 function getTimelineBounds() {

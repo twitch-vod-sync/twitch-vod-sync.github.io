@@ -5,10 +5,25 @@ const SEEKING_PLAY  = 2
 const PLAYING       = 3
 const SEEKING_PAUSE = 4
 const PAUSED        = 5
-const BEFORE_START  = 6
-const RESTARTING    = 7
-const AFTER_END     = 8
-const ASYNC         = 9
+const SEEKING_START = 6
+const BEFORE_START  = 7
+const RESTARTING    = 8
+const AFTER_END     = 9
+const ASYNC         = 10
+
+STATE_STRINGS = [
+  'LOADING',
+  'READY',
+  'SEEKING_PLAY',
+  'PLAYING',
+  'SEEKING_PAUSE',
+  'PAUSED',
+  'SEEKING_START',
+  'BEFORE_START',
+  'RESTARTING',
+  'AFTER_END',
+  'ASYNC',
+]
 
 class Player {
   constructor(videoDetails, twitchPlayer) {
@@ -35,11 +50,11 @@ class Player {
   seekTo(timestamp, playOrPause) {
     if (timestamp < this.startTime) {
       var durationSeconds = 0.001 // I think seek(0) does something wrong, so.
-      this.state = BEFORE_START
+      this.state = SEEKING_START
       this.player.pause()
       this.player.seek(durationSeconds)
-    //} else if (timestamp >= this.endTime - 10) {
-    //  // Seeking within the last 10 seconds will auto-end the video. TODO: Handle this safely? Or just rely on 'ended'?
+    } else if (timestamp >= this.endTime - 10) {
+      this.seekToEnd() // If you seek within the last 10 seconds, twitch auto-ends the video.
     } else {
       var durationSeconds = (timestamp - this.startTime) / 1000.0
       if (durationSeconds == 0) durationSeconds = 0.001 // I think seek(0) does something wrong, so.
