@@ -439,6 +439,7 @@ function twitchEvent(event, playerId, data) {
         break
 
       case RESTARTING:
+      case AFTER_END:
         console.log('vodsync', playerId, 'had an unhandled event', event, 'while in state', STATE_STRINGS[thisPlayer.state])
         break
     }
@@ -470,7 +471,7 @@ function twitchEvent(event, playerId, data) {
         break // Already in the correct state.
 
       case SEEKING_START:
-      case RESTARTING:
+      case AFTER_END:
         console.log('vodsync', playerId, 'had an unhandled event', event, 'while in state', STATE_STRINGS[thisPlayer.state])
         break
     }
@@ -503,6 +504,7 @@ function twitchEvent(event, playerId, data) {
       case SEEKING_START:
       case BEFORE_START:
       case RESTARTING:
+      case AFTER_END:
         console.log('vodsync', playerId, 'had an unhandled event', event, 'while in state', STATE_STRINGS[thisPlayer.state])
         break
     }
@@ -530,6 +532,7 @@ function twitchEvent(event, playerId, data) {
       case READY:
       case SEEKING_START:
       case RESTARTING:
+      case AFTER_END:
         console.log('vodsync', playerId, 'had an unhandled event', event, 'while in state', STATE_STRINGS[thisPlayer.state])
         break
     }
@@ -539,10 +542,7 @@ function twitchEvent(event, playerId, data) {
 var latestSeekTarget = null
 function seekPlayersTo(timestamp, playOrPause) {
   latestSeekTarget = timestamp
-  for (var [playerId, player] of players.entries()) {
-    console.log('vodsync', playerId, 'seeking to', timestamp, playOrPause)
-    player.seekTo(timestamp, playOrPause)
-  }
+  for (var player of players.values()) player.seekTo(timestamp, playOrPause)
 }
 
 function getTimelineBounds() {
