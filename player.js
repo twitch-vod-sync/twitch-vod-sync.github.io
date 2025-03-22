@@ -57,7 +57,7 @@ class Player {
       this.seekToEnd() // If you seek within the last 10 seconds, twitch auto-ends the video.
     } else {
       var durationSeconds = (timestamp - this.startTime) / 1000.0
-      if (durationSeconds == 0) durationSeconds = 0.001 // I think seek(0) does something wrong, so.
+      if (durationSeconds === 0) durationSeconds = 0.001 // I think seek(0) does something wrong, so.
 
       if (playOrPause == 'pause') {
         this.state = SEEKING_PAUSE

@@ -74,7 +74,7 @@ function getVideoDetails(videoId) {
     return r.json()
   })
   .then(r => {
-    if (r.data.length == 0) return Promise.reject('Could not load video')
+    if (r.data.length === 0) return Promise.reject('Could not load video')
     return parseVideo(r.data[0])
   })
 }
@@ -87,7 +87,7 @@ function getChannelVideos(channelName) {
     return r.json()
   })
   .then(r => {
-    if (r.data.length == 0) return Promise.reject('Could not load channel')
+    if (r.data.length === 0) return Promise.reject('Could not load channel')
     var channelId = r.data[0].id
     return fetch('https://api.twitch.tv/helix/videos?type=archive&sort=time&user_id=' + channelId, headers)
   })
@@ -97,7 +97,7 @@ function getChannelVideos(channelName) {
     return r.json()
   })
   .then(r => {
-    if (r.data.length == 0) return Promise.reject('Did not find any videos for this channel')
+    if (r.data.length === 0) return Promise.reject('Did not find any videos for this channel')
     return r.data.map(video => parseVideo(video))
   })
 }

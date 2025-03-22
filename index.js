@@ -82,13 +82,13 @@ window.onload = function() {
     var count = 0
     for (var player of players.values()) {
       // We only care about the timestamp of videos which are synced up
-      if (player.state == PLAYING || player.state == PAUSED) {
+      if (player.state === PLAYING || player.state === PAUSED) {
         sum += player.getCurrentTimestamp()
         count += 1
       }
     }
 
-    if (count == 0) return // No videos are ready, leave the cursor where it is
+    if (count === 0) return // No videos are ready, leave the cursor where it is
 
     var timestamp = sum / count
     var [timelineStart, timelineEnd] = getTimelineBounds()
@@ -102,7 +102,7 @@ window.onload = function() {
 
     // This is also a convenient moment to check if any players are waiting to start because we seeked before their starttime.
     for (var player of players.values()) {
-      if (player.state == BEFORE_START && timestamp >= player.startTime) {
+      if (player.state === BEFORE_START && timestamp >= player.startTime) {
         player.state = PLAYING
         player.play()
       }
@@ -117,11 +117,11 @@ window.onload = function() {
     var firstPausedVideo = null
     var anyVideoInAsync = false
     for (var player of players.values()) {
-      if (player.state == PLAYING || player.state == SEEKING_PLAY) {
+      if (player.state === PLAYING || player.state === SEEKING_PLAY) {
         if (firstPlayingVideo == null) firstPlayingVideo = player
-      } else if (player.state == PAUSED || player.state == SEEKING_PAUSE) {
+      } else if (player.state === PAUSED || player.state === SEEKING_PAUSE) {
         if (firstPausedVideo == null) firstPausedVideo = player
-      } else if (player.state == ASYNC) {
+      } else if (player.state === ASYNC) {
         anyVideoInAsync = true
       }
     }
@@ -372,10 +372,10 @@ function loadVideo(form, videoDetails) {
     var anyVideoInAsync = false
     for (var player of players.values()) {
       if (player == thisPlayer) continue
-      if (player.state == LOADING) anyVideoStillLoading = true
-      if (player.state == PLAYING || player.state == SEEKING_PLAY)  anyVideoIsPlaying = true
-      if (player.state == PAUSED  || player.state == SEEKING_PAUSE) anyVideoIsPaused = true
-      if (player.state == ASYNC) anyVideoInAsync = true
+      if (player.state === LOADING) anyVideoStillLoading = true
+      if (player.state === PLAYING || player.state === SEEKING_PLAY)  anyVideoIsPlaying = true
+      if (player.state === PAUSED  || player.state === SEEKING_PAUSE) anyVideoIsPaused = true
+      if (player.state === ASYNC) anyVideoInAsync = true
       // If there is a video BEFORE_START (or AFTER_END) at this point, treat it like READY,
       // so that we resync all videos to a shared, valid startpoint
     }
@@ -435,7 +435,7 @@ function twitchEvent(event, playerId, data) {
       case BEFORE_START: // If we're waiting to start it's kinda like we're paused at 0.
         console.log('vodsync', 'User has manually seeked', playerId, 'seeking all other players')
         var timestamp = thisPlayer.startTime + Math.floor(data.position * 1000) // Note that the seek position comes from the javascript event's data
-        seekPlayersTo(timestamp, (thisPlayer.state == PLAYING ? 'play' : 'pause'))
+        seekPlayersTo(timestamp, (thisPlayer.state === PLAYING ? 'play' : 'pause'))
         break
 
       case RESTARTING:
@@ -485,8 +485,8 @@ function twitchEvent(event, playerId, data) {
         // As a result, we just pause all videos, which will cause twitch to only issue a 'seek', not a 'play'.
         // This results in all videos doing a SEEKING_PAUSE, which is fairly close to the user's intent anyways.
         for (var player of players.values()) {
-          if (player.state == SEEKING_PLAY) player.state = SEEKING_PAUSE
-          if (player.state == PLAYING)      player.state = PAUSED
+          if (player.state === SEEKING_PLAY) player.state = SEEKING_PAUSE
+          if (player.state === PLAYING)      player.state = PAUSED
           player.pause()
         }
         break
@@ -561,7 +561,7 @@ var TIMELINE_DATE_FORMAT = new Intl.DateTimeFormat({}, {'dateStyle': 'short', 't
 function reloadTimeline() {
   var timeline = document.getElementById('timeline')
   if (timeline != null) timeline.remove()
-  if (players.size == 0) {
+  if (players.size === 0) {
     document.title = 'Twitch VOD Sync'
     return // If there are no active videos, there's no need to show a timeline
   }
