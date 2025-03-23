@@ -112,6 +112,7 @@ window.onload = function() {
   // Handle space, left, and right as global listeners, in case you don't actually have a stream selected
   // Each of these just calls an event (play, pause, seek) on one of the players, so it'll fall through into the default handler.
   document.addEventListener('keydown', (event) => {
+    if (document.activeElement.tagName == 'INPUT') return // If the user is typing, don't react to the buttons.
     // Used in a variety of key handlers. These are pretty cheap to compute so I don't mind running them even if we don't need them.
     var firstPlayingVideo = null
     var firstPausedVideo = null
