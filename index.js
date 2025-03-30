@@ -77,20 +77,9 @@ window.onload = function() {
 
   // Auto-update the timeline cursor and label so they stay up to date with the current videos
   window.setInterval(() => {
-    // Start by computing the average timestamp of all videos to use as the position (and text) of the cursor.
-    var sum = 0
-    var count = 0
-    for (var player of players.values()) {
-      // We only care about the timestamp of videos which are synced up
-      if (player.state === PLAYING || player.state === PAUSED) {
-        sum += player.getCurrentTimestamp()
-        count += 1
-      }
-    }
+    var timestamp = getAveragePlayerTimestamp()
+    if (timestamp == null) return // No videos are ready, leave the cursor where it is
 
-    if (count === 0) return // No videos are ready, leave the cursor where it is
-
-    var timestamp = sum / count
     var [timelineStart, timelineEnd] = getTimelineBounds()
 
     var cursor = document.getElementById('timelineCursor')
@@ -386,13 +375,13 @@ function loadVideo(form, videoDetails) {
       thisPlayer.state = ASYNC
     } else if (anyVideoIsPlaying) {
       console.log('vodsync', playerId, 'loaded while another video was playing, syncing to others and starting')
-      var timestamp = latestSeekTarget
+      var timestamp = getAveragePlayerTimestamp()
       thisPlayer.seekTo(timestamp, PLAYING)
     } else if (anyVideoIsPaused) {
       console.log('vodsync', playerId, 'loaded while all other videos were paused, resyncing playhead')
       // Try to line up with the other videos' sync point if possible, but if it's out of range we probably were just manually loaded later,
       // and should pick a sync time that works for all videos.
-      var timestamp = latestSeekTarget
+      var timestamp = getAveragePlayerTimestamp()
       if (timestamp < thisPlayer.startTime) timestamp = thisPlayer.startTime
       seekPlayersTo(timestamp, PAUSED)
     } else if (!anyVideoStillLoading) {
@@ -555,6 +544,22 @@ function getTimelineBounds() {
   }
 
   return [timelineStart, timelineEnd]
+}
+
+// In some cases, we may want to know what the current playing position is (as opposed to the most recent seek)
+function getAveragePlayerTimestamp() {
+  var sum = 0
+  var count = 0
+  for (var player of players.values()) {
+    // We only care about the timestamp of videos which are synced up
+    if (player.state === PLAYING || player.state === PAUSED) {
+      sum += player.getCurrentTimestamp()
+      count += 1
+    }
+  }
+
+  if (count === 0) return null
+  return sum / count
 }
 
 var TIMELINE_COLORS = ['#aaf', '#faa', '#afa', '#aff', '#faf', '#ffa']
