@@ -3,7 +3,7 @@
 
 This is a web application that can play back multiple Twitch recordings (also known as VODs) at the same time, while keeping them in sync.
 
-This app is *not* for watching live streams. If you want to watch multiple livestreams at the same time, consider [MultiTwitch.tv](http://www.multitwitch.tv/) ([GitHub](https://github.com/bhamrick/multitwitch)) or Twitch's own "Squad Stream" mode.
+This app is *not* for watching live streams. If you want to watch multiple livestreams at the same time, consider [MultiTwitch.tv](https://www.multitwitch.tv/) ([GitHub](https://github.com/bhamrick/multitwitch)) or Twitch's own "Squad Stream" mode.
 
 ## Features
 - Watch up to 6 streams at the same time (use the + and - buttons next to the timeline)

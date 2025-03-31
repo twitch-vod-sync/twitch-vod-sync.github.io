@@ -203,6 +203,23 @@ function addPlayer() {
   newPlayer.appendChild(error)
   error.style = 'color: red; padding: 10px; display: none'
 
+  // If the form is still visible after 5 seconds, show a "help" hint about how to interact with this app.
+  setTimeout(() => {
+    if (form.style.display == 'none') return // Already interacted & input a video
+
+    var help = document.createElement('div')
+    newPlayer.appendChild(help)
+    help.style = 'padding: 10px'
+    help.className = 'body-text'
+    help.innerText = 'Enter a Twitch video url to watch in sync with the others. More details in '
+
+    var readme = document.createElement('a')
+    help.appendChild(readme)
+    readme.href = 'https://github.com/twitch-vod-sync/twitch-vod-sync.github.io/?tab=readme-ov-file#twitch-vod-sync'
+    readme.target = '_blank'
+    readme.innerText = 'the readme.'
+  }, 10000)
+
   resizePlayers()
 }
 
@@ -289,7 +306,9 @@ function searchVideo(event) {
   if (m != null) {
     getChannelVideos(m[1])
     .then(videos => {
+      var currentTimestamp = getAveragePlayerTimestamp()
       var [timelineStart, timelineEnd] = getTimelineBounds()
+
       var bestVideo = null
       for (var video of videos) {
         // We are looking for two videos which have any overlap.
@@ -297,7 +316,15 @@ function searchVideo(event) {
         // Then, check to see if that video contains the timestamp of the other video's start.
         if ((timelineStart <= video.startTime && video.startTime <= timelineEnd)
           || (video.startTime <= timelineStart && timelineStart <= video.endTime)) {
-          if (bestVideo == null || video.startTime < bestVideo.startTime) bestVideo = video
+
+          // If there's a video which overlaps our current playhead, use that
+          if (video.startTime <= currentTimestamp && currentTimestamp <= video.endTime) {
+            bestVideo = video
+            break
+          // Otherwise, pick the earliest video which has overlap
+          } else if (bestVideo == null || video.startTime < bestVideo.startTime) {
+            bestVideo = video
+          }
         }
       }
 
@@ -443,9 +470,24 @@ function twitchEvent(event, playerId, data) {
         seekPlayersTo(timestamp, PLAYING)
         break
 
-      case SEEKING_PAUSE: // If the video is currently seeking, just resync all videos to the last target but make them play.
-        console.log('vodsync', 'User has manually started', playerId, 'while it was seeking, re-seeking all videos')
-        seekPlayersTo(latestSeekTarget, PLAYING)
+      case SEEKING_PAUSE: // However, if the video is currently seeking, we don't know its seek target, so we just swap to SEEKING_PLAY
+        console.log('vodsync', 'User has manually started', playerId, 'while it was seeking_paused, switching to seeking_play')
+        for (var player of players.values()) {
+          // Most commonly, all other videos will also be SEEKING_PAUSE (as part of the seekTo).
+          if (player.state == SEEKING_PAUSE) {
+            player.state = SEEKING_PLAY
+            player.play()
+
+          // It is possible that some of them have finished seeking (and are in PAUSED)
+          // or that we are loading into a paused state, in which case all other videos are PAUSED.
+          // In either case, resume those videos as they are already at the right spot.
+          } else if (player.state == PAUSED) {
+            player.state = PLAYING
+            player.play()
+          }
+
+          // If a video seeked already and found BEFORE_START or AFTER_END, no further action is needed.
+        }
         break
 
       case RESTARTING: // We want ended videos to sit somewhere near the end mark, for clarity.
@@ -472,7 +514,7 @@ function twitchEvent(event, playerId, data) {
         console.log('vodsync', 'User has manually paused', playerId, 'while it was playing, pausing all other players')
         // When the user clicks outside of the player's buffer, twitch issues 'pause', 'seek', and then 'play' events.
         // Unfortunately, the first of these events (pause) looks identical to the user just pausing the player.
-        // As a result, we just pause all videos, which will cause twitch to only issue a 'seek', not a 'play'.
+        // Therefore, we just pause all videos on the first 'pause' event, which will cause twitch to only issue a 'seek' and not a 'play'.
         // This results in all videos doing a SEEKING_PAUSE, which is fairly close to the user's intent anyways.
         for (var player of players.values()) {
           if (player.state === SEEKING_PLAY) player.state = SEEKING_PAUSE
@@ -529,9 +571,7 @@ function twitchEvent(event, playerId, data) {
   }
 }
 
-var latestSeekTarget = null
 function seekPlayersTo(timestamp, targetState) {
-  latestSeekTarget = timestamp
   for (var player of players.values()) player.seekTo(timestamp, targetState)
 }
 
