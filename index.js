@@ -407,8 +407,12 @@ function loadVideo(form, videoDetails) {
   })
 }
 
+// TODO: make some kind of github report like Presently does
+// https://github.com/jbzdarkid/Presently/blob/master/settings.js#L79
+var eventLog = []
 function twitchEvent(event, playerId, data) {
   var thisPlayer = players.get(playerId)
+  eventLog.push([new Date().getTime(), event, playerId, thisPlayer.state])
 
   if (event == 'seek') {
     switch (thisPlayer.state) {
