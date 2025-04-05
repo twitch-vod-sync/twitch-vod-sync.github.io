@@ -75,6 +75,6 @@ class Player {
     this.state = AFTER_END
     this.player.pause()
     var totalDurationSeconds = (this.endTime - this.startTime) / 1000.0
-    this.player.seek(totalDurationSeconds - 10) // If you seek within the last 10 seconds, twitch auto-ends the video.
+    this.player.seek(totalDurationSeconds - 11) // If you seek within the last 10 seconds, twitch auto-ends the video.
   }
 }
