@@ -120,6 +120,13 @@ window.onload = function() {
       FEATURES.HIDE_ENDING_TIMES = !FEATURES.HIDE_ENDING_TIMES
       reloadTimeline()
 
+    } else if (event.key == 'q') {
+      // TODO: Quality cycle
+      // 1. Fetch all available qualities from all videos with player.getQualities
+      // 2. Bucket/group/whatever to find the minimum supported qualities between all players
+      // 3. Determine the current quality based on the average? or something.
+      // 4. Increment to the next quality in the minimum list (player.setQuality)
+      
     } else if (event.key == 'a') {
       // On the first press, bring all videos into 'async mode', where they can be adjusted freely.
       // We need to start by aligning all videos based on their current time.
@@ -143,7 +150,7 @@ window.onload = function() {
           if (player.offset > largestOffset) largestOffset = player.offset
         }
 
-        // Normalize offsets then save to the URL
+        // Normalize offsets then save to the URL (to allow sharing)
         var params = new URLSearchParams(window.location.search);
         for (var [playerId, player] of players.entries()) {
           player.offset -= largestOffset
@@ -344,6 +351,9 @@ function searchVideo(event) {
 
 var players = new Map()
 function loadVideo(form, videoDetails) {
+  var help = form.parentElement.getElementsByTagName('div')[1]
+  help.style.display = 'none'
+
   form.style.display = 'none'
   var div = form.parentElement
 
