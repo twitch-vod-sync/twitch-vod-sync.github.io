@@ -352,7 +352,7 @@ function searchVideo(event) {
 var players = new Map()
 function loadVideo(form, videoDetails) {
   var help = form.parentElement.getElementsByTagName('div')[1]
-  help.style.display = 'none'
+  if (help != null) help.style.display = 'none'
 
   form.style.display = 'none'
   var div = form.parentElement
