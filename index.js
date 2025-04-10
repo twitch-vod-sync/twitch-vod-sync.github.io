@@ -141,10 +141,11 @@ window.onload = function() {
           player.offset += (ASYNC_ALIGN - pausedTimestamp)
         }
         // The videos will now respond to 'seek' and 'pause' events and adjust their offsets accordingly.
+        // TODO: Label the timeline with ASYNC MODE since otherwise people won't know wtf happened when they push 'A'
 
-      // Once the user hits 'a' again, we normalize the offsets so that the earliest video is at the "true" time,
-      // so that the timeline shows something reasonable.
       } else {
+        // Once the user hits 'a' again, we normalize the offsets so that the earliest video is at the "true" time,
+        // so that the timeline shows something reasonable.
         var largestOffset = -ASYNC_ALIGN
         for (var player of players.values()) {
           if (player.offset > largestOffset) largestOffset = player.offset
@@ -158,13 +159,13 @@ window.onload = function() {
         }
         history.pushState(null, null, '?' + params.toString())
 
+        reloadTimeline() // Reload now that the videos have comparable timers
+
         console.log('vodsync', 'Resuming all players after async alignment')
         for (var player of players.values()) {
           player.state = PLAYING
           player.play()
         }
-
-        reloadTimeline() // Reload now that the videos have comparable timers
       }
     } else {
       // Spacebar pauses (if anyone is playing) or plays (if everyone is paused)
@@ -172,7 +173,10 @@ window.onload = function() {
       if (firstPlayingVideo != null) {
         if (event.key == ' ') firstPlayingVideo.pause()
         if (event.key == 'ArrowLeft')  seekPlayersTo(firstPlayingVideo.getCurrentTimestamp() - 10000, PLAYING)
-        if (event.key == 'ArrowRight') seekPlayersTo(firstPlayingVideo.getCurrentTimestamp() + 10000, PLAYING)
+        if (event.key == 'ArrowRight') {
+          console.log('vodsync', 'arrowright', firstPlayingVideo.state, firstPlayingVideo.getCurrentTimestamp()) // TODO: I've been seeing bugs where the right arrow isn't always stepping forwards.
+          seekPlayersTo(firstPlayingVideo.getCurrentTimestamp() + 10000, PLAYING)
+        }
       } else if (firstPausedVideo != null) {
         if (event.key == ' ') firstPausedVideo.play()
         if (event.key == 'ArrowLeft')  seekPlayersTo(firstPausedVideo.getCurrentTimestamp() - 10000, PAUSED)
@@ -230,6 +234,7 @@ function addPlayer() {
   resizePlayers()
 }
 
+// TODO: Update MIN_PLAYERS to 2 and fix removing when there's 1 video 1 player.
 function removePlayer() {
   var playersDiv = document.getElementById('players')
 
@@ -278,7 +283,7 @@ function resizePlayers() {
     }
   }
 
-  // We actually care about the width of each player (for flex purposes), not the number of rows -- flexbox will do that for us.
+  // We only care about the width of each player (for flex purposes), not the number of rows -- flexbox will do that for us.
 
   var playersDiv = document.getElementById('players')
   for (var playerElem of playersDiv.childNodes) {
@@ -335,8 +340,13 @@ function searchVideo(event) {
         }
       }
 
-      if (bestVideo == null) return Promise.reject('Could not find any videos which overlap the current timeline')
-      loadVideo(form, bestVideo)
+      if (bestVideo != null) {
+        loadVideo(form, bestVideo)
+        return
+      }
+
+      // TODO: Show video picker here (works for both 'first video' and 'no overlap but I wanted async' cases.
+      return Promise.reject('Could not find any videos which overlap the current timeline')
     })
     .catch(r => {
       error.innerText = 'Could not process channel "' + m[1] + '":\n' + r
@@ -374,7 +384,7 @@ function loadVideo(form, videoDetails) {
   if (params.has(div.id + 'offset')) {
     players.get(div.id).offset = parseInt(params.get(div.id + 'offset'))
   }
-  reloadTimeline() // Note: This will get called several times in a row in loadVideo. Whatever.
+  reloadTimeline() // Note: This will get called several times in a row if we're loading multiple videos from query params. Whatever.
 
   twitchPlayer.addEventListener('ready', () => {
     var playerId = div.id
