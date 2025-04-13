@@ -58,9 +58,21 @@ function parseVideo(videoDetails) {
   if (m[4] != null) millis += Number(m[4]) * 60 * 1000 // Minutes
   if (m[2] != null) millis += Number(m[2]) * 60 * 60 * 1000 // Hours
 
+  var parts = videoDetails.thumbnail_url.split('/')
+  var hash = parts[4]
+  var unique = parts[5]
+
+  var thumbnail_url = `https://static-sdn.jtvnw.net/cf_vods/${hash}/${unique}/thumb/thumb0-640x320.jpg`
+  var hover_url = `https://${hash}.cloudfront.net/${unique}/storyboards/${videoDetails.id}-strip-0.jpg`
+  var scrub_url = `https://${hash}.cloudfront.net/${unique}/storyboards/${videoDetails.id}-low-0.jpg`
+
   return {
     'id': videoDetails.id,
     'streamer': videoDetails.user_name,
+    'title': videoDetails.title,
+    'preview': thumbnail_url, // Twitch-provided thumbnail
+    'preview_hover': hover_url, // 'animated' preview when hovering on the past broadcasts page
+    'preview_scrub': scrub_url, // low-quality preview images when scrubbing the timeline on a vod page
     'startTime': new Date(videoDetails.created_at).getTime(),
     'endTime': new Date(videoDetails.created_at).getTime() + millis,
   }

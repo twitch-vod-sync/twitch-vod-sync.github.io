@@ -351,8 +351,8 @@ function searchVideo(event) {
         return
       }
 
-      // TODO: Show video picker here (works for both 'first video' and 'no overlap but I wanted async' cases.
-      return Promise.reject('Could not find any videos which overlap the current timeline')
+      // If we have no timeline (or there was no overlap), show a video picker so the user can select what they want.
+      showVideoPicker(form, videos)
     })
     .catch(r => {
       error.innerText = 'Could not process channel "' + m[1] + '":\n' + r
@@ -364,6 +364,33 @@ function searchVideo(event) {
   error.innerText = 'Could not parse video or channel name from input'
   error.style.display = null
 }
+
+function showVideoPicker(form, videos) {
+  form.style.display = 'none'
+  var help = form.parentElement.getElementsByTagName('div')[1]
+  if (help != null) help.style.display = 'none'
+  
+  var videoGrid = document.createElement('div')
+  form.parentElement.appendChild(videoGrid)
+  videoGrid.style = 'display: flex; flex-wrap: wrap; gap: 10px; width: 980px' // Need to set a width to get 3 per line
+
+  for (var i = 0; i < 9; i++) {
+    // Copy the loop variable to avoid javascript lambda-in-loop bug
+    ;((i) => {
+      if (videos.length <= i) return
+      var videoImg = document.createElement('img')
+      videoGrid.appendChild(videoImg)
+      videoImg.title = videos[i].title
+      videoImg.src = videos[i].preview_hover
+      videoImg.style = 'width: 320px; height: 180px; object-fit: cover; object-position: top; cursor: pointer'
+      videoImg.onclick = function() {
+        videoGrid.remove()
+        loadVideo(form, videos[i])
+      }
+    })(i)
+  }
+}
+
 
 var players = new Map()
 function loadVideo(form, videoDetails) {
