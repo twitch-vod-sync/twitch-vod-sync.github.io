@@ -61,12 +61,12 @@ window.onload = function() {
 
         players.set(playerElem.id, new Player())
         var form = playerElem.getElementsByTagName('form')[0]
-        var videoId = params.get('player' + i)
-        getVideoDetails(videoId)
-        .then(videoDetails => loadVideo(form, videoDetails))
+        var videoIds = params.get('player' + i).split(',')
+        getVideoDetails(videoIds[0]) // TODO: Promise.all?
+        .then(videoDetails => loadVideos(form, [videoDetails]))
         .catch(r => {
           var error = playerElem.getElementsByTagName('div')[0]
-          error.innerText = 'Could not process video "' + videoId + '":\n' + r
+          error.innerText = 'Could not process video "' + videoIds + '":\n' + r
           error.style.display = null
         })
       }
@@ -305,7 +305,7 @@ function searchVideo(event) {
   var m = form.elements['video'].value.match(VIDEO_ID_MATCH)
   if (m != null) {
     getVideoDetails(m[1])
-    .then(videoDetails => loadVideo(form, videoDetails))
+    .then(videoDetails => loadVideos(form, [videoDetails]))
     .catch(r => {
       error.innerText = 'Could not process video "' + m[1] + '":\n' + r
       error.style.display = null
@@ -321,27 +321,19 @@ function searchVideo(event) {
       var currentTimestamp = getAveragePlayerTimestamp()
       var [timelineStart, timelineEnd] = getTimelineBounds()
 
-      var bestVideo = null
+      var matchingVideos = []
       for (var video of videos) {
         // We are looking for two videos which have any overlap.
         // Determine which started first -- our video or the timeline.
         // Then, check to see if that video contains the timestamp of the other video's start.
         if ((timelineStart <= video.startTime && video.startTime <= timelineEnd)
           || (video.startTime <= timelineStart && timelineStart <= video.endTime)) {
-
-          // If there's a video which overlaps our current playhead, use that
-          if (video.startTime <= currentTimestamp && currentTimestamp <= video.endTime) {
-            bestVideo = video
-            break
-          // Otherwise, pick the earliest video which has overlap
-          } else if (bestVideo == null || video.startTime < bestVideo.startTime) {
-            bestVideo = video
-          }
+          matchingVideos.push(video)
         }
       }
 
-      if (bestVideo != null) {
-        loadVideo(form, bestVideo)
+      if (matchingVideos.length > 0) {
+        loadVideos(form, matchingVideos)
         return
       }
 
@@ -360,7 +352,7 @@ function searchVideo(event) {
 }
 
 var players = new Map()
-function loadVideo(form, videoDetails) {
+function loadVideos(form, videos) {
   var help = form.parentElement.getElementsByTagName('div')[1]
   if (help != null) help.style.display = 'none'
 
@@ -368,11 +360,11 @@ function loadVideo(form, videoDetails) {
   var div = form.parentElement
 
   // Update displayed query params for this new video
-  var params = new URLSearchParams(window.location.search);
-  params.set(div.id, videoDetails.id) 
+  var params = new URLSearchParams(window.location.search)
+  params.set(div.id, string.join(',', videos.map(v => v.id)))
   history.pushState(null, null, '?' + params.toString())
 
-  players.set(div.id, new Player(div.id, videoDetails))
+  players.set(div.id, new Player(div.id, videos))
   if (params.has(div.id + 'offset')) {
     players.get(div.id).offset = parseInt(params.get(div.id + 'offset'))
   }
