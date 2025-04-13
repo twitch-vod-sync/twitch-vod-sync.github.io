@@ -62,8 +62,8 @@ window.onload = function() {
         players.set(playerElem.id, new Player())
         var form = playerElem.getElementsByTagName('form')[0]
         var videoIds = params.get('player' + i).split(',')
-        getVideoDetails(videoIds[0]) // TODO: Promise.all?
-        .then(videoDetails => loadVideos(form, [videoDetails]))
+        getVideosDetails(videoIds) // TODO: Promise.all?
+        .then(videos => loadVideos(form, videos]))
         .catch(r => {
           var error = playerElem.getElementsByTagName('div')[0]
           error.innerText = 'Could not process video "' + videoIds + '":\n' + r
@@ -304,7 +304,7 @@ function searchVideo(event) {
   // First, check to see if the user provided a direct video link
   var m = form.elements['video'].value.match(VIDEO_ID_MATCH)
   if (m != null) {
-    getVideoDetails(m[1])
+    getVideosDetails([m[1]])
     .then(videoDetails => loadVideos(form, [videoDetails]))
     .catch(r => {
       error.innerText = 'Could not process video "' + m[1] + '":\n' + r
