@@ -621,7 +621,6 @@ function twitchEvent(event, playerId, data) {
       case READY:
       case SEEKING_START:
       case RESTARTING:
-      case AFTER_END:
         console.log('vodsync', playerId, 'had an unhandled event', event, 'while in state', STATE_STRINGS[thisPlayer.state])
         break
     }
