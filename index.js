@@ -372,15 +372,7 @@ function loadVideo(form, videoDetails) {
   params.set(div.id, videoDetails.id) 
   history.pushState(null, null, '?' + params.toString())
 
-  var options = {
-    width: '100%',
-    height: '100%',
-    video: videoDetails.id,
-    autoplay: false,
-    muted: true,
-  }
-  var twitchPlayer = new Twitch.Player(div.id, options)
-  players.set(div.id, new Player(videoDetails, twitchPlayer))
+  players.set(div.id, new Player(div.id, videoDetails))
   if (params.has(div.id + 'offset')) {
     players.get(div.id).offset = parseInt(params.get(div.id + 'offset'))
   }
