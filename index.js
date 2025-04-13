@@ -3,7 +3,7 @@ var FEATURES = {
   'MAX_PLAYERS': 6,
 }
 
-var MIN_PLAYERS = 1
+var MIN_PLAYERS = 2
 var ASYNC_ALIGN = 1500000000000 // An arbitrary timestamp where we align videos while async-ing. Still considerably lower than Number.MAX_SAFE_INTEGER.
 window.onload = function() {
   // There's a small chance we didn't get a 'page closing' event fired, so if this setting is still set and we have a token,
@@ -228,32 +228,38 @@ function addPlayer() {
     help.appendChild(readme)
     readme.href = 'https://github.com/twitch-vod-sync/twitch-vod-sync.github.io/?tab=readme-ov-file#twitch-vod-sync'
     readme.target = '_blank'
-    readme.innerText = 'the readme.'
+    readme.innerText = 'the readme'
   }, 10000)
 
   resizePlayers()
 }
 
-// TODO: Update MIN_PLAYERS to 2 and fix removing when there's 1 video 1 player.
 function removePlayer() {
   var playersDiv = document.getElementById('players')
 
-  var lastPlayer = playersDiv.childNodes[playersDiv.childElementCount - 1]
-  if (players.has(lastPlayer.id)) {
-    players.delete(lastPlayer.id)
+  // If the last player div is empty, and there's >2 players, remove the div
+  var player = playersDiv.childNodes[playersDiv.childElementCount - 1]
+  if (playersDiv.childElementCount > MIN_PLAYERS && !players.has(player.id)) {
+    player.remove()
+    resizePlayers()
+    
+  } else {
+    // If there's two players showing, delete the first one instead
+    if (!players.has(player.id)) player = playersDiv.childNodes[0]
+
+    // Untrack the player and update the timeline
+    players.delete(player.id)
     reloadTimeline()
 
     // Update displayed query params to remove this video
     var params = new URLSearchParams(window.location.search);
-    params.delete(lastPlayer.id)
-    params.delete(lastPlayer.id + 'offset')
+    params.delete(player.id)
+    params.delete(player.id + 'offset')
     history.pushState(null, null, '?' + params.toString())
 
-    lastPlayer.remove()
-    addPlayer() // If there was a video, the '-' button just resets it back to the picker
-  } else if (playersDiv.childElementCount > MIN_PLAYERS) {
-    lastPlayer.remove() // Otherwise, it removes the entire box
-    resizePlayers()
+    // Remove and re-add the div to show the video picker form
+    player.remove()
+    addPlayer()
   }
 }
 
