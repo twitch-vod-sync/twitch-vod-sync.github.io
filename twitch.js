@@ -76,8 +76,8 @@ function getVideosDetails(videoIds) {
     return r.json()
   })
   .then(r => {
-    if (r.data.length === 0) return Promise.reject('Could not load video')
-    return parseVideo(r.data[0])
+    if (r.data.length === 0) return Promise.reject('Could not load videos')
+    return r.data.map(video => parseVideo(video))
   })
 }
 
