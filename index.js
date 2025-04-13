@@ -62,7 +62,7 @@ window.onload = function() {
         players.set(playerElem.id, new Player())
         var form = playerElem.getElementsByTagName('form')[0]
         var videoIds = params.get('player' + i).split(',')
-        getVideosDetails(videoIds) // TODO: Promise.all?
+        getVideosDetails(videoIds)
         .then(videos => loadVideos(form, videos]))
         .catch(r => {
           var error = playerElem.getElementsByTagName('div')[0]
