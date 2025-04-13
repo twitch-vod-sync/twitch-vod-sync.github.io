@@ -90,29 +90,38 @@ class Player {
       }
     }
 
+    var targetDurationSeconds = 0
+
     // If we are trying to seek *after the last video*, enter the AFTER_END state on the final video.
     if (targetVideo == null) {
-      targetVideo = this._videos[this._videos.length - 1]
       this.state = AFTER_END
-      var totalDurationSeconds = (targetVideo.endTime - targetVideo.startTime) / 1000.0
-      this.player.setVideo(targetVideo.id, totalDurationSeconds - 11) // If you seek within the last 10 seconds, twitch auto-ends the video and starts the autoplay timer.
+      targetVideo = this._videos[this._videos.length - 1]
+      // If you seek within the last 10 seconds, twitch auto-ends the video and starts the autoplay timer.
+      targetDurationSeconds = (targetVideo.endTime - targetVideo.startTime) / 1000.0 - 11
 
     // If the seek target is within the video, load directly to it
     } else if (timestamp > targetVideo.startTime) {
-      this.state = LOADING
-      var durationSeconds = (timestamp - targetVideo.startTime) / 1000.0
-      this.player.setVideo(targetVideo.id, durationSeconds)
+      this.state = SEEKING_PAUSE // ????? TODO test this
+      targetDurationSeconds = (timestamp - targetVideo.startTime) / 1000.0
     
     // Otherwise, we're trying to seek into dead time; enter the BEFORE_START state.
     } else {
-      this.state = SEEKING_START
-      this.player.setVideo(targetVideo.id, 0)
+      this.state = BEFORE_START
+      targetDurationSeconds = 0.001
+    }
+
+    this._currentVideo = targetVideo
+    this.player.setVideo(targetVideo.id, targetDurationSeconds) 
+    if (targetState === PAUSED) {
+      // this.player.pause() // I don't think we need this
+    } else if (targetState === PLAYING) {
+      this.player.play()
     }
   }
 
   // This function is called when we reach the end of a video and it's restarted.
   // If we seek to the end of the current video, the main function will handle progressing to the next one (as needed).
   seekToEnd() {
-    this.seekTo(this._currentVideo.endTime, PAUSED)
+    this.seekTo(this._currentVideo.endTime, PLAYING)
   }
 }

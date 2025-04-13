@@ -67,9 +67,8 @@ function parseVideo(videoDetails) {
 }
 
 function getVideosDetails(videoIds) {
-  var url = 'https://api.twitch.tv/helix/videos?id='
-  url += string.join('&id=', videoIds) // e.g. 'https://api.twitch.tv/helix/videos?id=1234&id=5678'
-  return fetch(url)
+  // e.g. 'https://api.twitch.tv/helix/videos?id=1234&id=5678'
+  return fetch('https://api.twitch.tv/helix/videos?id=' + videoIds.join('&id='), headers)
   .then(r => {
     if (r.status == 401) showTwitchRedirect()
     if (r.status != 200) return Promise.reject('HTTP request failed: ' + r.status)

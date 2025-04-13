@@ -61,14 +61,16 @@ window.onload = function() {
 
         players.set(playerElem.id, new Player())
         var form = playerElem.getElementsByTagName('form')[0]
-        var videoIds = params.get('player' + i).split(',')
-        getVideosDetails(videoIds)
-        .then(videos => loadVideos(form, videos]))
-        .catch(r => {
-          var error = playerElem.getElementsByTagName('div')[0]
-          error.innerText = 'Could not process video "' + videoIds + '":\n' + r
-          error.style.display = null
-        })
+        var videoIds = params.get('player' + i)
+        if (videoIds.length > 0) {
+          getVideosDetails(videoIds.split('-'))
+          .then(videos => loadVideos(form, videos))
+          .catch(r => {
+            var error = playerElem.getElementsByTagName('div')[0]
+            error.innerText = 'Could not process video "' + videoIds + '":\n' + r
+            error.style.display = null
+          })
+        }
       }
     })(i)
   }
@@ -305,7 +307,7 @@ function searchVideo(event) {
   var m = form.elements['video'].value.match(VIDEO_ID_MATCH)
   if (m != null) {
     getVideosDetails([m[1]])
-    .then(videoDetails => loadVideos(form, [videoDetails]))
+    .then(videos => loadVideos(form, videos))
     .catch(r => {
       error.innerText = 'Could not process video "' + m[1] + '":\n' + r
       error.style.display = null
@@ -361,16 +363,17 @@ function loadVideos(form, videos) {
 
   // Update displayed query params for this new video
   var params = new URLSearchParams(window.location.search)
-  params.set(div.id, string.join(',', videos.map(v => v.id)))
+  params.set(div.id, videos.map(v => v.id).join('-'))
   history.pushState(null, null, '?' + params.toString())
 
-  players.set(div.id, new Player(div.id, videos))
+  var player = new Player(div.id, videos)
+  players.set(div.id, player)
   if (params.has(div.id + 'offset')) {
-    players.get(div.id).offset = parseInt(params.get(div.id + 'offset'))
+    player.offset = parseInt(params.get(div.id + 'offset'))
   }
   reloadTimeline() // Note: This will get called several times in a row if we're loading multiple videos from query params. Whatever.
 
-  twitchPlayer.addEventListener('ready', () => {
+  player.player.addEventListener('ready', () => {
     var playerId = div.id
     var thisPlayer = players.get(playerId)
     console.log('vodsync', playerId, 'has loaded')
