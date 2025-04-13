@@ -62,8 +62,9 @@ class Player {
   pause() { this.player.pause() }
   seekTo(timestamp, targetState) {
     timestamp -= this.offset // Adjust by the offset first, rather than adjusting all our videos by the offset
+
+    // First, check to see if we're seeking within the current video -- if so, handle like the old days
     if (timestamp >= this._currentVideo.startTime && timestamp < this._currentVideo.endTime - 10000) {
-      // Seeking within the current video
       var durationSeconds = (timestamp - this.startTime) / 1000.0
       if (durationSeconds === 0) durationSeconds = 0.001 // I think seek(0) does something wrong, so.
 
@@ -76,8 +77,6 @@ class Player {
         this.player.seek(durationSeconds)
         this.player.play()
       }
-  
-      this._seekCurrentVideo(timestamp, targetState)
       return
     }
 
@@ -91,29 +90,29 @@ class Player {
       }
     }
 
+    // If we are trying to seek *after the last video*, enter the AFTER_END state on the final video.
     if (targetVideo == null) {
-      // If we are trying to seek *after the last video*, enter the AFTER_END state.
       targetVideo = this._videos[this._videos.length - 1]
       this.state = AFTER_END
       var totalDurationSeconds = (targetVideo.endTime - targetVideo.startTime) / 1000.0
-      this.player.setVideo(targetVideo.id, totalDurationSeconds - 11)
+      this.player.setVideo(targetVideo.id, totalDurationSeconds - 11) // If you seek within the last 10 seconds, twitch auto-ends the video and starts the autoplay timer.
+
+    // If the seek target is within the video, load directly to it
     } else if (timestamp > targetVideo.startTime) {
-      // If the seek target is within the video, load directly to it
       this.state = LOADING
       var durationSeconds = (timestamp - targetVideo.startTime) / 1000.0
       this.player.setVideo(targetVideo.id, durationSeconds)
+    
+    // Otherwise, we're trying to seek into dead time; enter the BEFORE_START state.
     } else {
-      // Otherwise, we're trying to seek into dead time; enter the BEFORE_START state.
       this.state = SEEKING_START
       this.player.setVideo(targetVideo.id, 0)
     }
   }
 
+  // This function is called when we reach the end of a video and it's restarted.
+  // If we seek to the end of the current video, the main function will handle progressing to the next one (as needed).
   seekToEnd() {
-    // If there is a subsequent video, start that -- otherwise enter the after_end state (TODO)
-    this.state = AFTER_END
-    this.player.pause()
-    var totalDurationSeconds = (this.endTime - this.startTime) / 1000.0
-    this.player.seek(totalDurationSeconds - 11) // If you seek within the last 10 seconds, twitch auto-ends the video.
+    this.seekTo(this._currentVideo.endTime, PAUSED)
   }
 }
