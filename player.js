@@ -26,13 +26,23 @@ STATE_STRINGS = [
 ]
 
 class Player {
-  constructor(videoDetails, twitchPlayer) {
+  constructor(divId, videos) {
     this.state = LOADING
-    if (twitchPlayer != null) this.player = twitchPlayer
-    if (videoDetails != null) {
+
+    if (videos != null && videos.length > 0) {
+      var videoDetails = videos[0] // TODO: Support multiple videos here (everything else should be wired up)
       this.streamer = videoDetails.streamer
       this._startTime = videoDetails.startTime
       this._endTime = videoDetails.endTime
+
+      var options = {
+        width: '100%',
+        height: '100%',
+        video: videoDetails.id,
+        autoplay: false,
+        muted: true,
+      }
+      this.player = new Twitch.Player(divId, options)
       this.offset = 0
     }
   }
@@ -47,14 +57,19 @@ class Player {
 
   play() { this.player.play() }
   pause() { this.player.pause() }
+  seekToEnd() { this.seekTo(this.endTime) }
   seekTo(timestamp, targetState) {
     if (timestamp < this.startTime) {
       var durationSeconds = 0.001 // I think seek(0) does something wrong, so.
       this.state = SEEKING_START
       this.player.pause()
       this.player.seek(durationSeconds)
-    } else if (timestamp >= this.endTime - 10) {
-      this.seekToEnd() // If you seek within the last 10 seconds, twitch auto-ends the video.
+    } else if (timestamp >= this.endTime - 10000) {
+      // If you seek within the last 10 seconds, twitch auto-ends the video. Back off to T-11 seconds instead.
+      var durationSeconds = (this.endTime - this.startTime) / 1000.0 - 11
+      this.state = AFTER_END
+      this.player.pause()
+      this.player.seek(durationSeconds)
     } else {
       var durationSeconds = (timestamp - this.startTime) / 1000.0
       if (durationSeconds === 0) durationSeconds = 0.001 // I think seek(0) does something wrong, so.
@@ -69,12 +84,5 @@ class Player {
         this.player.play()
       }
     }
-  }
-
-  seekToEnd() {
-    this.state = AFTER_END
-    this.player.pause()
-    var totalDurationSeconds = (this.endTime - this.startTime) / 1000.0
-    this.player.seek(totalDurationSeconds - 11) // If you seek within the last 10 seconds, twitch auto-ends the video.
   }
 }

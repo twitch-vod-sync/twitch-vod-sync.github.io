@@ -61,14 +61,16 @@ window.onload = function() {
 
         players.set(playerElem.id, new Player())
         var form = playerElem.getElementsByTagName('form')[0]
-        var videoId = params.get('player' + i)
-        getVideoDetails(videoId)
-        .then(videoDetails => loadVideo(form, videoDetails))
-        .catch(r => {
-          var error = playerElem.getElementsByTagName('div')[0]
-          error.innerText = 'Could not process video "' + videoId + '":\n' + r
-          error.style.display = null
-        })
+        var videoIds = params.get('player' + i)
+        if (videoIds.length > 0) {
+          getVideosDetails(videoIds.split('-'))
+          .then(videos => loadVideos(form, videos))
+          .catch(r => {
+            var error = playerElem.getElementsByTagName('div')[0]
+            error.innerText = 'Could not process video "' + videoIds + '":\n' + r
+            error.style.display = null
+          })
+        }
       }
     })(i)
   }
@@ -310,8 +312,8 @@ function searchVideo(event) {
   // First, check to see if the user provided a direct video link
   var m = form.elements['video'].value.match(VIDEO_ID_MATCH)
   if (m != null) {
-    getVideoDetails(m[1])
-    .then(videoDetails => loadVideo(form, videoDetails))
+    getVideosDetails([m[1]])
+    .then(videos => loadVideos(form, videos))
     .catch(r => {
       error.innerText = 'Could not process video "' + m[1] + '":\n' + r
       error.style.display = null
@@ -347,7 +349,7 @@ function searchVideo(event) {
       }
 
       if (bestVideo != null) {
-        loadVideo(form, bestVideo)
+        loadVideos(form, [bestVideo]) // TODO: Load all matching videos once the player can handle multiple videos
         return
       }
 
@@ -393,7 +395,7 @@ function showVideoPicker(form, videos) {
 
 
 var players = new Map()
-function loadVideo(form, videoDetails) {
+function loadVideos(form, videos) {
   var help = form.parentElement.getElementsByTagName('div')[1]
   if (help != null) help.style.display = 'none'
 
@@ -401,25 +403,18 @@ function loadVideo(form, videoDetails) {
   var div = form.parentElement
 
   // Update displayed query params for this new video
-  var params = new URLSearchParams(window.location.search);
-  params.set(div.id, videoDetails.id) 
+  var params = new URLSearchParams(window.location.search)
+  params.set(div.id, videos.map(v => v.id).join('-'))
   history.pushState(null, null, '?' + params.toString())
 
-  var options = {
-    width: '100%',
-    height: '100%',
-    video: videoDetails.id,
-    autoplay: false,
-    muted: true,
-  }
-  var twitchPlayer = new Twitch.Player(div.id, options)
-  players.set(div.id, new Player(videoDetails, twitchPlayer))
+  var player = new Player(div.id, videos)
+  players.set(div.id, player)
   if (params.has(div.id + 'offset')) {
-    players.get(div.id).offset = parseInt(params.get(div.id + 'offset'))
+    player.offset = parseInt(params.get(div.id + 'offset'))
   }
   reloadTimeline() // Note: This will get called several times in a row if we're loading multiple videos from query params. Whatever.
 
-  twitchPlayer.addEventListener('ready', () => {
+  player.player.addEventListener('ready', () => {
     var playerId = div.id
     var thisPlayer = players.get(playerId)
     console.log('vodsync', playerId, 'has loaded')

@@ -78,16 +78,17 @@ function parseVideo(videoDetails) {
   }
 }
 
-function getVideoDetails(videoId) {
-  return fetch('https://api.twitch.tv/helix/videos?id=' + videoId, headers)
+function getVideosDetails(videoIds) {
+  // e.g. 'https://api.twitch.tv/helix/videos?id=1234&id=5678'
+  return fetch('https://api.twitch.tv/helix/videos?id=' + videoIds.join('&id='), headers)
   .then(r => {
     if (r.status == 401) showTwitchRedirect()
     if (r.status != 200) return Promise.reject('HTTP request failed: ' + r.status)
     return r.json()
   })
   .then(r => {
-    if (r.data.length === 0) return Promise.reject('Could not load video')
-    return parseVideo(r.data[0])
+    if (r.data.length === 0) return Promise.reject('Could not load videos')
+    return r.data.map(video => parseVideo(video))
   })
 }
 
