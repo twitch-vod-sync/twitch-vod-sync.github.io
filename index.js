@@ -3,7 +3,7 @@ var FEATURES = {
   'MAX_PLAYERS': 6,
 }
 
-var MIN_PLAYERS = 1
+var MIN_PLAYERS = 2
 var ASYNC_ALIGN = 1500000000000 // An arbitrary timestamp where we align videos while async-ing. Still considerably lower than Number.MAX_SAFE_INTEGER.
 window.onload = function() {
   // There's a small chance we didn't get a 'page closing' event fired, so if this setting is still set and we have a token,
@@ -230,32 +230,38 @@ function addPlayer() {
     help.appendChild(readme)
     readme.href = 'https://github.com/twitch-vod-sync/twitch-vod-sync.github.io/?tab=readme-ov-file#twitch-vod-sync'
     readme.target = '_blank'
-    readme.innerText = 'the readme.'
+    readme.innerText = 'the readme'
   }, 10000)
 
   resizePlayers()
 }
 
-// TODO: Update MIN_PLAYERS to 2 and fix removing when there's 1 video 1 player.
 function removePlayer() {
   var playersDiv = document.getElementById('players')
 
-  var lastPlayer = playersDiv.childNodes[playersDiv.childElementCount - 1]
-  if (players.has(lastPlayer.id)) {
-    players.delete(lastPlayer.id)
+  // If the last player div is empty, and there's >2 players, remove the div
+  var player = playersDiv.childNodes[playersDiv.childElementCount - 1]
+  if (playersDiv.childElementCount > MIN_PLAYERS && !players.has(player.id)) {
+    player.remove()
+    resizePlayers()
+    
+  } else {
+    // If there's two players showing, delete the first one instead
+    if (!players.has(player.id)) player = playersDiv.childNodes[0]
+
+    // Untrack the player and update the timeline
+    players.delete(player.id)
     reloadTimeline()
 
     // Update displayed query params to remove this video
     var params = new URLSearchParams(window.location.search);
-    params.delete(lastPlayer.id)
-    params.delete(lastPlayer.id + 'offset')
+    params.delete(player.id)
+    params.delete(player.id + 'offset')
     history.pushState(null, null, '?' + params.toString())
 
-    lastPlayer.remove()
-    addPlayer() // If there was a video, the '-' button just resets it back to the picker
-  } else if (playersDiv.childElementCount > MIN_PLAYERS) {
-    lastPlayer.remove() // Otherwise, it removes the entire box
-    resizePlayers()
+    // Remove and re-add the div to show the video picker form
+    player.remove()
+    addPlayer()
   }
 }
 
@@ -339,8 +345,8 @@ function searchVideo(event) {
         return
       }
 
-      // TODO: Show video picker here (works for both 'first video' and 'no overlap but I wanted async' cases.
-      return Promise.reject('Could not find any videos which overlap the current timeline')
+      // If we have no timeline (or there was no overlap), show a video picker so the user can select what they want.
+      showVideoPicker(form, videos)
     })
     .catch(r => {
       error.innerText = 'Could not process channel "' + m[1] + '":\n' + r
@@ -352,6 +358,33 @@ function searchVideo(event) {
   error.innerText = 'Could not parse video or channel name from input'
   error.style.display = null
 }
+
+function showVideoPicker(form, videos) {
+  form.style.display = 'none'
+  var help = form.parentElement.getElementsByTagName('div')[1]
+  if (help != null) help.style.display = 'none'
+  
+  var videoGrid = document.createElement('div')
+  form.parentElement.appendChild(videoGrid)
+  videoGrid.style = 'display: flex; flex-wrap: wrap; gap: 10px; width: 980px' // Need to set a width to get 3 per line
+
+  for (var i = 0; i < 9; i++) {
+    // Copy the loop variable to avoid javascript lambda-in-loop bug
+    ;((i) => {
+      if (videos.length <= i) return
+      var videoImg = document.createElement('img')
+      videoGrid.appendChild(videoImg)
+      videoImg.title = videos[i].title
+      videoImg.src = videos[i].preview_hover
+      videoImg.style = 'width: 320px; height: 180px; object-fit: cover; object-position: top; cursor: pointer'
+      videoImg.onclick = function() {
+        videoGrid.remove()
+        loadVideo(form, videos[i])
+      }
+    })(i)
+  }
+}
+
 
 var players = new Map()
 function loadVideos(form, videos) {
@@ -575,7 +608,6 @@ function twitchEvent(event, playerId, data) {
       case READY:
       case SEEKING_START:
       case RESTARTING:
-      case AFTER_END:
         console.log('vodsync', playerId, 'had an unhandled event', event, 'while in state', STATE_STRINGS[thisPlayer.state])
         break
     }
