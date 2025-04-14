@@ -329,27 +329,19 @@ function searchVideo(event) {
       var currentTimestamp = getAveragePlayerTimestamp()
       var [timelineStart, timelineEnd] = getTimelineBounds()
 
-      var bestVideo = null
+      var matchingVideos = []
       for (var video of videos) {
         // We are looking for two videos which have any overlap.
         // Determine which started first -- our video or the timeline.
         // Then, check to see if that video contains the timestamp of the other video's start.
         if ((timelineStart <= video.startTime && video.startTime <= timelineEnd)
           || (video.startTime <= timelineStart && timelineStart <= video.endTime)) {
-
-          // If there's a video which overlaps our current playhead, use that
-          if (video.startTime <= currentTimestamp && currentTimestamp <= video.endTime) {
-            bestVideo = video
-            break
-          // Otherwise, pick the earliest video which has overlap
-          } else if (bestVideo == null || video.startTime < bestVideo.startTime) {
-            bestVideo = video
-          }
+          matchingVideos.push(video)
         }
       }
 
-      if (bestVideo != null) {
-        loadVideos(form, [bestVideo]) // TODO: Load all matching videos once the player can handle multiple videos
+      if (matchingVideos.length > 0) {
+        loadVideos(form, matchingVideos)
         return
       }
 
