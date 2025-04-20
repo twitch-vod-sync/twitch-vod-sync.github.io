@@ -387,7 +387,7 @@ function showVideoPicker(form, videos) {
       videoImg.style = 'width: 320px; height: 180px; object-fit: cover; object-position: top; cursor: pointer'
       videoImg.onclick = function() {
         videoGrid.remove()
-        loadVideo(form, videos[i])
+        loadVideos(form, [videos[i]])
       }
     })(i)
   }
