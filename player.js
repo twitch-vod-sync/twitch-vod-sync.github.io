@@ -25,6 +25,10 @@ STATE_STRINGS = [
   'ASYNC',
 ]
 
+// If you seek (manually or automatically) to a timestamp within the last 10 seconds, twitch ends the video and starts auto-playing the next one.
+// When a video ends, I want to leave it paused somewhere near the end screen -- so this value represents a safe point to seek to which avoids autoplay.
+const VIDEO_END_BUFFER = 15000
+
 class Player {
   constructor(divId, videos) {
     this.state = LOADING
@@ -64,9 +68,8 @@ class Player {
       this.state = SEEKING_START
       this.player.pause()
       this.player.seek(durationSeconds)
-    } else if (timestamp >= this.endTime - 10000) {
-      // If you seek within the last 10 seconds, twitch auto-ends the video. Back off to T-11 seconds instead.
-      var durationSeconds = (this.endTime - this.startTime) / 1000.0 - 11
+    } else if (timestamp >= this.endTime - VIDEO_END_BUFFER) {
+      var durationSeconds = (this.endTime - this.startTime - VIDEO_END_BUFFER) / 1000.0
       this.state = AFTER_END
       this.player.pause()
       this.player.seek(durationSeconds)
