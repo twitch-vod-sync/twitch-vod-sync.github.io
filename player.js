@@ -38,6 +38,8 @@ class Player {
       this.streamer = videoDetails.streamer
       this._startTime = videoDetails.startTime
       this._endTime = videoDetails.endTime
+      this.offset = 0
+      this.id = divId
 
       var options = {
         width: '100%',
@@ -46,8 +48,27 @@ class Player {
         autoplay: false,
         muted: true,
       }
-      this.player = new Twitch.Player(divId, options)
-      this.offset = 0
+      this._player = new Twitch.Player(divId, options)
+      this._player.addEventListener('ready', () => {
+        // Only hook events once the player has loaded, so we don't have to worry about events in the LOADING state.
+        this._player.addEventListener('seek', (eventData) => {
+          var seekMillis = Math.floor(eventData.position * 1000)
+          this.eventSink('seek', this, seekMillis)
+        })
+        this._player.addEventListener('play',  () => {
+          // Twitch loads the "true" video duration once it starts playing. We use that to update our end time,
+          // since there's a chance that the video is a live VOD, and its duration doesn't match what the API returned.
+          var durationMillis = Math.floor(this._player.getDuration() * 1000)
+          this._endTime = this._startTime + durationMillis
+          this.eventSink('play', this)
+        })
+        this._player.addEventListener('pause', () => this.eventSink('pause', this))
+        this._player.addEventListener('ended', () => this.eventSink('ended', this))
+
+        // I did not end up using the 'playing' event -- for the most part, twitch pauses videos when the buffer runs out,
+        // which is a sufficient signal to sync up the videos again (although they don't start playing automatically again).
+        this.onready(this)
+      })
     }
   }
 
@@ -55,36 +76,36 @@ class Player {
   get endTime() { return this._endTime + this.offset }
 
   getCurrentTimestamp() {
-    var durationMillis = Math.floor(this.player.getCurrentTime() * 1000)
+    var durationMillis = Math.floor(this._player.getCurrentTime() * 1000)
     return this._startTime + this.offset + durationMillis
   }
 
-  play() { this.player.play() }
-  pause() { this.player.pause() }
+  play() { this._player.play() }
+  pause() { this._player.pause() }
   seekToEnd() { this.seekTo(this.endTime) }
   seekTo(timestamp, targetState) {
     if (timestamp < this.startTime) {
       var durationSeconds = 0.001 // I think seek(0) does something wrong, so.
       this.state = SEEKING_START
-      this.player.pause()
-      this.player.seek(durationSeconds)
+      this._player.pause()
+      this._player.seek(durationSeconds)
     } else if (timestamp >= this.endTime - VIDEO_END_BUFFER) {
       var durationSeconds = (this.endTime - this.startTime - VIDEO_END_BUFFER) / 1000.0
       this.state = AFTER_END
-      this.player.pause()
-      this.player.seek(durationSeconds)
+      this._player.pause()
+      this._player.seek(durationSeconds)
     } else {
       var durationSeconds = (timestamp - this.startTime) / 1000.0
       if (durationSeconds === 0) durationSeconds = 0.001 // I think seek(0) does something wrong, so.
 
       if (targetState === PAUSED) {
         this.state = SEEKING_PAUSE
-        this.player.pause()
-        this.player.seek(durationSeconds)
+        this._player.pause()
+        this._player.seek(durationSeconds)
       } else if (targetState === PLAYING) {
         this.state = SEEKING_PLAY
-        this.player.seek(durationSeconds)
-        this.player.play()
+        this._player.seek(durationSeconds)
+        this._player.play()
       }
     }
   }
