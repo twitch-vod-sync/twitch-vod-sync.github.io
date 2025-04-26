@@ -571,7 +571,7 @@ function twitchEvent(event, thisPlayer, seekMillis) {
         for (var player of players.values()) {
           if (player.state === SEEKING_PLAY) player.state = SEEKING_PAUSE
           if (player.state === PLAYING)      player.state = PAUSED
-          player.pause()
+          if (player.id != thisPlayer.id)    player.pause() // Note: We don't want to pause the current player, since it might be waiting for a seek event.
         }
         break
 
