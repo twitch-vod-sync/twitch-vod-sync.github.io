@@ -624,7 +624,11 @@ function twitchEvent(event, thisPlayer, seekMillis) {
 
 function seekPlayersTo(timestamp, targetState, exceptFor) {
   for (var player of players.values()) {
-    if (exceptFor != null && player.id == exceptFor.id) continue
+    if (exceptFor != null && player.id == exceptFor.id) {
+      // TODO: Assumption.
+      player.state = targetState
+      continue
+    }
     player.seekTo(timestamp, targetState)
   }
 }
