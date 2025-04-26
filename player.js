@@ -84,6 +84,7 @@ class Player {
   pause() { this._player.pause() }
   seekToEnd() { this.seekTo(this.endTime) }
   seekTo(timestamp, targetState) {
+    window.eventLog.push([new Date().getTime(), this.id, 'seekTo', targetState, timestamp])
     if (timestamp < this.startTime) {
       var durationSeconds = 0.001 // I think seek(0) does something wrong, so.
       this.state = SEEKING_START

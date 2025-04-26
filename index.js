@@ -466,8 +466,17 @@ function loadVideos(form, videos) {
 // I should also include the URL (which contains the videos) + all video positions at time of submission.
 // https://github.com/jbzdarkid/Presently/blob/master/settings.js#L79
 var eventLog = []
+function printLog() {
+  for (var event of eventLog) {
+    var logEvent = [new Date(event[0]).toISOString(), event[1], event[2], STATE_STRINGS[event[3]]]
+    if (event.length >= 3) logEvent.push(event[4])
+    console.log(logEvent.join("\t"))
+  }
+}
+
+
 function twitchEvent(event, thisPlayer, seekMillis) {
-  eventLog.push([new Date().getTime(), event, thisPlayer.id, thisPlayer.state])
+  eventLog.push([new Date().getTime(), thisPlayer.id, event, thisPlayer.state])
 
   if (event == 'seek') {
     switch (thisPlayer.state) {
@@ -510,7 +519,7 @@ function twitchEvent(event, thisPlayer, seekMillis) {
       case BEFORE_START: // If the user attempts to play a video that's waiting at the start, just sync everyone to this.
         console.log('vodsync', 'User has manually started', thisPlayer.id, 'starting all players')
         var timestamp = thisPlayer.getCurrentTimestamp()
-        seekPlayersTo(timestamp, PLAYING)
+        seekPlayersTo(timestamp, PLAYING, /*exceptFor*/thisPlayer)
         break
 
       case SEEKING_PAUSE: // However, if the video is currently seeking, we don't know its seek target, so we just swap to SEEKING_PLAY
@@ -613,8 +622,11 @@ function twitchEvent(event, thisPlayer, seekMillis) {
   }
 }
 
-function seekPlayersTo(timestamp, targetState) {
-  for (var player of players.values()) player.seekTo(timestamp, targetState)
+function seekPlayersTo(timestamp, targetState, exceptFor) {
+  for (var player of players.values()) {
+    if (exceptFor != null && player.id == exceptFor.id) continue
+    player.seekTo(timestamp, targetState)
+  }
 }
 
 function getTimelineBounds() {
