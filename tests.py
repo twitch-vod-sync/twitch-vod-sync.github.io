@@ -41,14 +41,11 @@ if __name__ == '__main__':
   tests = list(inspect.getmembers(testClass, is_test))
   tests.sort(key=lambda func: func[1].__code__.co_firstlineno)
 
+  subprocess.run([sys.executable, 'http_server.py'])
+
   if len(sys.argv) > 1: # Requested specific test(s)
     tests = [test for test in tests if test[0] in sys.argv[1:]]
   for test in tests:
-    # Test setup
-    # TODO: Maybe not in local dev?
-    # os.system('killall chrome') # Murder any chrome executables
-
-    # Run test
     print('---', test[0], 'started')
     try:
       test[1]()
