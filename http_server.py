@@ -6,5 +6,8 @@ class NoCacheHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     self.send_header('Cache-Control', 'no-store, must-revalidate')
     self.send_header('Expires', '0')
 
-if __name__ == '__main__':
+def main():
   http.server.test(HandlerClass=NoCacheHTTPRequestHandler, port=3000)
+
+if __name__ == '__main__':
+  main()
