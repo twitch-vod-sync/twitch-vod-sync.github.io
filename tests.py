@@ -39,7 +39,7 @@ class UITests:
 
 if __name__ == '__main__':
   testClass = UITests()
-  is_test = lambda(method): inspect.ismethod(method) and method.__name__.startswith('test')
+  is_test = lambda method: inspect.ismethod(method) and method.__name__.startswith('test')
   tests = list(inspect.getmembers(testClass, is_test))
   tests.sort(key=lambda func: func[1].__code__.co_firstlineno)
 
