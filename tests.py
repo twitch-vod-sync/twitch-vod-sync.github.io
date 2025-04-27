@@ -42,7 +42,7 @@ if __name__ == '__main__':
   tests = list(inspect.getmembers(testClass, is_test))
   tests.sort(key=lambda func: func[1].__code__.co_firstlineno)
 
-  subprocess.run([sys.executable, 'http_server.py'])
+  subprocess.Popen([sys.executable, 'http_server.py'], start_new_session=True)
 
   if len(sys.argv) > 1: # Requested specific test(s)
     tests = [test for test in tests if test[0] in sys.argv[1:]]
