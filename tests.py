@@ -18,10 +18,8 @@ class UITests:
     url = 'https://localhost:3000'
     params = {}
     for i, video_id in enumerate(video_ids):
-      if url.contains('?'):
-        url += f'&player{i}={video_id}'
-      else:
-        url += f'?player{i}={video_id}'
+      url += '?' if i == 0 else '&'
+      url += f'player{i}={video_id}'
     self.driver.get(url)
     
   def run(self, script):
@@ -48,7 +46,7 @@ if __name__ == '__main__':
   for test in tests:
     # Test setup
     # TODO: Maybe not in local dev?
-    os.system('killall chrome') # Murder any chrome executables
+    # os.system('killall chrome') # Murder any chrome executables
 
     # Run test
     print('---', test[0], 'started')
