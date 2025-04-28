@@ -26,6 +26,10 @@ jobs:
     - run: python -u tests.py
       env:
         TWITCH_TOKEN: ${{ secrets.TWITCH_TOKEN }}
+    - uses: actions/upload-artifact@v4
+      with:
+        path: D:/a/_temp/*.png
+        if-no-files-found: ignore
 
   publish:
     needs: test
