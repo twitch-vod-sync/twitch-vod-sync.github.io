@@ -16,7 +16,7 @@ class UITests:
     self.driver = webdriver.Chrome(options=options, service=service)
 
   def loadPage(self, *video_ids):
-    url = 'https://localhost:3000'
+    url = 'http://localhost:3000'
     params = {}
     for i, video_id in enumerate(video_ids):
       url += '?' if i == 0 else '&'
