@@ -469,14 +469,14 @@ var eventLog = []
 function printLog() {
   for (var event of eventLog) {
     var logEvent = [new Date(event[0]).toISOString(), event[1], event[2], STATE_STRINGS[event[3]]]
-    if (event.length >= 3) logEvent.push(event[4])
+    if (event.length > 4 && event[4] != null) logEvent.push(event[4])
     console.log(logEvent.join("\t"))
   }
 }
 
 
 function twitchEvent(event, thisPlayer, seekMillis) {
-  eventLog.push([new Date().getTime(), thisPlayer.id, event, thisPlayer.state])
+  eventLog.push([new Date().getTime(), thisPlayer.id, event, thisPlayer.state, seekMillis])
 
   if (event == 'seek') {
     switch (thisPlayer.state) {
