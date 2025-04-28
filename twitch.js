@@ -1,10 +1,11 @@
 // Generate a client ID here: https://dev.twitch.tv/docs/authentication/register-app/
+// Note: Must be a confidential client for testing. Also copy the client ID into tests.py (if you change it)
 // Include these redirect URLs:
 // - https://twitch-vod-sync.github.io (for production)
 // - http://localhost:3000 (for local development)
 var headers = {
   'headers': {
-    'Client-ID': 'm0bgzop0z8m62bacx50hxh6v0rkiwe',
+    'Client-ID': 'hc34d86ir24j38431rkwlekw8wgesp',
   }
 }
 

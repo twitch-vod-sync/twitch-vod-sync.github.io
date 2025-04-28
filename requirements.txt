@@ -1,2 +1,3 @@
 selenium==4.10.*
+requests
 chromedriver-py
