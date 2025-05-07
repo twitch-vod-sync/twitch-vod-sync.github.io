@@ -59,17 +59,13 @@ window.onload = function() {
           playerElem = document.getElementById('player' + i)
         }
 
-        players.set(playerElem.id, new Player())
-        var form = playerElem.getElementsByTagName('form')[0]
         var videoIds = params.get('player' + i)
         if (videoIds.length > 0) {
+          players.set(playerElem.id, new Player())
+
           getVideosDetails(videoIds.split('-'))
-          .then(videos => loadVideos(form, videos))
-          .catch(r => {
-            var error = playerElem.getElementsByTagName('div')[0]
-            error.innerText = 'Could not process video "' + videoIds + '":\n' + r
-            error.style.display = null
-          })
+          .then(videos => loadVideos(playerElem.id, videos))
+          .catch(r => showText(playerElem.id, 'Could not process video "' + videoIds + '":\n' + r, /*isError*/true))
         }
       }
     })(i)
@@ -175,10 +171,7 @@ window.onload = function() {
       if (firstPlayingVideo != null) {
         if (event.key == ' ') firstPlayingVideo.pause()
         if (event.key == 'ArrowLeft')  seekPlayersTo(firstPlayingVideo.getCurrentTimestamp() - 10000, PLAYING)
-        if (event.key == 'ArrowRight') {
-          console.log('vodsync', 'arrowright', firstPlayingVideo.state, firstPlayingVideo.getCurrentTimestamp()) // TODO: I've been seeing bugs where the right arrow isn't always stepping forwards.
-          seekPlayersTo(firstPlayingVideo.getCurrentTimestamp() + 10000, PLAYING)
-        }
+        if (event.key == 'ArrowRight') seekPlayersTo(firstPlayingVideo.getCurrentTimestamp() + 10000, PLAYING)
       } else if (firstPausedVideo != null) {
         if (event.key == ' ') firstPausedVideo.play()
         if (event.key == 'ArrowLeft')  seekPlayersTo(firstPausedVideo.getCurrentTimestamp() - 10000, PAUSED)
@@ -199,41 +192,58 @@ function addPlayer() {
 
   var form = document.createElement('form')
   newPlayer.appendChild(form)
+  form.id = newPlayer.id + '-form'
+  form.style = 'display: flex; flex-direction: column; align-items: center'
   form.addEventListener('submit', searchVideo)
 
+  var inputAndButton = document.createElement('div')
+  form.appendChild(inputAndButton)
+
   var textInput = document.createElement('input')
-  form.appendChild(textInput)
+  inputAndButton.appendChild(textInput)
   textInput.setAttribute('type', 'text')
   textInput.setAttribute('name', 'video')
   textInput.setAttribute('placeholder', 'Twitch video URL')
 
   var submit = document.createElement('input')
-  form.appendChild(submit)
+  inputAndButton.appendChild(submit)
   submit.setAttribute('type', 'submit')
   submit.setAttribute('value', 'Watch')
 
-  var error = document.createElement('div')
-  newPlayer.appendChild(error)
-  error.style = 'color: red; padding: 10px; display: none'
+  var helpText = document.createElement('div')
+  form.appendChild(helpText)
+  helpText.id = newPlayer.id + '-text'
+  helpText.className = 'body-text'
 
   // If the form is still visible after 5 seconds, show a "help" hint about how to interact with this app.
   setTimeout(() => {
-    if (form.style.display == 'none') return // Already interacted & input a video
-
-    var help = document.createElement('div')
-    newPlayer.appendChild(help)
-    help.style = 'padding: 10px'
-    help.className = 'body-text'
-    help.innerText = 'Enter a Twitch video url to watch in sync with the others. More details in '
+    if (helpText.style.display != 'none') return // Other info text is displaying
+    helpText.style = 'padding: 10px'
+    helpText.innerText = 'Enter a Twitch video url to watch in sync with the others. More details in '
 
     var readme = document.createElement('a')
-    help.appendChild(readme)
+    helpText.appendChild(readme)
     readme.href = 'https://github.com/twitch-vod-sync/twitch-vod-sync.github.io/?tab=readme-ov-file#twitch-vod-sync'
     readme.target = '_blank'
     readme.innerText = 'the readme'
   }, 10000)
 
   resizePlayers()
+}
+
+function showText(playerId, message, isError) {
+  if (isError) debugger;
+  var error = document.getElementById(playerId + '-text')
+  if (error == null) debugger;
+  if (message == null) {
+    error.innerText = ''
+    error.style.color = null
+    error.style.display = 'none'
+  } else {
+    error.innerText = message
+    error.style.color = isError ? 'red' : null
+    error.style.display = null
+  }
 }
 
 function removePlayer() {
@@ -261,7 +271,7 @@ function removePlayer() {
 
     // Remove and re-add the div to show the video picker form
     player.remove()
-    addPlayer()
+    window.addPlayer()
   }
 }
 
@@ -299,30 +309,50 @@ function resizePlayers() {
   }
 }
 
-const VIDEO_ID_MATCH =   /^(?:https?:\/\/(?:www\.|m\.)?twitch\.tv\/videos\/)?([0-9]+)(?:\?.*)?$/
-const CHANNEL_ID_MATCH = /^(?:https?:\/\/(?:www\.|m\.)?twitch\.tv\/)?([a-zA-Z0-9]\w+)\/?(?:\?.*)?$/
+const RACETIME_GG_MATCH = /^(?:https?:\/\/(?:www\.)?racetime\.gg)\/([a-z0-9-]+\/[a-z0-9-]+)(?:\/.*)?$/
+const VIDEO_ID_MATCH    = /^(?:https?:\/\/(?:www\.|m\.)?twitch\.tv\/videos\/)?([0-9]+)(?:\?.*)?$/
+const CHANNEL_ID_MATCH  = /^(?:https?:\/\/(?:www\.|m\.)?twitch\.tv\/)?([a-zA-Z0-9]\w+)\/?(?:\?.*)?$/
 function searchVideo(event) {
   event.preventDefault()
 
   var form = event.target
-  var error = form.parentElement.getElementsByTagName('div')[0]
-  error.style.display = 'none'
-  error.innerText = ''
+  var formText = form.elements['video'].value
+  var playerId = form.parentElement.id
+  showText(playerId, null)
 
-  // First, check to see if the user provided a direct video link
-  var m = form.elements['video'].value.match(VIDEO_ID_MATCH)
+  // Check to see if this is a racetime link
+  var m = formText.match(RACETIME_GG_MATCH)
   if (m != null) {
-    getVideosDetails([m[1]])
-    .then(videos => loadVideos(form, videos))
-    .catch(r => {
-      error.innerText = 'Could not process video "' + m[1] + '":\n' + r
-      error.style.display = null
+    var videosToLoad = FEATURES.MAX_PLAYERS - players.size // We will persist any already-loaded videos
+
+    getRaceDetails(m[1])
+    .then(race => {
+      return loadRaceVideos(race, videosToLoad)
+      .then(videos => {
+        for (var i = 0; i < FEATURES.MAX_PLAYERS; i++) {
+          if (videos.length === 0) break
+          if (players.has('player' + i)) continue
+          while (document.getElementById('player' + i) == null) window.addPlayer()
+          loadVideos('player' + i, [videos.shift()])
+        }
+      })
+      .then(seekPlayersTo(race.startTime, PAUSED)) // TODO: Uh, I don't think this works. The players haven't loaded yet :)
     })
+    .catch(r => showText(playerId, 'Could not load race "' + m[1] + '":\n' + r, /*isError*/true))
     return
   }
 
-  // Otherwise, check to see if it's a channel (in which case we can look for a matching video)
-  m = form.elements['video'].value.match(CHANNEL_ID_MATCH)
+  // Check to see if the user provided a direct video link
+  m = formText.match(VIDEO_ID_MATCH)
+  if (m != null) {
+    getVideosDetails([m[1]])
+    .then(videos => loadVideos(playerId, videos))
+    .catch(r => showText(playerId, 'Could not process video "' + m[1] + '":\n' + r, /*isError*/true))
+    return
+  }
+
+  // Check to see if it's a channel (in which case we can look for a matching video)
+  m = formText.match(CHANNEL_ID_MATCH)
   if (m != null) {
     getChannelVideos(m[1])
     .then(videos => {
@@ -349,31 +379,25 @@ function searchVideo(event) {
       }
 
       if (bestVideo != null) {
-        loadVideos(form, [bestVideo]) // TODO: Load all matching videos once the player can handle multiple videos
+        loadVideos(playerId, [bestVideo]) // TODO: Load all matching videos once the player can handle multiple videos
         return
       }
 
       // If we have no timeline (or there was no overlap), show a video picker so the user can select what they want.
-      showVideoPicker(form, videos)
+      showVideoPicker(playerId, videos)
     })
-    .catch(r => {
-      error.innerText = 'Could not process channel "' + m[1] + '":\n' + r
-      error.style.display = null
-    })
+    .catch(r => showText(playerId, 'Could not process channel "' + m[1] + '":\n' + r, /*isError*/true))
     return
   }
 
-  error.innerText = 'Could not parse video or channel name from input'
-  error.style.display = null
+  showText(playerId, 'Could not parse input "' + formText + "'", /*isError*/true)
 }
 
-function showVideoPicker(form, videos) {
-  form.style.display = 'none'
-  var help = form.parentElement.getElementsByTagName('div')[1]
-  if (help != null) help.style.display = 'none'
+function showVideoPicker(playerId, videos) {
+  showText(playerId, null)
   
   var videoGrid = document.createElement('div')
-  form.parentElement.appendChild(videoGrid)
+  document.getElementById(playerId).appendChild(videoGrid)
   videoGrid.style = 'display: flex; flex-wrap: wrap; gap: 10px; width: 980px' // Need to set a width to get 3 per line
 
   for (var i = 0; i < 9; i++) {
@@ -387,7 +411,7 @@ function showVideoPicker(form, videos) {
       videoImg.style = 'width: 320px; height: 180px; object-fit: cover; object-position: top; cursor: pointer'
       videoImg.onclick = function() {
         videoGrid.remove()
-        loadVideos(form, [videos[i]])
+        loadVideos(playerId, [videos[i]])
       }
     })(i)
   }
@@ -395,12 +419,11 @@ function showVideoPicker(form, videos) {
 
 
 var players = new Map()
-function loadVideos(form, videos) {
-  var help = form.parentElement.getElementsByTagName('div')[1]
-  if (help != null) help.style.display = 'none'
+function loadVideos(playerId, videos) {
+  showText(playerId, 'Loading video...')
 
-  form.style.display = 'none'
-  var div = form.parentElement
+  document.getElementById(playerId + '-form').style.display = 'none' // TODO: Doesn't this hide the text I just added?
+  var div = document.getElementById(playerId)
 
   // Update displayed query params for this new video
   var params = new URLSearchParams(window.location.search)
@@ -697,7 +720,7 @@ function reloadTimeline() {
   timeline.appendChild(add)
   add.style = 'width: 1.5em; height: 1.5em; border: 0'
   add.innerText = '+'
-  add.addEventListener('pointerdown', () => addPlayer())
+  add.addEventListener('pointerdown', () => window.addPlayer())
 
   var graphic = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
   labels.appendChild(graphic)

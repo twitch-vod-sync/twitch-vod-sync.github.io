@@ -1,19 +1,21 @@
+(() => { // namespace to keep our own copy of 'headers'
+
 // Generate a client ID here: https://dev.twitch.tv/docs/authentication/register-app/
-// Note: Must be a confidential client for testing. Also copy the client ID into tests.py (if you change it)
+// Note: Must be a public client to include the localhost:3000 url.
+// Note: This is not the same ID as used by tests. The tests use a confidential client for auth purposes.
 // Include these redirect URLs:
 // - https://twitch-vod-sync.github.io (for production)
 // - http://localhost:3000 (for local development)
 var headers = {
-  'headers': {
-    'Client-ID': 'hc34d86ir24j38431rkwlekw8wgesp',
-  }
+  'Client-ID': 'm0bgzop0z8m62bacx50hxh6v0rkiwe',
+  'User-Agent': 'TwitchVodSync/2.0 (https://github.com/twitch-vod-sync/twitch-vod-sync.github.io; https://github.com/twitch-vod-sync/twitch-vod-sync.github.io/issues)',
 }
 
-function setTwitchTokenHeader(token) {
-  headers['headers']['Authorization'] = 'Bearer ' + token
+window.setTwitchTokenHeader = function(token) {
+  headers['Authorization'] = 'Bearer ' + token
 }
 
-function showTwitchRedirect() {
+window.showTwitchRedirect = function() {
   var authPrefs = window.localStorage.getItem('authPrefs')
   if (authPrefs == 'autoRedirect') {
     doTwitchRedirect()
@@ -44,7 +46,7 @@ function doTwitchRedirect(event) {
   // Note that this encodes the current hostname so that we can return to where we came from (e.g. dev vs production)
   window.location.href =
     'https://id.twitch.tv/oauth2/authorize' +
-    '?client_id=' + headers['headers']['Client-ID'] +
+    '?client_id=' + headers['Client-ID'] +
     '&redirect_uri=' + encodeURIComponent(window.location.origin) +
     '&response_type=token' +
     '&scope='
@@ -79,9 +81,9 @@ function parseVideo(videoDetails) {
   }
 }
 
-function getVideosDetails(videoIds) {
+window.getVideosDetails = function(videoIds) {
   // e.g. 'https://api.twitch.tv/helix/videos?id=1234&id=5678'
-  return fetch('https://api.twitch.tv/helix/videos?id=' + videoIds.join('&id='), headers)
+  return fetch('https://api.twitch.tv/helix/videos?id=' + videoIds.join('&id='), {'headers': headers})
   .then(r => {
     if (r.status == 401) showTwitchRedirect()
     if (r.status != 200) return Promise.reject('HTTP request failed: ' + r.status)
@@ -93,8 +95,8 @@ function getVideosDetails(videoIds) {
   })
 }
 
-function getChannelVideos(channelName) {
-  return fetch('https://api.twitch.tv/helix/users?login=' + channelName, headers)
+window.getChannelVideos = function(channelName) {
+  return fetch('https://api.twitch.tv/helix/users?login=' + channelName, {'headers': headers})
   .then(r => {
     if (r.status == 401) showTwitchRedirect()
     if (r.status != 200) return Promise.reject('HTTP request failed: ' + r.status)
@@ -103,7 +105,7 @@ function getChannelVideos(channelName) {
   .then(r => {
     if (r.data.length === 0) return Promise.reject('Could not load channel')
     var channelId = r.data[0].id
-    return fetch('https://api.twitch.tv/helix/videos?type=archive&sort=time&user_id=' + channelId, headers)
+    return fetch('https://api.twitch.tv/helix/videos?type=archive&sort=time&user_id=' + channelId, {'headers': headers})
   })
   .then(r => {
     if (r.status == 401) showTwitchRedirect()
@@ -115,3 +117,4 @@ function getChannelVideos(channelName) {
     return r.data.map(video => parseVideo(video))
   })
 }
+})()
