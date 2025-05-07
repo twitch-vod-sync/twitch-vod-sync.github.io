@@ -23,8 +23,12 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - run: pip install -r requirements.txt
-    - run: google-chrome --version
-    - run: pip install -r chromedriver-py=135
+    - run: |
+        $chrome = "C:\Program Files\Google\Chrome\Application\chrome.exe"
+        $version = (Get-Item $chrome).VersionInfo.FileVersion
+        $major = $version.Split(".")[0]
+        Write-Host "Found chrome version $version (major: $major), installing..."
+        pip install -r chromedriver-py=$major
     - run: python -u tests.py
       env:
         TWITCH_TOKEN: ${{ secrets.TWITCH_TOKEN }}
