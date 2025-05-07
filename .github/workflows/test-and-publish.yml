@@ -23,6 +23,8 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - run: pip install -r requirements.txt
+    - run: google-chrome-stable --version
+    - run: pip install -r chromedriver-py=135
     - run: python -u tests.py
       env:
         TWITCH_TOKEN: ${{ secrets.TWITCH_TOKEN }}
