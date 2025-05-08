@@ -75,6 +75,11 @@ window.onload = function() {
     })(i)
   }
 
+  // Handle this after video IDs since we want to preserve videos (e.g. async alongside a race)
+  if (params.has('race')) {
+    loadRace(params.get('race'))
+  }
+
   window.addEventListener('resize', resizePlayers)
 
   // Auto-update the timeline cursor and label so they stay up to date with the current videos
@@ -327,22 +332,7 @@ function searchVideo(event) {
   // Check to see if this is a racetime link
   var m = formText.match(RACETIME_GG_MATCH)
   if (m != null) {
-    var videosToLoad = FEATURES.MAX_PLAYERS - players.size // We will persist any already-loaded videos
-
-    getRaceDetails(m[1])
-    .then(race => {
-      return loadRaceVideos(race, videosToLoad)
-      .then(videos => {
-        for (var i = 0; i < FEATURES.MAX_PLAYERS; i++) {
-          if (videos.length === 0) break
-          if (players.has('player' + i)) continue
-          while (document.getElementById('player' + i) == null) window.addPlayer()
-          loadVideos('player' + i, [videos.shift()])
-        }
-      })
-      .then(seekPlayersTo(race.startTime, PAUSED)) // TODO: Uh, I don't think this works. The players haven't loaded yet :)
-    })
-    .catch(r => showText(playerId, 'Could not load race "' + m[1] + '":\n' + r, /*isError*/true))
+    loadRace(m[1])
     return
   }
 
@@ -421,7 +411,6 @@ function showVideoPicker(playerId, videos) {
   }
 }
 
-
 var players = new Map()
 function loadVideos(playerId, videos) {
   showText(playerId, 'Loading video...')
@@ -478,15 +467,49 @@ function loadVideos(playerId, videos) {
       if (timestamp < thisPlayer.startTime) timestamp = thisPlayer.startTime
       seekPlayersTo(timestamp, PAUSED)
     } else if (!anyVideoStillLoading) {
-      // If nobody is playing or paused, and everyone is done loading (we're last to load), then sync all videos to the earliest timestamp.
-      var earliestSync = 0
-      for (var player of players.values()) {
-        if (player.startTime > earliestSync) earliestSync = player.startTime
+      // If we loaded from a race, sync all videos to the race start
+      var syncTo = raceStartTime || 0
+
+      // Otherwise, sync all videos to the latest startTime (i.e. the earliest valid time for all videos).
+      if (syncTo == 0) {
+        for (var player of players.values()) {
+          if (player.startTime > syncTo) syncTo = player.startTime
+        }
       }
       console.log('vodsync', thisPlayer.id, 'was last to load, syncing all videos to', earliestSync)
       seekPlayersTo(earliestSync, PAUSED)
     }
   }
+}
+
+var raceStartTime = null
+function loadRace(raceUrl) {
+  return getRaceDetails(raceUrl)
+  .then(race => {
+    raceStartTime = race.startTime
+    var videosToLoad = FEATURES.MAX_PLAYERS - players.size // Persist any already-loaded videos
+    return loadRaceVideos(race, videosToLoad)
+  })
+  .then(videos => {
+    // Add the race URL to the query params in case we haven't done twitch auth yet;
+    // we might get redirected to twitch while loading videos and lose the race details.
+    var params = new URLSearchParams(window.location.search)
+    params.set('race', raceUrl)
+    history.pushState(null, null, '?' + params.toString())
+
+    for (var i = 0; i < FEATURES.MAX_PLAYERS; i++) {
+      if (videos.length === 0) break
+      if (players.has('player' + i)) continue
+      while (document.getElementById('player' + i) == null) window.addPlayer()
+      loadVideos('player' + i, [videos.shift()])
+    }
+
+    // Now that all the videos are loaded, drop the race from the URL.
+    var params = new URLSearchParams(window.location.search)
+    params.delete('race', raceUrl)
+    history.pushState(null, null, '?' + params.toString())
+  })
+  .catch(r => showText(playerId, 'Could not load race "' + m[1] + '":\n' + r, /*isError*/true))
 }
 
 // TODO: make some kind of github report out of the event log, like Presently does
