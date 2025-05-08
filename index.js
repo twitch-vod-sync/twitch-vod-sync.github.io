@@ -476,8 +476,8 @@ function loadVideos(playerId, videos) {
           if (player.startTime > syncTo) syncTo = player.startTime
         }
       }
-      console.log('vodsync', thisPlayer.id, 'was last to load, syncing all videos to', earliestSync)
-      seekPlayersTo(earliestSync, PAUSED)
+      console.log('vodsync', thisPlayer.id, 'was last to load, syncing all videos to', syncTo)
+      seekPlayersTo(syncTo, PAUSED)
     }
   }
 }
