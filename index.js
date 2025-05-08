@@ -27,6 +27,10 @@ window.onload = function() {
     authToken = params.get('access_token')
     window.localStorage.setItem('twitchAuthToken', authToken)
     window.location.hash = ''
+
+    // Additional param (which won't ever come from twitch) that is used to override the client_id in tests.
+    // The tests need a confidential client (to do auth server-side) but the product needs a native client (to have a localhost redirect).
+    if (params.has('client_id')) window.overrideTwitchClientId(params.get('client_id'))
   } else {
     authToken = window.localStorage.getItem('twitchAuthToken')
   }
@@ -39,7 +43,7 @@ window.onload = function() {
   setTwitchTokenHeader(authToken)
 
   // Once auth is sorted out, load any videos from the query parameters (or the stashed parameters).
-  var params = null;
+  var params = null
   if (window.localStorage.getItem('queryParams') != null) {
     params = new URLSearchParams(window.localStorage.getItem('queryParams'))
     window.localStorage.removeItem('queryParams')

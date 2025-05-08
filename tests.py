@@ -24,9 +24,10 @@ class UITests:
     client_secret = os.environ.get('TWITCH_TOKEN', None)
     if not client_secret:
       client_secret = Path('client_secret.txt').open('r').read() # Local testing
+    self.client_id = 'hc34d86ir24j38431rkwlekw8wgesp' # Confidential client
     r = requests.post('https://id.twitch.tv/oauth2/token', params={
       'grant_type': 'client_credentials',
-      'client_id': 'hc34d86ir24j38431rkwlekw8wgesp',
+      'client_id': self.client_id,
       'client_secret': client_secret,
     })
     self.access_token = r.json()['access_token']
@@ -53,7 +54,7 @@ class UITests:
     params = {}
     for i, video_id in enumerate(video_ids):
       url += f'&player{i}={video_id}'
-    url += f'#access_token={self.access_token}'
+    url += f'#access_token={self.access_token}&client_id={self.client_id}'
     self.driver.get(url)
 
     # Wait for all players to load and reach the 'pause' state

@@ -15,6 +15,10 @@ window.setTwitchTokenHeader = function(token) {
   headers['Authorization'] = 'Bearer ' + token
 }
 
+window.overrideTwitchClientId = function(clientId) {
+  headers['Client-ID'] = clientId
+}
+
 window.showTwitchRedirect = function() {
   var authPrefs = window.localStorage.getItem('authPrefs')
   if (authPrefs == 'autoRedirect') {
