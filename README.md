@@ -1,3 +1,5 @@
+![Tests](https://img.shields.io/github/actions/workflow/status/twitch-vod-sync/twitch-vod-sync.github.io/test-and-publish.yml?label=Tests)
+
 [Twitch VOD Sync](https://twitch-vod-sync.github.io/twitch-vod-sync.github.io)
 ----
 
