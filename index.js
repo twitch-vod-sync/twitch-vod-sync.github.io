@@ -77,7 +77,10 @@ window.onload = function() {
 
   // Handle this after video IDs since we want to preserve videos (e.g. async alongside a race)
   if (params.has('race')) {
-    loadRace(params.get('race'))
+    var m = params.get('race').match(RACETIME_GG_MATCH)
+    if (m != null) {
+      loadRace(m[1])
+    }
   }
 
   window.addEventListener('resize', resizePlayers)
@@ -318,9 +321,12 @@ function resizePlayers() {
   }
 }
 
-const RACETIME_GG_MATCH = /^(?:https?:\/\/(?:www\.)?racetime\.gg)\/([a-z0-9-]+\/[a-z0-9-]+)(?:\/.*)?$/
-const VIDEO_ID_MATCH    = /^(?:https?:\/\/(?:www\.|m\.)?twitch\.tv\/videos\/)?([0-9]+)(?:\?.*)?$/
-const CHANNEL_ID_MATCH  = /^(?:https?:\/\/(?:www\.|m\.)?twitch\.tv\/)?([a-zA-Z0-9]\w+)\/?(?:\?.*)?$/
+const RACETIME_GG_MATCH     = /^(?:https?:\/\/)(?:www\.)?racetime\.gg\/([a-z0-9-]+\/[a-z0-9-]+)(?:\/.*)?(?:\?.*)?$/
+const SPEEDRUNSLIVE_MATCH   = /^(?:https?:\/\/)(?:www\.)?speedrunslive\.com\/races\/result\/([0-9]+)(?:\/.*)?(?:\?.*)?$/
+const YOUTUBE_VIDEO_MATCH   = /^(?:https:\/\/(?:www\.)?(?:m\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/))?([0-9A-Za-z_-]{10}[048AEIMQUYcgkosw])(?:\?.*)?$/
+const YOUTUBE_CHANNEL_MATCH = /^$/ // TODO: Not sure how to parse these. Twitch and youtube look very similar by just "channel name"
+const TWITCH_VIDEO_MATCH    = /^(?:https?:\/\/(?:www\.)?(?:m\.)?twitch\.tv\/videos\/)?([0-9]+)(?:\?.*)?$/
+const TWITCH_CHANNEL_MATCH  = /^(?:https?:\/\/(?:www\.)?(?:m\.)?twitch\.tv\/)?([a-zA-Z0-9]\w+)\/?(?:\?.*)?$/
 function searchVideo(event) {
   event.preventDefault()
 
@@ -333,11 +339,12 @@ function searchVideo(event) {
   var m = formText.match(RACETIME_GG_MATCH)
   if (m != null) {
     loadRace(m[1])
+    .catch(r => showText(playerId, 'Could not load race "' + m[1] + '":\n' + r, /*isError*/true))
     return
   }
 
   // Check to see if the user provided a direct video link
-  m = formText.match(VIDEO_ID_MATCH)
+  m = formText.match(TWITCH_VIDEO_MATCH)
   if (m != null) {
     getVideosDetails([m[1]])
     .then(videos => loadVideos(playerId, videos))
@@ -346,7 +353,7 @@ function searchVideo(event) {
   }
 
   // Check to see if it's a channel (in which case we can look for a matching video)
-  m = formText.match(CHANNEL_ID_MATCH)
+  m = formText.match(TWITCH_CHANNEL_MATCH)
   if (m != null) {
     getChannelVideos(m[1])
     .then(videos => {
@@ -509,7 +516,6 @@ function loadRace(raceUrl) {
     params.delete('race', raceUrl)
     history.pushState(null, null, '?' + params.toString())
   })
-  .catch(r => showText(playerId, 'Could not load race "' + m[1] + '":\n' + r, /*isError*/true))
 }
 
 // TODO: make some kind of github report out of the event log, like Presently does
