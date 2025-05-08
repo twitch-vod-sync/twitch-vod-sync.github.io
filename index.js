@@ -1,10 +1,12 @@
 var FEATURES = {
   'HIDE_ENDING_TIMES': true,
   'MAX_PLAYERS': 6,
+  'MIN_PLAYERS': 2,
 }
 
-var MIN_PLAYERS = 2
-var ASYNC_ALIGN = 1500000000000 // An arbitrary timestamp where we align videos while async-ing. Still considerably lower than Number.MAX_SAFE_INTEGER.
+// An arbitrary timestamp where we align videos while async-ing. Still considerably lower than Number.MAX_SAFE_INTEGER.
+// This is somewhere in 2017. It doesn't really matter; videos offsets can be positive, too.
+var ASYNC_ALIGN = 1500000000000
 window.onload = function() {
   // There's a small chance we didn't get a 'page closing' event fired, so if this setting is still set and we have a token,
   // delete the localstorage so we show the prompt again.
@@ -263,7 +265,7 @@ function removePlayer() {
 
   // If the last player div is empty, and there's >2 players, remove the div
   var player = playersDiv.childNodes[playersDiv.childElementCount - 1]
-  if (playersDiv.childElementCount > MIN_PLAYERS && !players.has(player.id)) {
+  if (playersDiv.childElementCount > FEATURES.MIN_PLAYERS && !players.has(player.id)) {
     player.remove()
     resizePlayers()
     
@@ -768,7 +770,7 @@ function reloadTimeline() {
 
     var rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
     graphic.appendChild(rect)
-    rect.setAttribute('fill', TIMELINE_COLORS[i])
+    rect.setAttribute('fill', TIMELINE_COLORS[i % FEATURES.MAX_PLAYERS])
     rect.setAttribute('height', rowHeight + '%')
     rect.setAttribute('y', i * rowHeight + '%')
 
