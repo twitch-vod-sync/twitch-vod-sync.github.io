@@ -1,5 +1,6 @@
 import importlib
 import inspect
+import json
 import math
 import os
 import sys
@@ -42,14 +43,18 @@ class UITests:
     service = webdriver.chrome.service.Service(
       executable_path=chromedriver_py.binary_path,
       service_args=['--log-level=ALL'],
-      log_path=self.tmp_folder / 'chrome_logs.txt',
     )
     self.driver = webdriver.Chrome(options=options, service=service)
 
   def teardown(self):
     self.driver.close()
+    
+  def on_failure(self):
+    self.print_event_log()
+    self.print_chrome_log()
+    self.screenshot()
 
-  def loadPage(self, *video_ids):
+  def load_page(self, *video_ids):
     url = 'http://localhost:3000?authPrefs=neverSave'
     params = {}
     for i, video_id in enumerate(video_ids):
@@ -104,6 +109,10 @@ class UITests:
       if len(event) > 4:
         log_event.append(event[4])
       print('\t'.join(map(str, log_event)))
+      
+  def print_chrome_log(self):
+    for log in self.driver.get_log('browser'):
+      print('%d\t%s\t%s' % (log['timestamp'], log['level'], log['message']))
 
   def run(self, script):
     return self.driver.execute_script(script)
@@ -126,7 +135,7 @@ class UITests:
   #############
 
   def testLoadAndSyncStart(self):
-    self.loadPage('2444833212', '2444833835')
+    self.load_page('2444833212', '2444833835')
     self.run('players.get("player0").play()')
     self.wait_for_state('player0', 'PLAYING')
     self.wait_for_state('player1', 'PLAYING')
@@ -134,7 +143,7 @@ class UITests:
     self.assert_videos_synced()
 
   def testSeek(self):
-    self.loadPage('2444833212', '2444833835')
+    self.load_page('2444833212', '2444833835')
     # Simulate a user's seek by using the internal player.
     self.run('players.get("player1")._player.seek(20.0)')
     self.wait_for_state('player0', 'PAUSED')
@@ -162,14 +171,12 @@ if __name__ == '__main__':
     try:
       test_class.setup()
       test[1]()
+      test_class.teardown()
     except Exception:
       print('!!!', test[0], 'failed:')
       traceback.print_exc()
-      test_class.print_event_log()
-      test_class.screenshot()
+      test_class.on_failure()
       sys.exit(-1)
-    finally:
-      test_class.teardown()
 
     print('===', test[0], 'passed')
   print('\nAll tests passed')
