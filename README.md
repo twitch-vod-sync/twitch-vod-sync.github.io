@@ -8,6 +8,7 @@ This app is *not* for watching live streams. If you want to watch multiple lives
 ## Features
 - Watch up to 6 streams at the same time (use the + and - buttons next to the timeline)
 - Enter streams by ID or by channel name (if you've already entered one video, it will find overlapping videos from another channel)
+  - You can also enter race URLs from racetime.gg and it will automatically load the top 6 finishes
 - Control streams using the native Twitch player controls (left/right, play/pause, or seek with the timeline)
 - Share the URL with others to share the same videos
 - The timeline will hide video end times by default (to avoid spoilers). You can click on the timeline and press 'h' to toggle this functionality.
