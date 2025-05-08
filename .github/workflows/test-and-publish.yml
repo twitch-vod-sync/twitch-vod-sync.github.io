@@ -53,6 +53,7 @@ jobs:
         mkdir pages
         cp *.js pages/
         cp *.html pages/
+        cp favicon.ico pages/
     - uses: actions/upload-pages-artifact@v3
       with:
         path: pages/
