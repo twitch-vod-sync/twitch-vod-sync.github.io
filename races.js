@@ -2,7 +2,6 @@
 
 // For now, I have just integrated with racetime.gg. If we need more integration, we might need more auth.
 var headers = {
-  'User-Agent': 'TwitchVodSync/2.0 (https://github.com/twitch-vod-sync/twitch-vod-sync.github.io; https://github.com/twitch-vod-sync/twitch-vod-sync.github.io/issues)',
 }
 
 window.getRaceDetails = function(raceId) {

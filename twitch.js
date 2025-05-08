@@ -8,7 +8,6 @@
 // - http://localhost:3000 (for local development)
 var headers = {
   'Client-ID': 'm0bgzop0z8m62bacx50hxh6v0rkiwe',
-  'User-Agent': 'TwitchVodSync/2.0 (https://github.com/twitch-vod-sync/twitch-vod-sync.github.io; https://github.com/twitch-vod-sync/twitch-vod-sync.github.io/issues)',
 }
 
 window.setTwitchTokenHeader = function(token) {
