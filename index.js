@@ -81,7 +81,14 @@ window.onload = function() {
   if (params.has('race')) {
     var m = params.get('race').match(RACETIME_GG_MATCH)
     if (m != null) {
-      loadRace(m[1])
+      getRacetimeRaceDetails(m[1])
+      .then(raceDetails => loadRace(raceDetails))
+    }
+
+    m = params.get('race').match(SPEEDRUNSLIVE_MATCH)
+    if (m != null) {
+      getSRLRaceDetails(m[1])
+      .then(raceDetails => loadRace(raceDetails))
     }
   }
 
@@ -340,8 +347,17 @@ function searchVideo(event) {
   // Check to see if this is a racetime link
   var m = formText.match(RACETIME_GG_MATCH)
   if (m != null) {
-    loadRace(m[1])
-    .catch(r => showText(playerId, 'Could not load race "' + m[1] + '":\n' + r, /*isError*/true))
+    getRacetimeRaceDetails(m[1])
+    .then(raceDetails => loadRace(raceDetails))
+    .catch(r => showText(playerId, 'Could not load racetime.gg race "' + m[1] + '":\n' + r, /*isError*/true))
+    return
+  }
+
+  m = formText.match(SPEEDRUNSLIVE_MATCH)
+  if (m != null) {
+    getSRLRaceDetails(m[1])
+    .then(raceDetails => loadRace(raceDetails))
+    .catch(r => showText(playerId, 'Could not load speedrunslive race "' + m[1] + '":\n' + r, /*isError*/true))
     return
   }
 
@@ -350,7 +366,7 @@ function searchVideo(event) {
   if (m != null) {
     getVideosDetails([m[1]])
     .then(videos => loadVideos(playerId, videos))
-    .catch(r => showText(playerId, 'Could not process video "' + m[1] + '":\n' + r, /*isError*/true))
+    .catch(r => showText(playerId, 'Could not process twitch video "' + m[1] + '":\n' + r, /*isError*/true))
     return
   }
 
@@ -393,7 +409,7 @@ function searchVideo(event) {
     return
   }
 
-  showText(playerId, 'Could not parse input "' + formText + "'", /*isError*/true)
+  showText(playerId, 'Could not parse input "' + formText + '"', /*isError*/true)
 }
 
 function showVideoPicker(playerId, videos) {
@@ -492,18 +508,21 @@ function loadVideos(playerId, videos) {
 }
 
 var raceStartTime = null
-function loadRace(raceUrl) {
-  return getRaceDetails(raceUrl)
-  .then(race => {
-    raceStartTime = race.startTime
-    var videosToLoad = FEATURES.MAX_PLAYERS - players.size // Persist any already-loaded videos
-    return loadRaceVideos(race, videosToLoad)
-  })
+function loadRace(raceDetails) {
+  raceStartTime = raceDetails.startTime
+  var videosToLoad = FEATURES.MAX_PLAYERS - players.size // Persist any already-loaded videos
+
+  // Add the race URL to the query params in case we haven't done twitch auth yet;
+  // we might get redirected to twitch while loading videos and lose the race details.
+  var params = new URLSearchParams(window.location.search)
+  params.set('race', raceDetails.url)
+  history.pushState(null, null, '?' + params.toString())
+
+  loadRaceVideos(raceDetails, videosToLoad)
   .then(videos => {
-    // Add the race URL to the query params in case we haven't done twitch auth yet;
-    // we might get redirected to twitch while loading videos and lose the race details.
+    // Now that all the videos are loaded, drop the race from the URL.
     var params = new URLSearchParams(window.location.search)
-    params.set('race', raceUrl)
+    params.delete('race')
     history.pushState(null, null, '?' + params.toString())
 
     for (var i = 0; i < FEATURES.MAX_PLAYERS; i++) {
@@ -512,11 +531,6 @@ function loadRace(raceUrl) {
       while (document.getElementById('player' + i) == null) window.addPlayer()
       loadVideos('player' + i, [videos.shift()])
     }
-
-    // Now that all the videos are loaded, drop the race from the URL.
-    var params = new URLSearchParams(window.location.search)
-    params.delete('race', raceUrl)
-    history.pushState(null, null, '?' + params.toString())
   })
 }
 

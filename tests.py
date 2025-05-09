@@ -95,7 +95,7 @@ class UITests:
       var [maxLoops, player, state, callback] = arguments
       var interval = setInterval(() => {
         if (--maxLoops == 0) clearInterval(interval)
-        if (players.get(player).state === state) {
+        if (players.has(player) && players.get(player).state === state) {
           clearInterval(interval)
           callback()
         }
@@ -156,6 +156,42 @@ class UITests:
     self.wait_for_state('player1', 'PLAYING')
     
     self.assert_videos_synced()
+
+  def testRaceInterrupt(self):
+    # We need to get a fresh race on each run, so that the VODs haven't expired.
+    # Fortunately, OOT randomizer is pretty active. If needed, we could query a few categories.
+    j = requests.get('https://racetime.gg/ootr/races/data').json()
+    race_id = j['races'][0]['url'][1:] # Starts with a '/' which breaks some of our code >.<
+    
+    j = requests.get(f'https://racetime.gg/{race_id}/data').json()
+    expected_channel_names = [e['user']['twitch_display_name'] for e in j['entrants']]
+    expected_timestamp = datetime.fromisoformat(j['started_at']).timestamp() * 1000
+
+    url = f'http://localhost:3000?race=https://racetime.gg/{race_id}#access_token=invalid'
+    self.driver.get(url)
+    
+    # The app will try to load the race, but the token is invalid -- so it will show the twitch popup.
+    # Wait for the twitch popup to be visible, then click the 'redirect me' button
+    WebDriverWait(self.driver, 5).until(EC.visibility_of_element_located((By.ID, 'twitchRedirectButton'))).click()
+
+    # This should now send us to twitch -- which we obviously shouldn't interact with :)
+    # Instead, simulate the redirect by sending the driver back to the callback url with our known token.
+    assert self.driver.current_url.startswith('https://www.twitch.tv/login')
+    url = f'http://localhost:3000#access_token={self.access_token}&client_id={self.client_id}'
+    self.driver.get(url)
+    self.wait_for_state('player0', 'PAUSED')
+
+    # Check that we loaded the right stream (per twitch names)
+    player0_name = self.run('return players.get("player0").streamer')
+    assert player0_name in expected_channel_names
+
+    # Start the first video to see if it's synced up (approximately) with the start of the race
+    time.sleep(1) # Wait for video to buffer (or something)
+    self.run('players.get("player0").play()')
+    self.wait_for_state('player0', 'PLAYING')
+
+    player0_timestamp = self.run('return players.get("player0").getCurrentTimestamp()')
+    assert abs(player0_timestamp - expected_timestamp) < 1000
 
 if __name__ == '__main__':
   test_class = UITests()

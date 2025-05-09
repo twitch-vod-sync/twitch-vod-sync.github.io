@@ -30,7 +30,7 @@ window.showTwitchRedirect = function() {
   document.getElementById('timeline').style.display = 'none'
 }
 
-function doTwitchRedirect(event) {
+window.doTwitchRedirect = function(event) {
   if (event != null) {
     event.preventDefault()
     var authPrefs = event.target.elements['authPrefs'].value
@@ -42,8 +42,8 @@ function doTwitchRedirect(event) {
     window.localStorage.removeItem('queryParams')
 
   // Otherwise, stash the query params before redirecting, as twitch only allows the base URL as a redirect.
-  } else if (window.location.query != null && window.location.query.length > 1) {
-    window.localStorage.setItem('queryParams', window.location.query)
+  } else if (window.location.search != null && window.location.search.length > 1) {
+    window.localStorage.setItem('queryParams', window.location.search)
   }
 
   // Note that this encodes the current hostname so that we can return to where we came from (e.g. dev vs production)
@@ -93,7 +93,7 @@ window.getVideosDetails = function(videoIds) {
     return r.json()
   })
   .then(r => {
-    if (r.data.length === 0) return Promise.reject('Could not load videos')
+    if (r.data.length === 0) return Promise.reject('Could not load any of these videos:' + videoIds.join(', '))
     return r.data.map(video => parseVideo(video))
   })
 }
@@ -106,7 +106,7 @@ window.getChannelVideos = function(channelName) {
     return r.json()
   })
   .then(r => {
-    if (r.data.length === 0) return Promise.reject('Could not load channel')
+    if (r.data.length === 0) return Promise.reject('Could not load channel ' + channelName)
     var channelId = r.data[0].id
     return fetch('https://api.twitch.tv/helix/videos?type=archive&sort=time&user_id=' + channelId, {'headers': headers})
   })
@@ -116,7 +116,7 @@ window.getChannelVideos = function(channelName) {
     return r.json()
   })
   .then(r => {
-    if (r.data.length === 0) return Promise.reject('Did not find any videos for this channel')
+    if (r.data.length === 0) return Promise.reject('Did not find any videos for channel ' + channelName)
     return r.data.map(video => parseVideo(video))
   })
 }
