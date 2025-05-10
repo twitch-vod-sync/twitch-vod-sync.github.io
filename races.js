@@ -20,40 +20,6 @@ window.getRacetimeRaceDetails = function(raceId) {
   })
 }
 
-window.getSRLRaceDetails = function(raceId) {
-  // e.g. 'https://www.speedrunslive.com/api/pastresults/289423'
-  return fetch('https://www.speedrunslive.com/api/pastresults/' + raceId, {'headers': headers})
-  .then(r => {
-    if (r.status != 200) return Promise.reject('HTTP request failed: ' + r.status)
-    return r.json()
-  })
-  .then(async r => {
-    var channels = []
-    for (var entrant of r.data.entrants) {
-      var channel = await getSRLTwitchChannel(entrant)
-      channels.push(channel)
-    }
-    
-    return {
-      'startTime': r.data.raceDate * 1000,
-      'channels': channels,
-      'url': 'https://www.speedrunslive.com/races/result/' + raceId, // Original race URL for query param caching purposes
-    }
-  })
-}
-
-function getSRLTwitchChannel(playerName) {
-  // e.g. 'https://www.speedrunslive.com/api/players/Midboss'
-  return fetch('https://www.speedrunslive.com/api/players/' + playerName, {'headers': headers})
-  .then(r => {
-    if (r.status != 200) return Promise.reject('HTTP request failed: ' + r.status)
-    return r.json()
-  })
-  .then(r => {
-    return r.data.channel
-  })
-}
-
 window.loadRaceVideos = async function(race, count) {
   var raceVideos = []
   for (var i = 0; i < race.channels.length; i++) {

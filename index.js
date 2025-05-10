@@ -84,12 +84,6 @@ window.onload = function() {
       getRacetimeRaceDetails(m[1])
       .then(raceDetails => loadRace(raceDetails))
     }
-
-    m = params.get('race').match(SPEEDRUNSLIVE_MATCH)
-    if (m != null) {
-      getSRLRaceDetails(m[1])
-      .then(raceDetails => loadRace(raceDetails))
-    }
   }
 
   window.addEventListener('resize', resizePlayers)
@@ -331,7 +325,6 @@ function resizePlayers() {
 }
 
 const RACETIME_GG_MATCH     = /^(?:https?:\/\/)(?:www\.)?racetime\.gg\/([a-z0-9-]+\/[a-z0-9-]+)(?:\/.*)?(?:\?.*)?$/
-const SPEEDRUNSLIVE_MATCH   = /^(?:https?:\/\/)(?:www\.)?speedrunslive\.com\/races\/result\/([0-9]+)(?:\/.*)?(?:\?.*)?$/
 const YOUTUBE_VIDEO_MATCH   = /^(?:https:\/\/(?:www\.)?(?:m\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/))?([0-9A-Za-z_-]{10}[048AEIMQUYcgkosw])(?:\?.*)?$/
 const YOUTUBE_CHANNEL_MATCH = /^$/ // TODO: Not sure how to parse these. Twitch and youtube look very similar by just "channel name"
 const TWITCH_VIDEO_MATCH    = /^(?:https?:\/\/(?:www\.)?(?:m\.)?twitch\.tv\/videos\/)?([0-9]+)(?:\?.*)?$/
@@ -350,14 +343,6 @@ function searchVideo(event) {
     getRacetimeRaceDetails(m[1])
     .then(raceDetails => loadRace(raceDetails))
     .catch(r => showText(playerId, 'Could not load racetime.gg race "' + m[1] + '":\n' + r, /*isError*/true))
-    return
-  }
-
-  m = formText.match(SPEEDRUNSLIVE_MATCH)
-  if (m != null) {
-    getSRLRaceDetails(m[1])
-    .then(raceDetails => loadRace(raceDetails))
-    .catch(r => showText(playerId, 'Could not load speedrunslive race "' + m[1] + '":\n' + r, /*isError*/true))
     return
   }
 
