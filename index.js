@@ -401,6 +401,10 @@ function searchVideo(event) {
 }
 
 function showVideoPicker(playerId, videos) {
+  // TODO: I started hiding the form so that '-' would clear the whole entry.
+  // This has the unfortunate side-effect of hiding the nice text I added.
+  // So, I think it's better to just keep the input picker visible so that the user can re-enter something else, if they want.
+  // That causes the further complication of cleaning up the video picker, but is a cleaner solution overall.
   showText(playerId, 'Unable to automatically determine video. Hover the images below to see the stream title then click to load the video.')
   document.getElementById(playerId + '-form').style.display = 'none'
 
