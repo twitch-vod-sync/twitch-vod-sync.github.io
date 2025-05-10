@@ -114,8 +114,11 @@ class UITests:
       
   def print_chrome_log(self):
     for log in self.driver.get_log('browser'):
-      print(log['message'].encode('utf-8'))
-      print(u'%d\t%s\t%s' % (log['timestamp'], log['level'], log['message']))
+      try:
+        print(u'%d\t%s\t%s' % (log['timestamp'], log['level'], log['message']))
+      except AttributeError as e:
+        print(e)
+        print(log['message'].encode('utf-8'))
 
   def run(self, script):
     return self.driver.execute_script(script)
