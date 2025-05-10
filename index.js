@@ -336,7 +336,10 @@ function searchVideo(event) {
   var form = event.target
   var formText = form.elements['video'].value
   var playerId = form.parentElement.id
-  showText(playerId, null)
+
+  // Prevent searching again if we're already trying to load something.
+  // Other text will be shown on success or failure
+  if (document.getElementById(playerId + '-text').innerText.startsWith('Loading')) return
 
   // Check to see if this is a racetime link
   var m = formText.match(RACETIME_GG_MATCH)
