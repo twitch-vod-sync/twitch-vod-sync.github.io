@@ -58,20 +58,16 @@ window.onload = function() {
   for (var i = 0; i < FEATURES.MAX_PLAYERS; i++) {
     // Copy the loop variable to avoid javascript lambda-in-loop bug
     ;((i) => {
-      if (params.has('player' + i)) {
-        var playerElem = document.getElementById('player' + i)
-        while (playerElem == null) {
-          window.addPlayer()
-          playerElem = document.getElementById('player' + i)
-        }
-
-        var videoIds = params.get('player' + i)
+      var playerId = 'player' + i
+      if (params.has(playerId)) {
+        var videoIds = params.get(playerId)
         if (videoIds.length > 0) {
-          players.set(playerElem.id, new Player())
+          while (document.getElementById(playerId) == null) window.addPlayer()
+          players.set(playerId, new Player())
 
           getVideosDetails(videoIds.split('-'))
-          .then(videos => loadVideos(playerElem.id, videos))
-          .catch(r => showText(playerElem.id, 'Could not process video "' + videoIds + '":\n' + r, /*isError*/true))
+          .then(videos => loadVideos(playerId, videos))
+          .catch(r => showText(playerId, 'Could not process video "' + videoIds + '":\n' + r, /*isError*/true))
         }
       }
     })(i)
@@ -250,7 +246,6 @@ function addPlayer() {
 function showText(playerId, message, isError) {
   if (isError) debugger;
   var error = document.getElementById(playerId + '-text')
-  if (error == null) debugger;
   if (message == null) {
     error.innerText = ''
     error.style.color = null
@@ -264,16 +259,17 @@ function showText(playerId, message, isError) {
 
 function removePlayer() {
   var playersDiv = document.getElementById('players')
-
-  // If the last player div is empty, and there's >2 players, remove the div
   var player = playersDiv.childNodes[playersDiv.childElementCount - 1]
-  if (playersDiv.childElementCount > FEATURES.MIN_PLAYERS && !players.has(player.id)) {
+  var playerHasContent = players.has(player.id) || document.getElementById(player.id + '-form').style.display == null
+
+  // If there's at least two players, and there's something showing in the last player, remove it
+  if (playersDiv.childElementCount > FEATURES.MIN_PLAYERS && playerFormShowing) {
     player.remove()
     resizePlayers()
     
   } else {
-    // If there's two players showing, delete the first one instead
-    if (!players.has(player.id)) player = playersDiv.childNodes[0]
+    // If there's two players and the second one has nothing showing, reset the first player instead
+    if (!playerFormShowing) player = playersDiv.childNodes[0]
 
     // Untrack the player and update the timeline
     players.delete(player.id)
@@ -285,7 +281,7 @@ function removePlayer() {
     params.delete(player.id + 'offset')
     history.pushState(null, null, '?' + params.toString())
 
-    // Remove and re-add the div to show the video picker form
+    // Reset the player to the video picker form by removing and readding.
     player.remove()
     window.addPlayer()
   }
