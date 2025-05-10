@@ -778,6 +778,7 @@ function reloadTimeline() {
     rect.setAttribute('height', rowHeight + '%')
     rect.setAttribute('y', i * rowHeight + '%')
 
+    console.log(videoDetails, timelineStart, timelineEnd)
     var start = 100.0 * (videoDetails.startTime - timelineStart) / (timelineEnd - timelineStart)
     var end = 100.0 * (videoDetails.endTime - timelineStart) / (timelineEnd - timelineStart)
     if (FEATURES.HIDE_ENDING_TIMES) end = 100.0 // Hide who won by right-justifying all video endings 
