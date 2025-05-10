@@ -227,11 +227,11 @@ function addPlayer() {
 
   var helpText = document.createElement('div')
   form.appendChild(helpText)
-  helpText.style = 'padding: 10px'
+  helpText.style = 'padding: 10px; display: none'
   helpText.id = newPlayer.id + '-text'
   helpText.className = 'body-text'
 
-  // If the form is still visible after 5 seconds, show a "help" hint about how to interact with this app.
+  // If the form is still visible after 10 seconds, show a "help" hint about how to interact with this app.
   setTimeout(() => {
     if (helpText.style.display != 'none') return // Other info text is displaying
     helpText.style = 'padding: 10px'
