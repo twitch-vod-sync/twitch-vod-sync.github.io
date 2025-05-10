@@ -443,12 +443,11 @@ function loadVideos(playerId, videos) {
   if (params.has(div.id + 'offset')) {
     player.offset = parseInt(params.get(div.id + 'offset'))
   }
-  reloadTimeline() // Note: This will get called several times in a row if we're loading multiple videos from query params. Whatever.
 
   player.eventSink = twitchEvent
-
   player.onready = (thisPlayer) => {
     console.log('vodsync', thisPlayer.id, 'has loaded')
+    reloadTimeline() // Note: This will get called several times in a row if we're loading multiple videos from query params. Whatever.
 
     // Check to see if we're the last player to load (from initial load)
     thisPlayer.state = READY
