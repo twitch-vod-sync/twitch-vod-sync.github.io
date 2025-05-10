@@ -227,6 +227,7 @@ function addPlayer() {
 
   var helpText = document.createElement('div')
   form.appendChild(helpText)
+  helpText.style = 'padding: 10px'
   helpText.id = newPlayer.id + '-text'
   helpText.className = 'body-text'
 
@@ -340,6 +341,7 @@ function searchVideo(event) {
   // Check to see if this is a racetime link
   var m = formText.match(RACETIME_GG_MATCH)
   if (m != null) {
+    showText(playerId, 'Loading race...')
     getRacetimeRaceDetails(m[1])
     .then(raceDetails => loadRace(raceDetails))
     .catch(r => showText(playerId, 'Could not load racetime.gg race "' + m[1] + '":\n' + r, /*isError*/true))
@@ -349,6 +351,7 @@ function searchVideo(event) {
   // Check to see if the user provided a direct video link
   m = formText.match(TWITCH_VIDEO_MATCH)
   if (m != null) {
+    showText(playerId, 'Loading video...')
     getVideosDetails([m[1]])
     .then(videos => loadVideos(playerId, videos))
     .catch(r => showText(playerId, 'Could not process twitch video "' + m[1] + '":\n' + r, /*isError*/true))
@@ -358,6 +361,7 @@ function searchVideo(event) {
   // Check to see if it's a channel (in which case we can look for a matching video)
   m = formText.match(TWITCH_CHANNEL_MATCH)
   if (m != null) {
+    showText(playerId, 'Loading channel videos...')
     getChannelVideos(m[1])
     .then(videos => {
       var currentTimestamp = getAveragePlayerTimestamp()
@@ -423,9 +427,7 @@ function showVideoPicker(playerId, videos) {
 
 var players = new Map()
 function loadVideos(playerId, videos) {
-  showText(playerId, 'Loading video...')
-
-  document.getElementById(playerId + '-form').style.display = 'none' // TODO: Doesn't this hide the text I just added?
+  document.getElementById(playerId + '-form').style.display = 'none'
   var div = document.getElementById(playerId)
 
   // Update displayed query params for this new video
