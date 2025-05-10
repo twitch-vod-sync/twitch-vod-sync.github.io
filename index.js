@@ -405,8 +405,9 @@ function searchVideo(event) {
 }
 
 function showVideoPicker(playerId, videos) {
-  showText(playerId, null)
-  
+  showText(playerId, 'Unable to automatically determine video. Hover the images below to see the stream title then click to load the video.')
+  document.getElementById(playerId + '-form').style.display = 'none'
+
   var videoGrid = document.createElement('div')
   document.getElementById(playerId).appendChild(videoGrid)
   videoGrid.style = 'display: flex; flex-wrap: wrap; gap: 10px; width: 980px' // Need to set a width to get 3 per line
