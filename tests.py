@@ -119,6 +119,9 @@ class UITests:
       except AttributeError as e:
         print(e)
         print(log['message'].encode('utf-8'))
+      except UnicodeEncodeError as e:
+        print(e)
+        print(log['message'])
 
   def run(self, script):
     return self.driver.execute_script(script)
