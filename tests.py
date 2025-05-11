@@ -173,7 +173,7 @@ class UITests:
     # Fortunately, OOT randomizer is pretty active. If needed, we could query a few categories.
     j = requests.get('https://racetime.gg/ootr/races/data').json()
     for race in j['races']:
-      if race['streaming_required']:
+      if race.get('streaming_required', True): # Streaming is required by default but some races override this
         race_id = race['url'][1:] # Starts with a '/' which breaks some of our code >.<
         break
     else:
