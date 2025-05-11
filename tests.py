@@ -118,10 +118,10 @@ class UITests:
         print(u'%d\t%s\t%s' % (log['timestamp'], log['level'], log['message']))
       except AttributeError as e:
         print(e)
-        print(log['message'].encode('utf-8'))
+        print(log['message'].encode('utf-8', errors='backslashreplace'))
       except UnicodeEncodeError as e:
         print(e)
-        print(log['message'])
+        print(log['message'].encode('utf-8', errors='backslashreplace'))
 
   def run(self, script):
     return self.driver.execute_script(script)
@@ -165,6 +165,7 @@ class UITests:
     self.wait_for_state('player0', 'PLAYING')
     self.wait_for_state('player1', 'PLAYING')
     
+    time.sleep(1) # ... does it maybe take time for player0 to enter a 'playing' state? idfk.
     self.assert_videos_synced()
 
   def testRaceInterrupt(self):
