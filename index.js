@@ -263,13 +263,13 @@ function removePlayer() {
   var playerHasContent = players.has(player.id) || document.getElementById(player.id + '-form').style.display == null
 
   // If there's at least two players, and there's something showing in the last player, remove it
-  if (playersDiv.childElementCount > FEATURES.MIN_PLAYERS && playerFormShowing) {
+  if (playersDiv.childElementCount > FEATURES.MIN_PLAYERS && playerHasContent) {
     player.remove()
     resizePlayers()
     
   } else {
     // If there's two players and the second one has nothing showing, reset the first player instead
-    if (!playerFormShowing) player = playersDiv.childNodes[0]
+    if (!playerHasContent) player = playersDiv.childNodes[0]
 
     // Untrack the player and update the timeline
     players.delete(player.id)
