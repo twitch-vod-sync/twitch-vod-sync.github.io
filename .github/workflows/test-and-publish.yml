@@ -3,6 +3,8 @@ on:
   push:
     branches: master
   workflow_dispatch:
+  schedule:
+    - cron: '43 21 * * *' # A little after noon (PST). Will slow down to weekly once the job is more stable.
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:

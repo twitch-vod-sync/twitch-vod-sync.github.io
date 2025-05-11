@@ -263,13 +263,13 @@ function removePlayer() {
   var playerHasContent = players.has(player.id) || document.getElementById(player.id + '-form').style.display == null
 
   // If there's at least two players, and there's something showing in the last player, remove it
-  if (playersDiv.childElementCount > FEATURES.MIN_PLAYERS && playerFormShowing) {
+  if (playersDiv.childElementCount > FEATURES.MIN_PLAYERS && playerHasContent) {
     player.remove()
     resizePlayers()
     
   } else {
     // If there's two players and the second one has nothing showing, reset the first player instead
-    if (!playerFormShowing) player = playersDiv.childNodes[0]
+    if (!playerHasContent) player = playersDiv.childNodes[0]
 
     // Untrack the player and update the timeline
     players.delete(player.id)
@@ -401,6 +401,10 @@ function searchVideo(event) {
 }
 
 function showVideoPicker(playerId, videos) {
+  // TODO: I started hiding the form so that '-' would clear the whole entry.
+  // This has the unfortunate side-effect of hiding the nice text I added.
+  // So, I think it's better to just keep the input picker visible so that the user can re-enter something else, if they want.
+  // That causes the further complication of cleaning up the video picker, but is a cleaner solution overall.
   showText(playerId, 'Unable to automatically determine video. Hover the images below to see the stream title then click to load the video.')
   document.getElementById(playerId + '-form').style.display = 'none'
 

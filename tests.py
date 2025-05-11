@@ -157,7 +157,10 @@ class UITests:
     self.run('players.get("player1")._player.seek(20.0)')
     self.wait_for_state('player0', 'PAUSED')
     self.wait_for_state('player1', 'PAUSED')
-    time.sleep(1) # Wait for the videos to buffer, or something. I'm not sure.
+
+    # We need the videos to be playing to call getCurrentTimestamp (thanks, twitch).
+    # As a result, we give the videos a little time to buffer before calling play()
+    time.sleep(5)
     self.run('players.get("player0").play()')
     self.wait_for_state('player0', 'PLAYING')
     self.wait_for_state('player1', 'PLAYING')
