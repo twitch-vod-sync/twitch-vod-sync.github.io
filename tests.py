@@ -172,7 +172,12 @@ class UITests:
     # We need to get a fresh race on each run, so that the VODs haven't expired.
     # Fortunately, OOT randomizer is pretty active. If needed, we could query a few categories.
     j = requests.get('https://racetime.gg/ootr/races/data').json()
-    race_id = j['races'][0]['url'][1:] # Starts with a '/' which breaks some of our code >.<
+    for race in j['races']:
+      if race.get('streaming_required', True): # Streaming is required by default but some races override this
+        race_id = race['url'][1:] # Starts with a '/' which breaks some of our code >.<
+        break
+    else:
+      raise ValueError('None of the OOTR races were suitable for a test')
     
     j = requests.get(f'https://racetime.gg/{race_id}/data').json()
     expected_channel_names = [e['user']['twitch_display_name'] for e in j['entrants']]
