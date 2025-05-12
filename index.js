@@ -1,5 +1,6 @@
 var FEATURES = {
   'HIDE_ENDING_TIMES': true,
+  'SHUFFLE_RACE_VIDEOS': false,
   'MAX_PLAYERS': 6,
   'MIN_PLAYERS': 2,
 }
@@ -510,16 +511,31 @@ function loadRace(raceDetails) {
 
   loadRaceVideos(raceDetails, videosToLoad)
   .then(videos => {
+    if (videos.length === 0) {
+      console.error('Failed to load any videos from race', raceDetails.url)
+      return
+    }
+
     // Now that all the videos are loaded, drop the race from the URL.
     var params = new URLSearchParams(window.location.search)
     params.delete('race')
     history.pushState(null, null, '?' + params.toString())
 
+    if (FEATURES.SHUFFLE_RACE_VIDEOS) {
+      // Shuffle the videos so we don't know who was first by position
+      // https://stackoverflow.com/a/46545530
+      videos = videos
+        .map(value => ({ value, sort: Math.random() }))
+        .sort((a, b) => a.sort - b.sort)
+        .map(({ value }) => value)
+    }
+
     for (var i = 0; i < FEATURES.MAX_PLAYERS; i++) {
       if (videos.length === 0) break
-      if (players.has('player' + i)) continue
-      while (document.getElementById('player' + i) == null) window.addPlayer()
-      loadVideos('player' + i, [videos.shift()])
+      var playerId = 'player' + i
+      if (players.has(playerId)) continue
+      while (document.getElementById(playerId) == null) window.addPlayer()
+      loadVideos(playerId, [videos.shift()])
     }
   })
 }
