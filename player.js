@@ -29,47 +29,49 @@ STATE_STRINGS = [
 // When a video ends, I want to leave it paused somewhere near the end screen -- so this value represents a safe point to seek to which avoids autoplay.
 const VIDEO_END_BUFFER = 15000
 
-class Player {
+class TwitchPlayer {
   constructor(divId, videos) {
     this.state = LOADING
+    if (videos == null || videos.length == 0) return
 
-    if (videos != null && videos.length > 0) {
-      var videoDetails = videos[0] // TODO: Support multiple videos here (everything else should be wired up)
-      this.streamer = videoDetails.streamer
-      this._startTime = videoDetails.startTime
-      this._endTime = videoDetails.endTime
-      this.offset = 0
-      this.id = divId
+    var videoDetails = videos[0] // TODO: Support multiple videos here (everything else should be wired up)
+    this.streamer = videoDetails.streamer
+    this._startTime = videoDetails.startTime
+    this._endTime = videoDetails.endTime
+    this.offset = 0
+    this.id = divId
 
-      var options = {
-        width: '100%',
-        height: '100%',
-        video: videoDetails.id,
-        autoplay: false,
-        muted: true,
-      }
-      this._player = new Twitch.Player(divId, options)
-      this._player.addEventListener('ready', () => {
-        // Only hook events once the player has loaded, so we don't have to worry about events in the LOADING state.
-        this._player.addEventListener('seek', (eventData) => {
-          var seekMillis = Math.floor(eventData.position * 1000)
-          this.eventSink('seek', this, seekMillis)
-        })
-        this._player.addEventListener('play',  () => {
-          // Twitch loads the "true" video duration once it starts playing. We use that to update our end time,
-          // since there's a chance that the video is a live VOD, and its duration doesn't match what the API returned.
-          var durationMillis = Math.floor(this._player.getDuration() * 1000)
-          this._endTime = this._startTime + durationMillis
-          this.eventSink('play', this)
-        })
-        this._player.addEventListener('pause', () => this.eventSink('pause', this))
-        this._player.addEventListener('ended', () => this.eventSink('ended', this))
-
-        // I did not end up using the 'playing' event -- for the most part, twitch pauses videos when the buffer runs out,
-        // which is a sufficient signal to sync up the videos again (although they don't start playing automatically again).
-        this.onready(this)
-      })
+    var options = {
+      width: '100%',
+      height: '100%',
+      video: videoDetails.id,
+      autoplay: false,
+      muted: true,
     }
+    this._player = new Twitch.Player(divId, options)
+    this._player.addEventListener('ready', this.onPlayerReady)
+  }
+  
+  onPlayerReady() {
+    // Only hook events once the player has loaded, so we don't have to worry about events in the LOADING state.
+    this._player.addEventListener('seek', (eventData) => {
+      var seekMillis = Math.floor(eventData.position * 1000)
+      this.eventSink('seek', this, seekMillis)
+    })
+    this._player.addEventListener('play',  () => {
+      // Twitch loads the "true" video duration once it starts playing. We use that to update our end time,
+      // since there's a chance that the video is a live VOD, and its duration doesn't match what the API returned.
+      var durationMillis = Math.floor(this._player.getDuration() * 1000)
+      this._endTime = this._startTime + durationMillis
+      this.eventSink('play', this)
+    })
+    this._player.addEventListener('pause', () => this.eventSink('pause', this))
+    this._player.addEventListener('ended', () => this.eventSink('ended', this))
+
+    // I did not end up using the 'playing' event -- for the most part, twitch pauses videos when the buffer runs out,
+    // which is a sufficient signal to sync up the videos again (although they don't start playing automatically again).
+
+    this.onready(this) // Call back into index.js for the main bulk of 'readying'
   }
 
   get startTime() { return this._startTime + this.offset }
@@ -109,5 +111,121 @@ class Player {
         this._player.play()
       }
     }
+  }
+}
+
+class YoutubePlayer {
+  constructor(divId, videos) {
+    this.state = LOADING
+    if (videos == null || videos.length == 0) return
+
+    var videoDetails = videos[0] // TODO: Support multiple videos here (everything else should be wired up)
+    this.streamer = videoDetails.streamer
+    this._startTime = videoDetails.startTime
+    this._endTime = videoDetails.endTime
+    this.offset = 0
+    this.id = divId
+
+    var options = {
+      width: '100%',
+      height: '100%',
+      videoId: videoDetails.id,
+      playerVars: {'autoplay': 0},
+    }
+
+    // The 'onReady' event needs to be hooked precisely so that it's not called *during* the new YT.Player invocation,
+    // and so that 'this' is properly defined inside the callback
+    this._player = new YT.Player(divId, options)
+    this._player.addEventListener('onReady', () => this.onPlayerReady())
+  }
+  
+  onPlayerReady() {
+    this._player.mute() // Oddly this cannot be set in the options, so we set it on ready.
+    
+    // Only hook events once the player has loaded, so we don't have to worry about events in the LOADING state.
+    this._player.addEventListener('onStateChange', (eventData) => {
+      switch (event.data) {
+        case YT.PlayerState.UNSTARTED:
+          break
+        case YT.PlayerState.ENDED:
+          this.eventSink('ended')
+          break
+        case YT.PlayerState.PLAYING:
+          this.eventSink('play')
+          break
+        case YT.PlayerState.PAUSED:
+          this.eventSink('pause')
+          break
+        case YT.PlayerState.BUFFERING:
+          break
+        case YT.PlayerState.CUED:
+          break
+      }
+
+      // this.eventSink(eventData.data)
+      
+      /* TODO: Probably not needed for YT, I assume their APIs will give exact data (and there's no VODs here).
+      // Twitch loads the "true" video duration once it starts playing. We use that to update our end time,
+      // since there's a chance that the video is a live VOD, and its duration doesn't match what the API returned.
+      var durationMillis = Math.floor(this._player.getDuration() * 1000)
+      this._endTime = this._startTime + durationMillis
+      */
+
+    })
+
+    this.onready(this) // Call back into index.js for the main bulk of 'readying'
+  }
+
+  get startTime() { return this._startTime + this.offset }
+  get endTime() { return this._endTime + this.offset }
+
+  getCurrentTimestamp() {
+    var durationMillis = Math.floor(this._player.getCurrentTime() * 1000)
+    return this._startTime + this.offset + durationMillis
+  }
+
+  play() { this._player.playVideo() }
+  pause() { this._player.pauseVideo() }
+  seekToEnd() { this.seekTo(this.endTime) }
+  seekTo(timestamp, targetState) {
+    window.eventLog.push([new Date().getTime(), this.id, 'seekTo', targetState, timestamp])
+
+    var durationSeconds = (timestamp - this.startTime) / 1000.0
+    if (targetState === PAUSED) {
+      this.state = SEEKING_PAUSE
+      this._player.seekTo(durationSeconds)
+      this._player.pauseVideo()
+    } else if (targetState === PLAYING) {
+      this.state = SEEKING_PLAY
+      this._player.seekTo(durationSeconds)
+      this._player.playVideo()
+    }
+
+    /* TODO: I don't know if *any* of this is needed.
+    if (timestamp < this.startTime) {
+      var durationSeconds = 0.001 // I think seek(0) does something wrong, so.
+      this.state = SEEKING_START
+      this._player.pauseVideo()
+      this._player.seek(durationSeconds)
+    } else if (timestamp >= this.endTime - VIDEO_END_BUFFER) {
+      var durationSeconds = (this.endTime - this.startTime - VIDEO_END_BUFFER) / 1000.0
+      this.state = AFTER_END
+      this._player.pauseVideo()
+      this._player.seek(durationSeconds)
+    } else {
+      var durationSeconds = (timestamp - this.startTime) / 1000.0
+      if (durationSeconds === 0) durationSeconds = 0.001 // I think seek(0) does something wrong, so.
+
+      if (targetState === PAUSED) {
+        this.state = SEEKING_PAUSE
+        this._player.pauseVideo()
+        this._player.seek(durationSeconds)
+      } else if (targetState === PLAYING) {
+        this.state = SEEKING_PLAY
+        this._player.seek(durationSeconds)
+        this._player.playVideo()
+      }
+    }
+    */
   }
 }

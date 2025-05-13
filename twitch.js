@@ -84,7 +84,7 @@ function parseVideo(videoDetails) {
   }
 }
 
-window.getVideosDetails = function(videoIds) {
+window.getTwitchVideosDetails = function(videoIds) {
   // e.g. 'https://api.twitch.tv/helix/videos?id=1234&id=5678'
   return fetch('https://api.twitch.tv/helix/videos?id=' + videoIds.join('&id='), {'headers': headers})
   .then(r => {
@@ -98,7 +98,7 @@ window.getVideosDetails = function(videoIds) {
   })
 }
 
-window.getChannelVideos = function(channelName) {
+window.getTwitchChannelVideos = function(channelName) {
   return fetch('https://api.twitch.tv/helix/users?login=' + channelName, {'headers': headers})
   .then(r => {
     if (r.status == 401) showTwitchRedirect()
