@@ -126,7 +126,16 @@ class UITests:
   def run(self, script):
     return self.driver.execute_script(script)
 
-  def assert_videos_synced(self):
+  def assert_videos_synced_to(self, expected_timestamp):
+    # We need the videos to be playing to call getCurrentTimestamp (thanks, twitch).
+    # As a result, we give the videos a little time to buffer before calling play()
+    time.sleep(5)
+    self.run('players.get("player0").play()')
+    self.wait_for_state('player0', 'PLAYING')
+    self.wait_for_state('player1', 'PLAYING')
+
+    time.sleep(1) # I guess in some cases the player 'seeks' but doesn't actually return the expected time? Not sure why we need this sleep, honestly.
+
     timestamps = self.run('''
       var timestamps = []
       for (var player of players.values()) {
@@ -134,10 +143,10 @@ class UITests:
       }
       return timestamps
     ''')
-    if max(timestamps) - min(timestamps) < 1000:
-      return
-
-    raise AssertionError('Players are not within 1 second of each other:', timestamps)
+    print(timestamps)
+    for i, timestamp in enumerate(timestamps):
+      if abs(timestamp - expected_timestamp) < 1000:
+        raise AssertionError(f'Player {i} was not within 1 second of expectation: {timestamp - expected_timestamp}')
 
   #############
   #!# Tests #!#
@@ -145,11 +154,7 @@ class UITests:
 
   def testLoadAndSyncStart(self):
     self.load_page('2444833212', '2444833835')
-    self.run('players.get("player0").play()')
-    self.wait_for_state('player0', 'PLAYING')
-    self.wait_for_state('player1', 'PLAYING')
-    
-    self.assert_videos_synced()
+    self.assert_videos_synced_to(1745837218000)
 
   def testSeek(self):
     self.load_page('2444833212', '2444833835')
@@ -158,15 +163,7 @@ class UITests:
     self.wait_for_state('player0', 'PAUSED')
     self.wait_for_state('player1', 'PAUSED')
 
-    # We need the videos to be playing to call getCurrentTimestamp (thanks, twitch).
-    # As a result, we give the videos a little time to buffer before calling play()
-    time.sleep(5)
-    self.run('players.get("player0").play()')
-    self.wait_for_state('player0', 'PLAYING')
-    self.wait_for_state('player1', 'PLAYING')
-    
-    time.sleep(1) # ... does it maybe take time for player0 to enter a 'playing' state? idfk.
-    self.assert_videos_synced()
+    self.assert_videos_synced_to(1745837238000)
 
   def testRaceInterrupt(self):
     # We need to get a fresh race on each run, so that the VODs haven't expired.
@@ -201,13 +198,7 @@ class UITests:
     player0_name = self.run('return players.get("player0").streamer')
     assert player0_name in expected_channel_names
 
-    # Start the first video to see if it's synced up (approximately) with the start of the race
-    time.sleep(1) # Wait for video to buffer (or something)
-    self.run('players.get("player0").play()')
-    self.wait_for_state('player0', 'PLAYING')
-
-    player0_timestamp = self.run('return players.get("player0").getCurrentTimestamp()')
-    assert abs(player0_timestamp - expected_timestamp) < 1000
+    self.assert_videos_synced_to(expected_timestamp)
 
 if __name__ == '__main__':
   test_class = UITests()
