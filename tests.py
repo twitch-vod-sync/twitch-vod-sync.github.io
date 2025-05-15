@@ -145,7 +145,7 @@ class UITests:
     ''')
     print(timestamps)
     for i, timestamp in enumerate(timestamps):
-      if abs(timestamp - expected_timestamp) < 1000:
+      if abs(timestamp - expected_timestamp) > 1000:
         raise AssertionError(f'Player {i} was not within 1 second of expectation: {timestamp - expected_timestamp}')
 
   #############
