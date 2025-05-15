@@ -60,8 +60,9 @@ const TWITCH_DURATION_MATCH = /(([0-9]+)h)?(([0-9]+)m)?([0-9]+)s/
 function parseVideo(videoDetails) {
   m = videoDetails.duration.match(TWITCH_DURATION_MATCH)
   if (m == null) throw Error('Internal error: Twitch duration was unparseable: ' + videoDetails.duration)
-  var millis = Number(m[5]) * 1000 // Seconds
-  if (m[4] != null) millis += Number(m[4]) * 60 * 1000 // Minutes
+  var millis = 0
+  if (m[5] != null) millis += Number(m[5])           * 1000 // Seconds
+  if (m[4] != null) millis += Number(m[4])      * 60 * 1000 // Minutes
   if (m[2] != null) millis += Number(m[2]) * 60 * 60 * 1000 // Hours
 
   var parts = videoDetails.thumbnail_url.split('/')
@@ -85,7 +86,7 @@ function parseVideo(videoDetails) {
 }
 
 window.getTwitchVideosDetails = function(videoIds) {
-  // e.g. 'https://api.twitch.tv/helix/videos?id=1234&id=5678'
+  // See https://dev.twitch.tv/docs/api/reference/#get-videos
   return fetch('https://api.twitch.tv/helix/videos?id=' + videoIds.join('&id='), {'headers': headers})
   .then(r => {
     if (r.status == 401) showTwitchRedirect()
@@ -93,12 +94,13 @@ window.getTwitchVideosDetails = function(videoIds) {
     return r.json()
   })
   .then(r => {
-    if (r.data.length === 0) return Promise.reject('Could not load any of these videos:' + videoIds.join(', '))
+    if (r.data.length === 0) return Promise.reject('Could not load any of these twitch videos:' + videoIds.join(', '))
     return r.data.map(video => parseVideo(video))
   })
 }
 
 window.getTwitchChannelVideos = function(channelName) {
+  // See https://dev.twitch.tv/docs/api/reference/#get-users
   return fetch('https://api.twitch.tv/helix/users?login=' + channelName, {'headers': headers})
   .then(r => {
     if (r.status == 401) showTwitchRedirect()
@@ -106,8 +108,9 @@ window.getTwitchChannelVideos = function(channelName) {
     return r.json()
   })
   .then(r => {
-    if (r.data.length === 0) return Promise.reject('Could not load channel ' + channelName)
+    if (r.data.length === 0) return Promise.reject('Could not load twitch channel ' + channelName)
     var channelId = r.data[0].id
+    // See https://dev.twitch.tv/docs/api/reference/#get-videos
     return fetch('https://api.twitch.tv/helix/videos?type=archive&sort=time&user_id=' + channelId, {'headers': headers})
   })
   .then(r => {
@@ -116,7 +119,7 @@ window.getTwitchChannelVideos = function(channelName) {
     return r.json()
   })
   .then(r => {
-    if (r.data.length === 0) return Promise.reject('Did not find any videos for channel ' + channelName)
+    if (r.data.length === 0) return Promise.reject('Did not find any videos for twitch channel ' + channelName)
     return r.data.map(video => parseVideo(video))
   })
 }
