@@ -1,23 +1,22 @@
 (() => { // namespace to keep our own copy of 'headers'
 
-// TODO: Docs on which redirect URIs I need
-
-// Generate a client ID here: https://developers.google.com/identity/protocols/oauth2/javascript-implicit-flow
+// Generate a client ID here: https://console.developers.google.com/auth/clients
 // Note: Must be a web client to include the localhost:3000 url.
 // Note: This is not the same ID as used by tests. The tests use a confidential client for auth purposes.
 // Include these redirect URLs:
 // - https://twitch-vod-sync.github.io (for production)
 // - http://localhost:3000 (for local development)
-var headers = {
-  'Client-ID': '588578868528-b3q38esqc12bs70a5mnp2tr82tocoql4.apps.googleusercontent.com',
-}
+var CLIENT_ID = '588578868528-b3q38esqc12bs70a5mnp2tr82tocoql4.apps.googleusercontent.com'
+window.overrideYoutubeClientId = function(clientId) { CLIENT_ID = clientId }
 
-window.setYoutubeTokenHeader = function(token) {
-  headers['Authorization'] = 'Bearer ' + token
-}
-
-window.overrideYoutubeClientId = function(clientId) {
-  headers['Client-ID'] = clientId
+function getHeaders() {
+  return {
+    'headers': {
+      'Client-ID': CLIENT_ID,
+      'Accept': 'application/json',
+      'Authorization': 'Bearer ' + window.localStorage.getItem('youtubeAuthToken'),
+    }
+  }
 }
 
 window.showYoutubeRedirect = function() {
@@ -51,8 +50,9 @@ window.doYoutubeRedirect = function(event) {
 
   // Note that this encodes the current hostname so that we can return to where we came from (e.g. dev vs production)
   window.location.href =
-    'https://id.twitch.tv/oauth2/authorize' +
-    '?client_id=' + headers['Client-ID'] +
+    'https://accounts.google.com/o/oauth2/v2/auth' +
+    '?client_id=' + CLIENT_ID +
+    // '&redirect_uri=' + 'https://twitch-vod-sync.github.io' +
     '&redirect_uri=' + encodeURIComponent(window.location.origin) +
     '&response_type=token' +
     '&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fyoutube.readonly' // TODO: I think this is the smallest scope we can ask for. This shows up as "View your YouTube account" which sounds nicely harmless, if it works.
@@ -81,9 +81,18 @@ function parseVideo(videoDetails) {
 }
 
 window.getYoutubeVideosDetails = function(videoIds) {
+  if (window.localStorage.getItem('youtubeAuthToken') == null
+      || window.localStorage.getItem('youtubeAuthTokenExpires') < new Date().getTime()) {
+    // Youtube's tokens expire after an hour. If we notice it's expired, just fetch a new one.
+    showYoutubeRedirect()
+    return Promise.reject(new Error('Youtube auth token was empty or expired'))
+  }
+
   // See https://developers.google.com/youtube/v3/docs/videos/list
-  var url = 'https://www.googleapis.com/youtube/v3/videos?part=contentDetails,snippet'
-  return fetch(url + '&id=' + videoIds.join(','), {'headers': headers})
+  var url = 'https://youtube.googleapis.com/youtube/v3/videos?part=contentDetails,snippet'
+  url += '&key=' + 'AIzaSyDQVitYnqFVQrGr-kVP1FxoEKcxMdQ1sOk'
+  url += '&id=' + videoIds.join(',')
+  return fetch(url, getHeaders())
   .then(r => {
     if (r.status == 401) showYoutubeRedirect()
     if (r.status != 200) return Promise.reject('HTTP request failed: ' + r.status)

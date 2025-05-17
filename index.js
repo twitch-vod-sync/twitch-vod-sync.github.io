@@ -24,26 +24,29 @@ window.onload = function() {
     })
   }
 
-  var authToken = null
+  // Check to see if the app is starting with a token (from a Twitch/Youtube redirect). If so, capture it and remove it from the URL.
   if (window.location.hash != null && window.location.hash.length > 1) {
     var params = new URLSearchParams(window.location.hash.substring(1))
-    authToken = params.get('access_token')
-    window.localStorage.setItem('twitchAuthToken', authToken)
-    window.location.hash = ''
+    var scope = params.get('scope')
+    if (scope == 'https://www.googleapis.com/auth/youtube.readonly') {
+      window.localStorage.setItem('youtubeAuthToken', params.get('access_token'))
+      var expires_at = new Date().getTime() + (params.get('expires_in') * 1000)
+      window.localStorage.setItem('youtubeAuthTokenExpires', expires_at)
+    } else if (scope == '') {
+      window.localStorage.setItem('twitchAuthToken', params.get('access_token'))
 
-    // Additional param (which won't ever come from twitch) that is used to override the client_id in tests.
-    // The tests need a confidential client (to do auth server-side) but the product needs a native client (to have a localhost redirect).
-    if (params.has('client_id')) window.overrideTwitchClientId(params.get('client_id'))
-  } else {
-    authToken = window.localStorage.getItem('twitchAuthToken')
+      // Additional param (which won't ever come from twitch) that is used to override the client_id in tests.
+      // The tests need a confidential client (to do auth server-side) but the product needs a native client (to have a localhost redirect).
+      if (params.has('client_id')) window.overrideTwitchClientId(params.get('client_id'))
+    }
+    window.location.hash = ''
   }
 
-  if (authToken == null) {
+  // We almost always need auth for twitch. If we don't have a saved token, trigger twitch auth.
+  if (window.localStorage.getItem('twitchAuthToken') == null) {
     showTwitchRedirect()
     return
   }
-
-  setTwitchTokenHeader(authToken)
 
   // Once auth is sorted out, load any videos from the query parameters (or the stashed parameters).
   var params = null
@@ -842,4 +845,3 @@ function reloadTimeline() {
   endLabel.style = 'margin-right: 3px'
   endLabel.innerText = new Date(timelineEnd).toLocaleString(TIMELINE_DATE_FORMAT)
 }
-
