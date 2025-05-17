@@ -24,26 +24,29 @@ window.onload = function() {
     })
   }
 
-  var authToken = null
+  // Check to see if the app is starting with a token (from a Twitch/Youtube redirect). If so, capture it and remove it from the URL.
   if (window.location.hash != null && window.location.hash.length > 1) {
     var params = new URLSearchParams(window.location.hash.substring(1))
-    authToken = params.get('access_token')
-    window.localStorage.setItem('twitchAuthToken', authToken)
-    window.location.hash = ''
+    var scope = params.get('scope')
+    if (scope == 'https://www.googleapis.com/auth/youtube.readonly') {
+      window.localStorage.setItem('youtubeAuthToken', params.get('access_token'))
+      var expires_at = new Date().getTime() + (params.get('expires_in') * 1000)
+      window.localStorage.setItem('youtubeAuthTokenExpires', expires_at)
+    } else if (scope == '') {
+      window.localStorage.setItem('twitchAuthToken', params.get('access_token'))
 
-    // Additional param (which won't ever come from twitch) that is used to override the client_id in tests.
-    // The tests need a confidential client (to do auth server-side) but the product needs a native client (to have a localhost redirect).
-    if (params.has('client_id')) window.overrideTwitchClientId(params.get('client_id'))
-  } else {
-    authToken = window.localStorage.getItem('twitchAuthToken')
+      // Additional param (which won't ever come from twitch) that is used to override the client_id in tests.
+      // The tests need a confidential client (to do auth server-side) but the product needs a native client (to have a localhost redirect).
+      if (params.has('client_id')) window.overrideTwitchClientId(params.get('client_id'))
+    }
+    window.location.hash = ''
   }
 
-  if (authToken == null) {
+  // We almost always need auth for twitch. If we don't have a saved token, trigger twitch auth.
+  if (window.localStorage.getItem('twitchAuthToken') == null) {
     showTwitchRedirect()
     return
   }
-
-  setTwitchTokenHeader(authToken)
 
   // Once auth is sorted out, load any videos from the query parameters (or the stashed parameters).
   var params = null
@@ -64,11 +67,21 @@ window.onload = function() {
         var videoIds = params.get(playerId)
         if (videoIds.length > 0) {
           while (document.getElementById(playerId) == null) window.addPlayer()
-          players.set(playerId, new Player())
+          
+          var firstVideo = videoIds.split('-')[0]
+          if (firstVideo.match(TWITCH_VIDEO_MATCH) != null) {
+            players.set(playerId, new TwitchPlayer())
 
-          getVideosDetails(videoIds.split('-'))
-          .then(videos => loadVideos(playerId, videos))
-          .catch(r => showText(playerId, 'Could not process video "' + videoIds + '":\n' + r, /*isError*/true))
+            getTwitchVideosDetails(videoIds.split('-'))
+            .then(videos => loadVideos(playerId, videos), 'twitch')
+            .catch(r => showText(playerId, 'Could not process twitch video "' + videoIds + '":\n' + r, /*isError*/true))
+          } else if (firstVideo.match(YOUTUBE_VIDEO_MATCH) != null) {
+            players.set(playerId, new YoutubePlayer())
+
+            getYoutubeVideosDetails(videoIds.split('-'))
+            .then(videos => loadVideos(playerId, videos), 'youtube')
+            .catch(r => showText(playerId, 'Could not process youtube video "' + videoIds + '":\n' + r, /*isError*/true))
+          }
         }
       }
     })(i)
@@ -348,13 +361,23 @@ function searchVideo(event) {
     return
   }
 
-  // Check to see if the user provided a direct video link
+  // Check to see if the user provided a direct twitch VOD (or VOD id)
   m = formText.match(TWITCH_VIDEO_MATCH)
   if (m != null) {
-    showText(playerId, 'Loading video...')
-    getVideosDetails([m[1]])
-    .then(videos => loadVideos(playerId, videos))
+    showText(playerId, 'Loading Twitch video...')
+    getTwitchVideosDetails([m[1]])
+    .then(videos => loadVideos(playerId, videos), 'twitch')
     .catch(r => showText(playerId, 'Could not process twitch video "' + m[1] + '":\n' + r, /*isError*/true))
+    return
+  }
+
+  // Check to see if the user provided a direct youtube video (or youtube video id)
+  m = formText.match(YOUTUBE_VIDEO_MATCH)
+  if (m != null) {
+    showText(playerId, 'Loading Youtube video...')
+    getYoutubeVideosDetails([m[1]])
+    .then(videos => loadVideos(playerId, videos, 'youtube'))
+    .catch(r => showText(playerId, 'Could not process youtube video "' + m[1] + '":\n' + r, /*isError*/true))
     return
   }
 
@@ -362,7 +385,7 @@ function searchVideo(event) {
   m = formText.match(TWITCH_CHANNEL_MATCH)
   if (m != null) {
     showText(playerId, 'Loading channel videos...')
-    getChannelVideos(m[1])
+    getTwitchChannelVideos(m[1])
     .then(videos => {
       var currentTimestamp = getAveragePlayerTimestamp()
       var [timelineStart, timelineEnd] = getTimelineBounds()
@@ -387,7 +410,7 @@ function searchVideo(event) {
       }
 
       if (bestVideo != null) {
-        loadVideos(playerId, [bestVideo]) // TODO: Load all matching videos once the player can handle multiple videos
+        loadVideos(playerId, [bestVideo], 'twitch') // TODO: Load all matching videos once the player can handle multiple videos
         return
       }
 
@@ -424,14 +447,14 @@ function showVideoPicker(playerId, videos) {
       videoImg.style = 'width: 320px; height: 180px; object-fit: cover; object-position: top; cursor: pointer'
       videoImg.onclick = function() {
         videoGrid.remove()
-        loadVideos(playerId, [videos[i]])
+        loadVideos(playerId, [videos[i]], 'twitch')
       }
     })(i)
   }
 }
 
 var players = new Map()
-function loadVideos(playerId, videos) {
+function loadVideos(playerId, videos, playerType) {
   document.getElementById(playerId + '-form').style.display = 'none'
   var div = document.getElementById(playerId)
 
@@ -440,7 +463,7 @@ function loadVideos(playerId, videos) {
   params.set(div.id, videos.map(v => v.id).join('-'))
   history.pushState(null, null, '?' + params.toString())
 
-  var player = new Player(div.id, videos)
+  var player = (playerType == 'twitch') ? new TwitchPlayer(div.id, videos) : new YoutubePlayer(div.id, videos)
   players.set(div.id, player)
   if (params.has(div.id + 'offset')) {
     player.offset = parseInt(params.get(div.id + 'offset'))
@@ -535,7 +558,7 @@ function loadRace(raceDetails) {
       var playerId = 'player' + i
       if (players.has(playerId)) continue
       while (document.getElementById(playerId) == null) window.addPlayer()
-      loadVideos(playerId, [videos.shift()])
+      loadVideos(playerId, [videos.shift()], 'twitch')
     }
   })
 }
@@ -822,4 +845,3 @@ function reloadTimeline() {
   endLabel.style = 'margin-right: 3px'
   endLabel.innerText = new Date(timelineEnd).toLocaleString(TIMELINE_DATE_FORMAT)
 }
-
