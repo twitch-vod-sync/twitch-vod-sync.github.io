@@ -9,16 +9,6 @@
 var CLIENT_ID = '588578868528-b3q38esqc12bs70a5mnp2tr82tocoql4.apps.googleusercontent.com'
 window.overrideYoutubeClientId = function(clientId) { CLIENT_ID = clientId }
 
-function getHeaders() {
-  return {
-    'headers': {
-      'Client-ID': CLIENT_ID,
-      'Accept': 'application/json',
-      'Authorization': 'Bearer ' + window.localStorage.getItem('youtubeAuthToken'),
-    }
-  }
-}
-
 window.showYoutubeRedirect = function() {
   var authPrefs = window.localStorage.getItem('authPrefs')
   if (authPrefs == 'autoRedirect') {
@@ -55,7 +45,7 @@ window.doYoutubeRedirect = function(event) {
     // '&redirect_uri=' + 'https://twitch-vod-sync.github.io' +
     '&redirect_uri=' + encodeURIComponent(window.location.origin) +
     '&response_type=token' +
-    '&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fyoutube.readonly' // TODO: I think this is the smallest scope we can ask for. This shows up as "View your YouTube account" which sounds nicely harmless, if it works.
+    '&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fyoutube.readonly' // TODO: I think this is the smallest scope we can ask for. This shows up as "View your YouTube account" which sounds nicely harmless.
 }
 
 // Youtube durations follow ISO8601, which in theory includes year-long durations.
@@ -89,10 +79,13 @@ window.getYoutubeVideosDetails = function(videoIds) {
   }
 
   // See https://developers.google.com/youtube/v3/docs/videos/list
-  var url = 'https://youtube.googleapis.com/youtube/v3/videos?part=contentDetails,snippet'
-  url += '&key=' + 'AIzaSyDQVitYnqFVQrGr-kVP1FxoEKcxMdQ1sOk'
+  // except that this is using the raw access_token query param for some strange reason -- it doesn't work with the header.
+  var url = 'https://youtube.googleapis.com/youtube/v3/videos'
+  url += '?part=contentDetails,snippet'
   url += '&id=' + videoIds.join(',')
-  return fetch(url, getHeaders())
+  url += '&access_token=' + window.localStorage.getItem('youtubeAuthToken')
+
+  return fetch(url)
   .then(r => {
     if (r.status == 401) showYoutubeRedirect()
     if (r.status != 200) return Promise.reject('HTTP request failed: ' + r.status)
