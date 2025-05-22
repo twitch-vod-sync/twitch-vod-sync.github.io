@@ -1,6 +1,7 @@
 var FEATURES = {
   'HIDE_ENDING_TIMES': true,
   'SHUFFLE_RACE_VIDEOS': false,
+  'ABSOLUTE_OFFSETS': false,
   'MAX_PLAYERS': 6,
   'MIN_PLAYERS': 2,
 }
@@ -44,7 +45,7 @@ window.onload = function() {
 
   // We almost always need auth for twitch. If we don't have a saved token, trigger twitch auth.
   if (window.localStorage.getItem('twitchAuthToken') == null) {
-    showTwitchRedirect()
+    window.showTwitchRedirect()
     return
   }
 
@@ -78,7 +79,7 @@ window.onload = function() {
           } else if (firstVideo.match(YOUTUBE_VIDEO_MATCH) != null) {
             players.set(playerId, new YoutubePlayer())
 
-            getYoutubeVideosDetails(videoIds.split('-'))
+            getEmptyVideosDetails(videoIds.split('-'))
             .then(videos => loadVideos(playerId, videos), 'youtube')
             .catch(r => showText(playerId, 'Could not process youtube video "' + videoIds + '":\n' + r, /*isError*/true))
           }
@@ -169,20 +170,25 @@ window.onload = function() {
       } else {
         // Once the user hits 'a' again, we normalize the offsets so that the earliest video is at the "true" time,
         // so that the timeline shows something reasonable.
-        var largestOffset = -ASYNC_ALIGN
-        for (var player of players.values()) {
-          if (player.offset > largestOffset) largestOffset = player.offset
+        if (!FEATURES.ABSOLUTE_OFFSETS) {
+          var largestOffset = -ASYNC_ALIGN
+          for (var player of players.values()) {
+            if (player.offset > largestOffset) largestOffset = player.offset
+          }
+
+          for (var player of players.values()) {
+            player.offset -= largestOffset
+          }
         }
 
-        // Normalize offsets then save to the URL (to allow sharing)
+        // Save offsets into the URL (to allow sharing)
         var params = new URLSearchParams(window.location.search);
         for (var player of players.values()) {
-          player.offset -= largestOffset
           params.set(player.id + 'offset', player.offset)
         }
         history.pushState(null, null, '?' + params.toString())
 
-        reloadTimeline() // Reload now that the videos have comparable timers
+        reloadTimeline() // Reload now that the videos have comparable start and end times
 
         console.log('vodsync', 'Resuming all players after async alignment')
         for (var player of players.values()) {
@@ -375,7 +381,7 @@ function searchVideo(event) {
   m = formText.match(YOUTUBE_VIDEO_MATCH)
   if (m != null) {
     showText(playerId, 'Loading Youtube video...')
-    getYoutubeVideosDetails([m[1]])
+    getEmptyVideosDetails([m[1]])
     .then(videos => loadVideos(playerId, videos, 'youtube'))
     .catch(r => showText(playerId, 'Could not process youtube video "' + m[1] + '":\n' + r, /*isError*/true))
     return
@@ -451,6 +457,15 @@ function showVideoPicker(playerId, videos) {
       }
     })(i)
   }
+}
+
+// Used for Youtube (and potentially other scenarios) when we don't wish to call the API for precise timestamps.
+function getEmptyVideosDetails(videoIds) {
+  return videoIds.map(videoId => {
+    'id': videoDetails.id,
+    'startTime': new Date(videoDetails.created_at).getTime(),
+    'endTime': new Date(videoDetails.created_at).getTime() + millis,
+  })
 }
 
 var players = new Map()

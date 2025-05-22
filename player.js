@@ -164,7 +164,7 @@ class YoutubePlayer {
 
       // this.eventSink(eventData.data)
       
-      /* TODO: Probably not needed for YT, I assume their APIs will give exact data (and there's no VODs here).
+      /* TODO: Actually we do need this, since we're not calling YT apis anymore.
       // Twitch loads the "true" video duration once it starts playing. We use that to update our end time,
       // since there's a chance that the video is a live VOD, and its duration doesn't match what the API returned.
       var durationMillis = Math.floor(this._player.getDuration() * 1000)
