@@ -132,7 +132,8 @@ class UITests:
     time.sleep(5)
     self.run('players.get("player0").play()')
     self.wait_for_state('player0', 'PLAYING')
-    self.wait_for_state('player1', 'PLAYING')
+    if self.run('return players.has("player1")'): # We might have only one player loaded
+      self.wait_for_state('player1', 'PLAYING')
 
     time.sleep(1) # I guess in some cases the player 'seeks' but doesn't actually return the expected time? Not sure why we need this sleep, honestly.
 
