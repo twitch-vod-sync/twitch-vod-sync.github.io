@@ -92,12 +92,16 @@ class UITests:
   def wait_for_state(self, player, state, timeout_sec=10):
     self.driver.set_script_timeout(timeout_sec)
     return self.driver.execute_async_script('''
-      var [maxLoops, player, state, callback] = arguments
+      var [maxLoops, player, targetState, callback] = arguments
       var interval = setInterval(() => {
-        if (--maxLoops == 0) clearInterval(interval)
-        if (players.has(player) && players.get(player).state === state) {
+        var currentState = players.get(player).state
+        if (players.has(player) && currentState === targetState) {
           clearInterval(interval)
           callback()
+        }
+        if (--maxLoops == 0) {
+          console.error(player, 'did not enter state', targetState, 'within', maxLoops, 'loops. Final state was', currentState)
+          clearInterval(interval)
         }
       }, 10)
       ''', timeout_sec * 100, player, self.STATE_STRINGS.index(state))
