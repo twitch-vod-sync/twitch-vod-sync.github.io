@@ -49,32 +49,33 @@ class Player {
         muted: true,
       }
       this._player = new Twitch.Player(divId, options)
-      this._player.addEventListener('ready', () => {
-        // Only hook events once the player has loaded, so we don't have to worry about events in the LOADING state.
-        this._player.addEventListener('seek', (eventData) => {
-          var seekMillis = Math.floor(eventData.position * 1000)
-          this.eventSink('seek', this, seekMillis)
-        })
-        this._player.addEventListener('play',  () => {
-          // Twitch loads the "true" video duration once it starts playing. We use that to update our end time,
-          // since there's a chance that the video is a live VOD, and its duration doesn't match what the API returned.
-          var durationMillis = Math.floor(this._player.getDuration() * 1000)
-          this._endTime = this._startTime + durationMillis
-          this.eventSink('play', this)
-        })
-        this._player.addEventListener('pause', () => this.eventSink('pause', this))
-        this._player.addEventListener('ended', () => this.eventSink('ended', this))
-        this._player.addEventListener('ended', () => this.eventSink('ended', this))
-
-        // I did not end up using the 'playing' event -- for the most part, twitch pauses videos when the buffer runs out,
-        // which is a sufficient signal to sync up the videos again (although they don't start playing automatically again).
-        // That said, some of my tests seem to be flaky because "play" causes the video to jump into a 'buffering' state (according to getPlayerState().playback)
-        // Re-adding the event listener just to get some logging and see if this is a potential fix.
-        this._player.addEventListener('playing', () => this.eventSink('test_playing', this))
-
-        this.onready(this)
-      })
+      this._player.addEventListener('ready', () => this.onPlayerReady())
     }
+  }
+
+  onPlayerReady() {
+    // Only hook events once the player has loaded, so we don't have to worry about events in the LOADING state.
+    this._player.addEventListener('seek', (eventData) => {
+      var seekMillis = Math.floor(eventData.position * 1000)
+      this.eventSink('seek', this, seekMillis)
+    })
+    this._player.addEventListener('play',  () => {
+      // Twitch loads the "true" video duration once it starts playing. We use that to update our end time,
+      // since there's a chance that the video is a live VOD, and its duration doesn't match what the API returned.
+      var durationMillis = Math.floor(this._player.getDuration() * 1000)
+      this._endTime = this._startTime + durationMillis
+      this.eventSink('play', this)
+    })
+    this._player.addEventListener('pause', () => this.eventSink('pause', this))
+    this._player.addEventListener('ended', () => this.eventSink('ended', this))
+
+    // I did not end up using the 'playing' event -- for the most part, twitch pauses videos when the buffer runs out,
+    // which is a sufficient signal to sync up the videos again (although they don't start playing automatically again).
+    // That said, some of my tests seem to be flaky because "play" causes the video to jump into a 'buffering' state (according to getPlayerState().playback)
+    // Re-adding the event listener just to get some logging and see if this is a potential fix.
+    this._player.addEventListener('playing', () => this.eventSink('test_playing', this))
+
+    this.onready(this)
   }
 
   get startTime() { return this._startTime + this.offset }
