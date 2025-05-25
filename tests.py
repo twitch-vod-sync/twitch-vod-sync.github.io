@@ -96,8 +96,12 @@ class UITests:
       var interval = setInterval(() => {
         var currentState = players.has(player) ? players.get(player).state : null
         if (currentState === targetState) {
-          clearInterval(interval)
-          callback()
+          if (players.get(player)._player.getPlayerState().playback === 'Buffering') {
+            console.warn('State reached but player still buffering')
+          } else {
+            clearInterval(interval)
+            callback()
+          }
         }
         if (--maxLoops == 0) {
           console.error(player, 'did not enter state', STATE_STRINGS[targetState], 'within', arguments[0], 'loops. Final state was', STATE_STRINGS[currentState])
@@ -118,14 +122,7 @@ class UITests:
       
   def print_chrome_log(self):
     for log in self.driver.get_log('browser'):
-      try:
-        print(u'%d\t%s\t%s' % (log['timestamp'], log['level'], log['message'].encode('utf-8', errors='backslashreplace')))
-      except AttributeError as e:
-        print(e)
-        print(log['message'].encode('utf-8', errors='backslashreplace'))
-      except UnicodeEncodeError as e:
-        print(e)
-        print(log['message'].encode('utf-8', errors='backslashreplace'))
+      print(u'%d\t%s\t%s' % (log['timestamp'], log['level'], log['message'].encode('utf-8', errors='backslashreplace')))
 
   def run(self, script):
     return self.driver.execute_script(script)
@@ -139,7 +136,6 @@ class UITests:
       if not self.run(f'return players.has("{player}")'): # Check that this player exists
         continue
       self.wait_for_state(player, 'PLAYING')
-      print(player, self.run(f'return players.get("{player}")._player.getPlayerState().playback'))
       timestamp = self.run(f'return players.get("{player}").getCurrentTimestamp()')
       if abs(timestamp - expected_timestamp) > 1000:
         raise AssertionError(f'{player} was not within 1 second of expectation: {timestamp}, {expected_timestamp}, {timestamp - expected_timestamp}')
