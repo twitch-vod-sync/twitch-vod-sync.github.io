@@ -1,10 +1,9 @@
 var FEATURES = {
   'HIDE_ENDING_TIMES': true,
-  'SHUFFLE_RACE_VIDEOS': false,
+  'SHUFFLE_RACE_VIDEOS': true,
   'ABSOLUTE_OFFSETS': false,
-  'MAX_PLAYERS': 6,
-  'MIN_PLAYERS': 2,
 }
+const MIN_PLAYERS = 2 // It's too much work to support this being dynamic, so I won't.
 
 // An arbitrary timestamp where we align videos while async-ing. Still considerably lower than Number.MAX_SAFE_INTEGER.
 // This is somewhere in 2017. It doesn't really matter; videos offsets can be positive, too.
@@ -60,32 +59,31 @@ window.onload = function() {
   window.addPlayer()
   window.addPlayer()
 
-  for (var i = 0; i < FEATURES.MAX_PLAYERS; i++) {
-    // Copy the loop variable to avoid javascript lambda-in-loop bug
-    ;((i) => {
-      var playerId = 'player' + i
-      if (params.has(playerId)) {
-        var videoIds = params.get(playerId)
-        if (videoIds.length > 0) {
-          while (document.getElementById(playerId) == null) window.addPlayer()
-          
-          var firstVideo = videoIds.split('-')[0]
-          if (firstVideo.match(TWITCH_VIDEO_MATCH) != null) {
-            players.set(playerId, new TwitchPlayer())
+  for (var [playerId, videoIds] of params.entries()) {
+    // There may be other params, this loop is only for player0, player1, etc
+    if (playerId.startsWith('player') && videoIds.length > 0) {
+        while (document.getElementById(playerId) == null) window.addPlayer()
+        players.set(playerId, new Player())
 
-            getTwitchVideosDetails(videoIds.split('-'))
-            .then(videos => loadVideos(playerId, videos), 'twitch')
-            .catch(r => showText(playerId, 'Could not process twitch video "' + videoIds + '":\n' + r, /*isError*/true))
-          } else if (firstVideo.match(YOUTUBE_VIDEO_MATCH) != null) {
-            players.set(playerId, new YoutubePlayer())
+      // Copy the loop variables to avoid javascript lambda-in-loop bug
+      ;((playerId, videoIds) => {
 
-            getEmptyVideosDetails(videoIds.split('-'))
-            .then(videos => loadVideos(playerId, videos), 'youtube')
-            .catch(r => showText(playerId, 'Could not process youtube video "' + videoIds + '":\n' + r, /*isError*/true))
-          }
+        var firstVideo = videoIds.split('-')[0]
+        if (firstVideo.match(TWITCH_VIDEO_MATCH) != null) {
+          players.set(playerId, new TwitchPlayer())
+
+          getTwitchVideosDetails(videoIds.split('-'))
+          .then(videos => loadVideos(playerId, videos), 'twitch')
+          .catch(r => showText(playerId, 'Could not process twitch video "' + videoIds + '":\n' + r, /*isError*/true))
+        } else if (firstVideo.match(YOUTUBE_VIDEO_MATCH) != null) {
+          players.set(playerId, new YoutubePlayer())
+
+          getEmptyVideosDetails(videoIds.split('-'))
+          .then(videos => loadVideos(playerId, videos), 'youtube')
+          .catch(r => showText(playerId, 'Could not process youtube video "' + videoIds + '":\n' + r, /*isError*/true))
         }
-      }
-    })(i)
+      })(playerId, videoIds)
+    }
   }
 
   // Handle this after video IDs since we want to preserve videos (e.g. async alongside a race)
@@ -214,7 +212,6 @@ window.onload = function() {
 
 function addPlayer() {
   var playersDiv = document.getElementById('players')
-  if (playersDiv.childElementCount >= FEATURES.MAX_PLAYERS) return
 
   var newPlayer = document.createElement('div')
   newPlayer.id = 'player' + playersDiv.childElementCount
@@ -279,32 +276,28 @@ function showText(playerId, message, isError) {
 
 function removePlayer() {
   var playersDiv = document.getElementById('players')
-  var player = playersDiv.childNodes[playersDiv.childElementCount - 1]
-  var playerHasContent = players.has(player.id) || document.getElementById(player.id + '-form').style.display == null
-
-  // If there's at least two players, and there's something showing in the last player, remove it
-  if (playersDiv.childElementCount > FEATURES.MIN_PLAYERS && playerHasContent) {
-    player.remove()
-    resizePlayers()
-    
-  } else {
-    // If there's two players and the second one has nothing showing, reset the first player instead
-    if (!playerHasContent) player = playersDiv.childNodes[0]
-
-    // Untrack the player and update the timeline
-    players.delete(player.id)
-    reloadTimeline()
-
-    // Update displayed query params to remove this video
-    var params = new URLSearchParams(window.location.search);
-    params.delete(player.id)
-    params.delete(player.id + 'offset')
-    history.pushState(null, null, '?' + params.toString())
-
-    // Reset the player to the video picker form by removing and readding.
-    player.remove()
-    window.addPlayer()
+  var playerToRemove = playersDiv.childNodes[playersDiv.childElementCount - 1]
+  if (playersDiv.childElementCount <= MIN_PLAYERS) {
+    // If we've already got 2 players, and the second player is empty, '-' should clear the first player instead
+    var playerHasContent = players.has(playerToRemove.id) || document.getElementById(playerToRemove.id + '-form').style.display == null
+    if (!playerHasContent) playerToRemove = playersDiv.childNodes[0]
   }
+
+  // Untrack the player and update the timeline
+  players.delete(playerToRemove.id)
+  reloadTimeline()
+
+  // Update displayed query params to remove this video
+  var params = new URLSearchParams(window.location.search);
+  params.delete(playerToRemove.id)
+  params.delete(playerToRemove.id + 'offset')
+  history.pushState(null, null, '?' + params.toString())
+
+  // Remove the div (which also unloads the embed)
+  playerToRemove.remove()
+
+  // Restore back up to the minimum number of players (2)
+  while (playersDiv.childElementCount < MIN_PLAYERS) window.addPlayer()
 }
 
 function resizePlayers() {
@@ -539,7 +532,11 @@ function loadVideos(playerId, videos, playerType) {
 var raceStartTime = null
 function loadRace(raceDetails) {
   raceStartTime = raceDetails.startTime
-  var videosToLoad = FEATURES.MAX_PLAYERS - players.size // Persist any already-loaded videos
+  
+  // We load a video from the race for each player which is visible (down to a minimum of 4).
+  // This means the user can add more placeholders before loading a race to request more videos out of it.
+  // However, we won't overwrite any already-loaded videos (e.g. if the user already has an async loaded up).
+  var videosToLoad = Math.max(4, document.getElementById('players').childElementCount) - players.size
 
   // Add the race URL to the query params in case we haven't done twitch auth yet;
   // we might get redirected to twitch while loading videos and lose the race details.
@@ -568,12 +565,14 @@ function loadRace(raceDetails) {
         .map(({ value }) => value)
     }
 
-    for (var i = 0; i < FEATURES.MAX_PLAYERS; i++) {
-      if (videos.length === 0) break
+    var i = 0
+    while (videos.length > 0) {
       var playerId = 'player' + i
-      if (players.has(playerId)) continue
-      while (document.getElementById(playerId) == null) window.addPlayer()
-      loadVideos(playerId, [videos.shift()], 'twitch')
+      if (!players.has(playerId)) {
+        while (document.getElementById(playerId) == null) window.addPlayer()
+        loadVideos(playerId, [videos.shift()], 'twitch')
+      }
+      i++
     }
   })
 }
@@ -787,10 +786,8 @@ function reloadTimeline() {
   }
 
   var streamers = []
-  for (var i = 0; i < FEATURES.MAX_PLAYERS; i++) {
-    if (!players.has('player' + i)) continue
-    var streamer = players.get('player' + i).streamer
-    if (streamer != null) streamers.push(streamer)
+  for (var player of players.values()) {
+    if (player.streamer != null) streamers.push(player.streamer)
   }
   document.title = 'TVS: ' + streamers.join(' vs ')
 
@@ -822,13 +819,11 @@ function reloadTimeline() {
 
   var [timelineStart, timelineEnd] = getTimelineBounds()
   var rowHeight = 100.0 / players.size
-  for (var i = 0; i < FEATURES.MAX_PLAYERS; i++) {
-    if (!players.has('player' + i)) continue
-    var videoDetails = players.get('player' + i)
-
+  var i = 0
+  for (var videoDetails of players.items()) {
     var rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
     graphic.appendChild(rect)
-    rect.setAttribute('fill', TIMELINE_COLORS[i % FEATURES.MAX_PLAYERS])
+    rect.setAttribute('fill', TIMELINE_COLORS[i % len(TIMELINE_COLORS)])
     rect.setAttribute('height', rowHeight + '%')
     rect.setAttribute('y', i * rowHeight + '%')
 
@@ -837,6 +832,8 @@ function reloadTimeline() {
     if (FEATURES.HIDE_ENDING_TIMES) end = 100.0 // Hide who won by right-justifying all video endings 
     rect.setAttribute('x', start + '%')
     rect.setAttribute('width', (end - start) + '%')
+    
+    i++
   }
 
   var cursor = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
