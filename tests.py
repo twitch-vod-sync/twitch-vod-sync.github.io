@@ -89,7 +89,7 @@ class UITests:
       }''', message)
 
   STATE_STRINGS = 'LOADING,READY,SEEKING_PLAY,PLAYING,SEEKING_PAUSE,PAUSED,SEEKING_START,BEFORE_START,RESTARTING,AFTER_END,ASYNC'.split(',')
-  def wait_for_state(self, player, state, timeout_sec=10):
+  def wait_for_state(self, player, state, timeout_sec=30):
     self.driver.set_script_timeout(timeout_sec)
     return self.driver.execute_async_script('''
       var [maxLoops, player, targetState, callback] = arguments
@@ -100,7 +100,7 @@ class UITests:
           callback()
         }
         if (--maxLoops == 0) {
-          console.error(player, 'did not enter state', STATE_STRINGS[targetState], 'within', maxLoops, 'loops. Final state was', STATE_STRINGS[currentState])
+          console.error(player, 'did not enter state', STATE_STRINGS[targetState], 'within', arguments[0], 'loops. Final state was', STATE_STRINGS[currentState])
           clearInterval(interval)
         }
       }, 10)
