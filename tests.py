@@ -135,23 +135,13 @@ class UITests:
     # As a result, we give the videos a little time to buffer before calling play()
     time.sleep(5)
     self.run('players.get("player0").play()')
-    self.wait_for_state('player0', 'PLAYING')
-    if self.run('return players.has("player1")'): # We might have only one player loaded
-      self.wait_for_state('player1', 'PLAYING')
-
-    time.sleep(1) # I guess in some cases the player 'seeks' but doesn't actually return the expected time? Not sure why we need this sleep, honestly.
-
-    timestamps = self.run('''
-      var timestamps = []
-      for (var player of players.values()) {
-        timestamps.push(player.getCurrentTimestamp())
-      }
-      return timestamps
-    ''')
-    print(timestamps)
-    for i, timestamp in enumerate(timestamps):
+    for player in ['player0', 'player1', 'player2', 'player3']:
+      if not self.run(f'return players.has("{player}")'): # Check that this player exists
+        continue
+      self.wait_for_state(player, 'PLAYING')
+      timestamp = self.run(f'return players.get("{player}").getCurrentTimestamp()')
       if abs(timestamp - expected_timestamp) > 1000:
-        raise AssertionError(f'Player {i} was not within 1 second of expectation: {timestamp - expected_timestamp}')
+        raise AssertionError(f'{player} was not within 1 second of expectation: {timestamp}, {expected_timestamp}, {timestamp - expected_timestamp}')
 
   #############
   #!# Tests #!#
