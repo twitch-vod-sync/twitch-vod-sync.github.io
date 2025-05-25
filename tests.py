@@ -100,7 +100,7 @@ class UITests:
           callback()
         }
         if (--maxLoops == 0) {
-          console.error(player, 'did not enter state', targetState, 'within', maxLoops, 'loops. Final state was', currentState)
+          console.error(player, 'did not enter state', STATE_STRINGS[targetState], 'within', maxLoops, 'loops. Final state was', STATE_STRINGS[currentState])
           clearInterval(interval)
         }
       }, 10)
