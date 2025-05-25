@@ -139,7 +139,7 @@ class UITests:
       if not self.run(f'return players.has("{player}")'): # Check that this player exists
         continue
       self.wait_for_state(player, 'PLAYING')
-      print(player, self.run(f'return players.get("{player}")._player.getPlayerState()'))
+      print(player, self.run(f'return players.get("{player}")._player.getPlayerState().playback'))
       timestamp = self.run(f'return players.get("{player}").getCurrentTimestamp()')
       if abs(timestamp - expected_timestamp) > 1000:
         raise AssertionError(f'{player} was not within 1 second of expectation: {timestamp}, {expected_timestamp}, {timestamp - expected_timestamp}')
