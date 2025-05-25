@@ -64,9 +64,14 @@ class Player {
         })
         this._player.addEventListener('pause', () => this.eventSink('pause', this))
         this._player.addEventListener('ended', () => this.eventSink('ended', this))
+        this._player.addEventListener('ended', () => this.eventSink('ended', this))
 
         // I did not end up using the 'playing' event -- for the most part, twitch pauses videos when the buffer runs out,
         // which is a sufficient signal to sync up the videos again (although they don't start playing automatically again).
+        // That said, some of my tests seem to be flaky because "play" causes the video to jump into a 'buffering' state (according to getPlayerState().playback)
+        // Re-adding the event listener just to get some logging and see if this is a potential fix.
+        this._player.addEventListener('playing', () => this.eventSink('test_playing', this))
+
         this.onready(this)
       })
     }

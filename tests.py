@@ -89,18 +89,22 @@ class UITests:
       }''', message)
 
   STATE_STRINGS = 'LOADING,READY,SEEKING_PLAY,PLAYING,SEEKING_PAUSE,PAUSED,SEEKING_START,BEFORE_START,RESTARTING,AFTER_END,ASYNC'.split(',')
-  def wait_for_state(self, player, state, timeout_sec=10):
+  def wait_for_state(self, player, state, timeout_sec=30):
     self.driver.set_script_timeout(timeout_sec)
     return self.driver.execute_async_script('''
       var [maxLoops, player, targetState, callback] = arguments
       var interval = setInterval(() => {
-        var currentState = players.get(player).state
-        if (players.has(player) && currentState === targetState) {
-          clearInterval(interval)
-          callback()
+        var currentState = players.has(player) ? players.get(player).state : null
+        if (currentState === targetState) {
+          if (players.get(player)._player.getPlayerState().playback === 'Buffering') {
+            console.warn('State reached but player still buffering')
+          } else {
+            clearInterval(interval)
+            callback()
+          }
         }
         if (--maxLoops == 0) {
-          console.error(player, 'did not enter state', targetState, 'within', maxLoops, 'loops. Final state was', currentState)
+          console.error(player, 'did not enter state', STATE_STRINGS[targetState], 'within', arguments[0], 'loops. Final state was', STATE_STRINGS[currentState])
           clearInterval(interval)
         }
       }, 10)
@@ -118,14 +122,7 @@ class UITests:
       
   def print_chrome_log(self):
     for log in self.driver.get_log('browser'):
-      try:
-        print(u'%d\t%s\t%s' % (log['timestamp'], log['level'], log['message']))
-      except AttributeError as e:
-        print(e)
-        print(log['message'].encode('utf-8', errors='backslashreplace'))
-      except UnicodeEncodeError as e:
-        print(e)
-        print(log['message'].encode('utf-8', errors='backslashreplace'))
+      print(u'%d\t%s\t%s' % (log['timestamp'], log['level'], log['message'].encode('utf-8', errors='backslashreplace')))
 
   def run(self, script):
     return self.driver.execute_script(script)
@@ -135,23 +132,13 @@ class UITests:
     # As a result, we give the videos a little time to buffer before calling play()
     time.sleep(5)
     self.run('players.get("player0").play()')
-    self.wait_for_state('player0', 'PLAYING')
-    if self.run('return players.has("player1")'): # We might have only one player loaded
-      self.wait_for_state('player1', 'PLAYING')
-
-    time.sleep(1) # I guess in some cases the player 'seeks' but doesn't actually return the expected time? Not sure why we need this sleep, honestly.
-
-    timestamps = self.run('''
-      var timestamps = []
-      for (var player of players.values()) {
-        timestamps.push(player.getCurrentTimestamp())
-      }
-      return timestamps
-    ''')
-    print(timestamps)
-    for i, timestamp in enumerate(timestamps):
+    for player in ['player0', 'player1', 'player2', 'player3']:
+      if not self.run(f'return players.has("{player}")'): # Check that this player exists
+        continue
+      self.wait_for_state(player, 'PLAYING')
+      timestamp = self.run(f'return players.get("{player}").getCurrentTimestamp()')
       if abs(timestamp - expected_timestamp) > 1000:
-        raise AssertionError(f'Player {i} was not within 1 second of expectation: {timestamp - expected_timestamp}')
+        raise AssertionError(f'{player} was not within 1 second of expectation: {timestamp}, {expected_timestamp}, {timestamp - expected_timestamp}')
 
   #############
   #!# Tests #!#
