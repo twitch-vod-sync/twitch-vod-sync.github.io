@@ -1,6 +1,6 @@
 var FEATURES = {
   'HIDE_ENDING_TIMES': true,
-  'SHUFFLE_RACE_VIDEOS': false,
+  'SHUFFLE_RACE_VIDEOS': true,
   'MAX_PLAYERS': 4,
 }
 const MIN_PLAYERS = 2 // It's too much work to support this being dynamic, so I won't.
