@@ -94,8 +94,8 @@ class UITests:
     return self.driver.execute_async_script('''
       var [maxLoops, player, targetState, callback] = arguments
       var interval = setInterval(() => {
-        var currentState = players.get(player).state
-        if (players.has(player) && currentState === targetState) {
+        var currentState = players.has(player) ? players.get(player).state : null
+        if (currentState === targetState) {
           clearInterval(interval)
           callback()
         }
