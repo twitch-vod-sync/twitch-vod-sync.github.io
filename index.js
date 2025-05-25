@@ -783,15 +783,15 @@ function reloadTimeline() {
   var [timelineStart, timelineEnd] = getTimelineBounds()
   var rowHeight = 100.0 / players.size
   var i = 0
-  for (var videoDetails of players.items()) {
+  for (var player of players.values()) {
     var rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
     graphic.appendChild(rect)
-    rect.setAttribute('fill', TIMELINE_COLORS[i % len(TIMELINE_COLORS)])
+    rect.setAttribute('fill', TIMELINE_COLORS[i % TIMELINE_COLORS.length])
     rect.setAttribute('height', rowHeight + '%')
     rect.setAttribute('y', i * rowHeight + '%')
 
-    var start = 100.0 * (videoDetails.startTime - timelineStart) / (timelineEnd - timelineStart)
-    var end = 100.0 * (videoDetails.endTime - timelineStart) / (timelineEnd - timelineStart)
+    var start = 100.0 * (player.startTime - timelineStart) / (timelineEnd - timelineStart)
+    var end = 100.0 * (player.endTime - timelineStart) / (timelineEnd - timelineStart)
     if (FEATURES.HIDE_ENDING_TIMES) end = 100.0 // Hide who won by right-justifying all video endings 
     rect.setAttribute('x', start + '%')
     rect.setAttribute('width', (end - start) + '%')
