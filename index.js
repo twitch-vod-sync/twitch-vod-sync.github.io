@@ -1,7 +1,6 @@
 var FEATURES = {
   'HIDE_ENDING_TIMES': true,
   'SHUFFLE_RACE_VIDEOS': false,
-  'MAX_PLAYERS': 4,
 }
 const MIN_PLAYERS = 2 // It's too much work to support this being dynamic, so I won't.
 
@@ -780,13 +779,11 @@ function reloadTimeline() {
 
   var [timelineStart, timelineEnd] = getTimelineBounds()
   var rowHeight = 100.0 / players.size
-  for (var i = 0; i < FEATURES.MAX_PLAYERS; i++) {
-    if (!players.has('player' + i)) continue
-    var videoDetails = players.get('player' + i)
-
+  var i = 0
+  for (var videoDetails of players.items()) {
     var rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
     graphic.appendChild(rect)
-    rect.setAttribute('fill', TIMELINE_COLORS[i % FEATURES.MAX_PLAYERS])
+    rect.setAttribute('fill', TIMELINE_COLORS[i % len(TIMELINE_COLORS)])
     rect.setAttribute('height', rowHeight + '%')
     rect.setAttribute('y', i * rowHeight + '%')
 
@@ -795,6 +792,8 @@ function reloadTimeline() {
     if (FEATURES.HIDE_ENDING_TIMES) end = 100.0 // Hide who won by right-justifying all video endings 
     rect.setAttribute('x', start + '%')
     rect.setAttribute('width', (end - start) + '%')
+    
+    i++
   }
 
   var cursor = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
