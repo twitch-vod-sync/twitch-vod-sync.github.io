@@ -173,7 +173,7 @@ class UITests:
     expected_channel_names = [e['user']['twitch_display_name'] for e in j['entrants']]
     expected_timestamp = datetime.fromisoformat(j['started_at']).timestamp() * 1000
 
-    url = f'http://localhost:3000?race=https://racetime.gg/{race_id}#access_token=invalid'
+    url = f'http://localhost:3000?race=https://racetime.gg/{race_id}#scope=&access_token=invalid'
     self.driver.get(url)
     
     # The app will try to load the race, but the token is invalid -- so it will show the twitch popup.
@@ -183,7 +183,7 @@ class UITests:
     # This should now send us to twitch -- which we obviously shouldn't interact with :)
     # Instead, simulate the redirect by sending the driver back to the callback url with our known token.
     assert self.driver.current_url.startswith('https://www.twitch.tv/login')
-    url = f'http://localhost:3000#access_token={self.access_token}&client_id={self.client_id}'
+    url = f'http://localhost:3000#scope=&access_token={self.access_token}&client_id={self.client_id}'
     self.driver.get(url)
     self.wait_for_state('player0', 'PAUSED')
 
