@@ -63,26 +63,25 @@ window.onload = function() {
     // There may be other params, this loop is only for player0, player1, etc
     if (playerId.startsWith('player') && videoIds.length > 0) {
         while (document.getElementById(playerId) == null) window.addPlayer()
-        players.set(playerId, new Player())
 
-      // Copy the loop variables to avoid javascript lambda-in-loop bug
-      ;((playerId, videoIds) => {
+        // Copy the loop variables to avoid javascript lambda-in-loop bug
+        ;((playerId, videoIds) => {
+          var firstVideo = videoIds.split('-')[0]
+          if (firstVideo.match(TWITCH_VIDEO_MATCH) != null) {
+            players.set(playerId, new TwitchPlayer())
 
-        var firstVideo = videoIds.split('-')[0]
-        if (firstVideo.match(TWITCH_VIDEO_MATCH) != null) {
-          players.set(playerId, new TwitchPlayer())
+            getTwitchVideosDetails(videoIds.split('-'))
+            .then(videos => loadVideos(playerId, videos), 'twitch')
+            .catch(r => showText(playerId, 'Could not process twitch video "' + videoIds + '":\n' + r, /*isError*/true))
+          } else if (firstVideo.match(YOUTUBE_VIDEO_MATCH) != null) {
+            players.set(playerId, new YoutubePlayer())
 
-          getTwitchVideosDetails(videoIds.split('-'))
-          .then(videos => loadVideos(playerId, videos), 'twitch')
-          .catch(r => showText(playerId, 'Could not process twitch video "' + videoIds + '":\n' + r, /*isError*/true))
-        } else if (firstVideo.match(YOUTUBE_VIDEO_MATCH) != null) {
-          players.set(playerId, new YoutubePlayer())
-
-          getEmptyVideosDetails(videoIds.split('-'))
-          .then(videos => loadVideos(playerId, videos), 'youtube')
-          .catch(r => showText(playerId, 'Could not process youtube video "' + videoIds + '":\n' + r, /*isError*/true))
-        }
-      })(playerId, videoIds)
+            getEmptyVideosDetails(videoIds.split('-'))
+            .then(videos => loadVideos(playerId, videos), 'youtube')
+            .catch(r => showText(playerId, 'Could not process youtube video "' + videoIds + '":\n' + r, /*isError*/true))
+          }
+        })(playerId, videoIds)
+      }
     }
   }
 
@@ -820,15 +819,15 @@ function reloadTimeline() {
   var [timelineStart, timelineEnd] = getTimelineBounds()
   var rowHeight = 100.0 / players.size
   var i = 0
-  for (var videoDetails of players.items()) {
+  for (var player of players.values()) {
     var rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
     graphic.appendChild(rect)
-    rect.setAttribute('fill', TIMELINE_COLORS[i % len(TIMELINE_COLORS)])
+    rect.setAttribute('fill', TIMELINE_COLORS[i % TIMELINE_COLORS.length])
     rect.setAttribute('height', rowHeight + '%')
     rect.setAttribute('y', i * rowHeight + '%')
 
-    var start = 100.0 * (videoDetails.startTime - timelineStart) / (timelineEnd - timelineStart)
-    var end = 100.0 * (videoDetails.endTime - timelineStart) / (timelineEnd - timelineStart)
+    var start = 100.0 * (player.startTime - timelineStart) / (timelineEnd - timelineStart)
+    var end = 100.0 * (player.endTime - timelineStart) / (timelineEnd - timelineStart)
     if (FEATURES.HIDE_ENDING_TIMES) end = 100.0 // Hide who won by right-justifying all video endings 
     rect.setAttribute('x', start + '%')
     rect.setAttribute('width', (end - start) + '%')

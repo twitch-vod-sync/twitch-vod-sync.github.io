@@ -49,7 +49,7 @@ class TwitchPlayer {
       muted: true,
     }
     this._player = new Twitch.Player(divId, options)
-    this._player.addEventListener('ready', this.onPlayerReady)
+    this._player.addEventListener('ready', () => this.onPlayerReady())
   }
   
   onPlayerReady() {
