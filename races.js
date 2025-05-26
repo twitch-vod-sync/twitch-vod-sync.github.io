@@ -24,7 +24,7 @@ window.loadRaceVideos = async function(race, count) {
   var raceVideos = []
   for (var i = 0; i < race.channels.length; i++) {
     // TODO: This can fail (e.g. if a channel doesn't save VODs). We should probably just continue to the next video in this case...
-    var channelVideos = await getChannelVideos(race.channels[i])
+    var channelVideos = await getTwitchChannelVideos(race.channels[i])
     for (var video of channelVideos) {
       if (video.startTime <= race.startTime && race.startTime <= video.endTime) {
         raceVideos.push(video)
