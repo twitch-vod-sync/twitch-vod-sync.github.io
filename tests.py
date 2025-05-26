@@ -59,7 +59,7 @@ class UITests:
     params = {}
     for i, video_id in enumerate(video_ids):
       url += f'&player{i}={video_id}'
-    url += f'#access_token={self.access_token}&client_id={self.client_id}'
+    url += f'#scope=&access_token={self.access_token}&client_id={self.client_id}'
     self.driver.get(url)
 
     # Wait for all players to load and reach the 'pause' state
@@ -114,6 +114,7 @@ class UITests:
     event_log = self.driver.execute_script('return window.eventLog')
     if not event_log:
       print('Event log was empty')
+      return
     for event in event_log:
       log_event = [datetime.fromtimestamp(event[0] / 1000).isoformat(), event[1], event[2], self.STATE_STRINGS[event[3]]]
       if len(event) > 4:
