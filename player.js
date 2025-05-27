@@ -96,7 +96,8 @@ class Player {
       this.state = SEEKING_START
       this._player.pause()
       this._player.seek(durationSeconds)
-    } else if (timestamp >= this.endTime - VIDEO_END_BUFFER) {
+    // If we try to seek past the end time (and the end time is known), instead pause the video and drop into AFTER_END
+    } else if (this._endTime != null && timestamp >= this.endTime - VIDEO_END_BUFFER) {
       var durationSeconds = (this.endTime - this.startTime - VIDEO_END_BUFFER) / 1000.0
       this.state = AFTER_END
       this._player.pause()

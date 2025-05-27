@@ -1,13 +1,14 @@
 var FEATURES = {
   'HIDE_ENDING_TIMES': true,
   'SHUFFLE_RACE_VIDEOS': true,
-  'ABSOLUTE_OFFSETS': false,
+  'DO_TWITCH_AUTH': true,
 }
 const MIN_PLAYERS = 2 // It's too much work to support this being dynamic, so I won't.
 
 // An arbitrary timestamp where we align videos while async-ing. Still considerably lower than Number.MAX_SAFE_INTEGER.
 // This is somewhere in 2017. It doesn't really matter; videos offsets can be positive, too.
-var ASYNC_ALIGN = 1500000000000
+const ASYNC_ALIGN = 1500000000000
+
 window.onload = function() {
   // There's a small chance we didn't get a 'page closing' event fired, so if this setting is still set and we have a token,
   // delete the localstorage so we show the prompt again.
@@ -51,6 +52,10 @@ window.onload = function() {
     params = new URLSearchParams(window.location.search)
   }
 
+  // Check to see if we should disable Twitch auth. This can be configured manually by the user,
+  // or triggered automatically because they were given a URL with all offsets specified,
+  // if the URL's creator had manually disabled Twitch auth.
+  // Note that we *don't* use authPrefs to track this, since that would mean loading such a URL would overwrite your settings.
   var allVideosHaveOffsets = true
   for (var [playerId, videoIds] of params.entries()) {
     if (playerId.startsWith('player') && !params.has('offset' + playerId)) {
@@ -58,14 +63,13 @@ window.onload = function() {
       break
     }
   }
+  
+  if (allVideosHaveOffsets || window.localStorage.getItem('authPrefs') == 'disableAuth') {
+    FEATURES.DO_TWITCH_AUTH = false
+  }
 
-  // We almost always need auth for Twitch, to load video details. There are two exceptions:
-  // 1. If we are given a URL with *all offsets specified*, we can simply align the videos based on that
-  // 2. If the user has checked the setting "never do Twitch auth"
-  // Otherwise, if we don't have a saved token, trigger twitch auth.
-  if (!allVideosHaveOffsets
-    && window.localStorage.getItem('authPrefs') != 'disableAuth'
-    && window.localStorage.getItem('twitchAuthToken') == null) {
+  // We almost always need auth for Twitch, to load video details. Trigger auth if we haven't disabled it (above) or if there's no token.
+  if (FEATURES.DO_TWITCH_AUTH && window.localStorage.getItem('twitchAuthToken') == null) {
     window.showTwitchRedirect()
     return
   }
@@ -78,12 +82,13 @@ window.onload = function() {
   for (var [playerId, videoIds] of params.entries()) {
     // There may be other params, this loop is only for player0, player1, etc
     if (playerId.startsWith('player') && videoIds.length > 0) {
-        while (document.getElementById(playerId) == null) window.addPlayer()
-        players.set(playerId, new Player())
-
+      while (document.getElementById(playerId) == null) window.addPlayer()
+      players.set(playerId, new Player())
+    
       // Copy the loop variables to avoid javascript lambda-in-loop bug
       ;((playerId, videoIds) => {
-        getTwitchVideosDetails(videoIds.split('-'))
+        var promise = FEATURES.DO_TWITCH_AUTH ? getTwitchVideosDetails(videoIds.split('-')) : getStubVideosDetails(videoIds.split('-'))
+        promise
         .then(videos => loadVideos(playerId, videos))
         .catch(r => showText(playerId, 'Could not process video "' + videoIds + '":\n' + r, /*isError*/true))
       })(playerId, videoIds)
@@ -112,8 +117,15 @@ window.onload = function() {
     var perc = 100.0 * (timestamp - timelineStart) / (timelineEnd - timelineStart)
     if (cursor != null) cursor.setAttribute('x', perc + '%')
 
-    var label = document.getElementById('timelineCurrent')
-    if (label != null) label.innerText = new Date(timestamp).toLocaleString(TIMELINE_DATE_FORMAT)
+    var currentLabel = document.getElementById('timelineCurrent')
+    if (currentLabel != null) currentLabel.innerText = new Date(timestamp).toLocaleString(TIMELINE_DATE_FORMAT)
+
+    // With Twitch auth disabled, we only know the start times from the query params -- the end times are determined at runtime,
+    // when the videos start playing. This means we need to update the timeline once the videos start playing.
+    if (!FEATURES.DO_TWITCH_AUTH) {
+      var endLabel = document.getElementById('timelineEnd')
+      if (endLabel != null) endLabel.innerText = new Date(timelineEnd).toLocaleString(TIMELINE_DATE_FORMAT)
+    }
 
     // This is also a convenient moment to check if any players are waiting to start because we seeked before their starttime.
     for (var player of players.values()) {
@@ -173,7 +185,10 @@ window.onload = function() {
       } else {
         // Once the user hits 'a' again, we normalize the offsets so that the earliest video is at the "true" time,
         // so that the timeline shows something reasonable.
-        if (!FEATURES.ABSOLUTE_OFFSETS) {
+        // If the user has enabled Twitch auth, we normalize the offsets so that the timeline shows something reasonable.
+        // If the user has disabled Twitch auth, we keep all the offsets at their full value so the resulting URL implies the start times.
+        // If the user was given a non-auth URL, we keep with the 'disabled Twitch' mode so they can adjust offsets without breaking the timeline.
+        if (FEATURES.DO_TWITCH_AUTH) {
           var largestOffset = -ASYNC_ALIGN
           for (var player of players.values()) {
             if (player.offset > largestOffset) largestOffset = player.offset
@@ -187,7 +202,9 @@ window.onload = function() {
         // Save offsets into the URL (to allow sharing)
         var params = new URLSearchParams(window.location.search);
         for (var player of players.values()) {
-          if (FEATURES.ABSOLUTE_OFFSETS || player.offset != 0) {
+          // When Twitch auth is disabled, we emit all offsets so that the resulting URL is coded to also not trigger auth.
+          // When Twitch auth is enabled, we omit the smallest offset (there must be one) to not trigger the above.
+          if (!FEATURES.DO_TWITCH_AUTH || player.offset != 0) {
             params.set('offset' + player.id, player.offset)
           }
         }
@@ -509,6 +526,19 @@ function loadVideos(playerId, videos) {
       seekPlayersTo(syncTo, PAUSED)
     }
   }
+}
+
+// Mirror of getTwitchVideosDetails(videoIds), except it doesn't need Twitch auth (and so has a bunch of stub/fake data)
+function getStubVideosDetails(videoIds) {
+  var videosDetails = []
+  for (videoId of videoIds) {
+    videosDetails.push({
+      'id': videoId,
+      'startTime': ASYNC_ALIGN,
+      'endTime': null,
+    })
+  }
+  return Promise.resolve(videosDetails) // We need to return a promise to match the behavior of the other code.
 }
 
 var raceStartTime = null
@@ -836,6 +866,7 @@ function reloadTimeline() {
 
   var endLabel = document.createElement('div')
   labels.appendChild(endLabel)
+  endLabel.id = 'timelineEnd'
   endLabel.style = 'margin-right: 3px'
   endLabel.innerText = new Date(timelineEnd).toLocaleString(TIMELINE_DATE_FORMAT)
 }

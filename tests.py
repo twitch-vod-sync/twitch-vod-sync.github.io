@@ -54,20 +54,6 @@ class UITests:
     self.print_chrome_log()
     self.screenshot()
 
-  def load_page(self, *video_ids):
-    url = 'http://localhost:3000?authPrefs=neverSave'
-    params = {}
-    for i, video_id in enumerate(video_ids):
-      url += f'&player{i}={video_id}'
-    url += f'#scope=&access_token={self.access_token}&client_id={self.client_id}'
-    self.driver.get(url)
-
-    # Wait for all players to load and reach the 'pause' state
-    for i in range(len(video_ids)):
-      self.wait_for_state(f'player{i}', 'PAUSED')
-
-    print('Loaded page with videos', *video_ids)
-
   def screenshot(self):
     self.screenshot_no += 1
     path = Path(self.tmp_folder / f'{self.screenshot_no:03}.png')
@@ -145,12 +131,24 @@ class UITests:
   #!# Tests #!#
   #############
 
-  def testLoadAndSyncStart(self):
-    self.load_page('2444833212', '2444833835')
-    self.assert_videos_synced_to(1745837218000)
+  def testLoadWithOffsetsAndSyncStart(self):
+    url = 'http://localhost:3000?player0=2444833212&offsetplayer0=245837252000&player1=2444833835&offsetplayer1=245837312000'
+    self.driver.get(url)
 
+    # Wait for all players to load and reach the 'pause' state
+    for player in ['player0', 'player1']:
+      self.wait_for_state(player, 'PAUSED')
+
+    self.assert_videos_synced_to(1745837312100)
+\
   def testSeek(self):
-    self.load_page('2444833212', '2444833835')
+    url = f'http://localhost:3000?player0=2444833212&player1=2444833835#scope=&access_token={self.access_token}&client_id={self.client_id}'
+    self.driver.get(url)
+
+    # Wait for all players to load and reach the 'pause' state
+    for player in ['player0', 'player1']:
+      self.wait_for_state(player, 'PAUSED')
+
     # Simulate a user's seek by using the internal player.
     self.run('players.get("player1")._player.seek(20.0)')
     self.wait_for_state('player0', 'PAUSED')

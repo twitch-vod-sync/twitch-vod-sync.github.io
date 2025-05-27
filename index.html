@@ -38,6 +38,9 @@
       <br />
       <br />
       <form onsubmit="doTwitchRedirect(event)">
+        <input type="radio" name="authPrefs" value="disableAuth" id="disableAuth" />
+        <label for="disableAuth">Disable Twitch auth entirely, I will manually align the videos.</label>
+        <br />
         <input type="radio" name="authPrefs" value="neverSave" id="neverSave" />
         <label for="neverSave">Do not persist my token, always show this warning</label>
         <br />
@@ -47,6 +50,7 @@
         <input type="radio" name="authPrefs" value="autoRedirect" id="autoRedirect" checked />
         <label for="autoRedirect">Persist my token and automatically redirect me to Twitch when my token needs to be refreshed</label>
         <br />
+        window.localStorage.getItem('authPrefs') == ''
         <input id="twitchRedirectButton" type="submit" value="Redirect me to Twitch" />
       </form>
     </div>
