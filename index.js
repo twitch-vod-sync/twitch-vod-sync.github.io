@@ -56,15 +56,19 @@ window.onload = function() {
   // or triggered automatically because they were given a URL with all offsets specified,
   // if the URL's creator had manually disabled Twitch auth.
   // Note that we *don't* use authPrefs to track this, since that would mean loading such a URL would overwrite your settings.
+  var anyVideoParams = false
   var allVideosHaveOffsets = true
   for (var [playerId, videoIds] of params.entries()) {
-    if (playerId.startsWith('player') && !params.has('offset' + playerId)) {
-      allVideosHaveOffsets = false
-      break
+    if (playerId.startsWith('player')) {
+      anyVideoParams = true
+      if (!params.has('offset' + playerId)) {
+        allVideosHaveOffsets = false
+        break
+      }
     }
   }
   
-  if (allVideosHaveOffsets || window.localStorage.getItem('authPrefs') == 'disableAuth') {
+  if ((anyVideoParams && allVideosHaveOffsets) || window.localStorage.getItem('authPrefs') == 'disableAuth') {
     FEATURES.DO_TWITCH_AUTH = false
   }
 
