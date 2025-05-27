@@ -1,12 +1,9 @@
-(() => { // namespace to keep our own copy of 'headers'
+(() => {
 
-// For now, I have just integrated with racetime.gg. If we need more integration, we might need more auth.
-var headers = {
-}
-
+// For now, I have just integrated with racetime.gg. If we need more integration, we might need auth.
 window.getRacetimeRaceDetails = function(raceId) {
   // e.g. 'https://racetime.gg/dk64r/wonderful-krossbones-7951/data'
-  return fetch('https://racetime.gg/' + raceId + '/data', {'headers': headers})
+  return fetch('https://racetime.gg/' + raceId + '/data')
   .then(r => {
     if (r.status != 200) return Promise.reject('HTTP request failed: ' + r.status)
     return r.json()
@@ -23,8 +20,14 @@ window.getRacetimeRaceDetails = function(raceId) {
 window.loadRaceVideos = async function(race, count) {
   var raceVideos = []
   for (var i = 0; i < race.channels.length; i++) {
-    // TODO: This can fail (e.g. if a channel doesn't save VODs). We should probably just continue to the next video in this case...
-    var channelVideos = await getTwitchChannelVideos(race.channels[i])
+    try {
+      var channelVideos = await getTwitchChannelVideos(race.channels[i])
+    } catch (ex) {
+      // This can fail (e.g. if a channel doesn't save VODs). If that happens, just continue to the next entrant.
+      console.warn(ex)
+      continue
+    }
+
     for (var video of channelVideos) {
       if (video.startTime <= race.startTime && race.startTime <= video.endTime) {
         raceVideos.push(video)
