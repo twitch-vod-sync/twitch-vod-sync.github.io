@@ -1,6 +1,7 @@
 var FEATURES = {
   'HIDE_ENDING_TIMES': true,
   'SHUFFLE_RACE_VIDEOS': true,
+  'ABSOLUTE_OFFSETS': false,
 }
 const MIN_PLAYERS = 2 // It's too much work to support this being dynamic, so I won't.
 
@@ -41,13 +42,7 @@ window.onload = function() {
     window.location.hash = ''
   }
 
-  // We almost always need auth for twitch. If we don't have a saved token, trigger twitch auth.
-  if (window.localStorage.getItem('twitchAuthToken') == null) {
-    window.showTwitchRedirect()
-    return
-  }
-
-  // Once auth is sorted out, load any videos from the query parameters (or the stashed parameters).
+  // Parse the query parameters (or the stashed parameters, if we're getting an auth callback).
   var params = null
   if (window.localStorage.getItem('queryParams') != null) {
     params = new URLSearchParams(window.localStorage.getItem('queryParams'))
@@ -55,9 +50,31 @@ window.onload = function() {
   } else {
     params = new URLSearchParams(window.location.search)
   }
+
+  var allVideosHaveOffsets = true
+  for (var [playerId, videoIds] of params.entries()) {
+    if (playerId.startsWith('player') && !params.has('offset' + playerId)) {
+      allVideosHaveOffsets = false
+      break
+    }
+  }
+
+  // We almost always need auth for Twitch, to load video details. There are two exceptions:
+  // 1. If we are given a URL with *all offsets specified*, we can simply align the videos based on that
+  // 2. If the user has checked the setting "never do Twitch auth"
+  // Otherwise, if we don't have a saved token, trigger twitch auth.
+  if (!allVideosHaveOffsets
+    && window.localStorage.getItem('authPrefs') != 'disableAuth'
+    && window.localStorage.getItem('twitchAuthToken') == null) {
+    window.showTwitchRedirect()
+    return
+  }
+
+  // Start with two players by default
   window.addPlayer()
   window.addPlayer()
 
+  // Once auth is sorted out, load any videos from the query parameters
   for (var [playerId, videoIds] of params.entries()) {
     // There may be other params, this loop is only for player0, player1, etc
     if (playerId.startsWith('player') && videoIds.length > 0) {
@@ -135,7 +152,8 @@ window.onload = function() {
       // 2. Bucket/group/whatever to find the minimum supported qualities between all players
       // 3. Determine the current quality based on the average? or something.
       // 4. Increment to the next quality in the minimum list (player.setQuality)
-      
+      // idk. I'm not sure what behavior you really want here -- I think for now this can just toggle between "min" and "max"
+
     } else if (event.key == 'a') {
       // On the first press, bring all videos into 'async mode', where they can be adjusted freely.
       // We need to start by aligning all videos based on their current time.
@@ -155,20 +173,27 @@ window.onload = function() {
       } else {
         // Once the user hits 'a' again, we normalize the offsets so that the earliest video is at the "true" time,
         // so that the timeline shows something reasonable.
-        var largestOffset = -ASYNC_ALIGN
-        for (var player of players.values()) {
-          if (player.offset > largestOffset) largestOffset = player.offset
+        if (!FEATURES.ABSOLUTE_OFFSETS) {
+          var largestOffset = -ASYNC_ALIGN
+          for (var player of players.values()) {
+            if (player.offset > largestOffset) largestOffset = player.offset
+          }
+
+          for (var player of players.values()) {
+            player.offset -= largestOffset
+          }
         }
 
-        // Normalize offsets then save to the URL (to allow sharing)
+        // Save offsets into the URL (to allow sharing)
         var params = new URLSearchParams(window.location.search);
         for (var player of players.values()) {
-          player.offset -= largestOffset
-          params.set(player.id + 'offset', player.offset)
+          if (FEATURES.ABSOLUTE_OFFSETS || player.offset != 0) {
+            params.set('offset' + player.id, player.offset)
+          }
         }
         history.pushState(null, null, '?' + params.toString())
 
-        reloadTimeline() // Reload now that the videos have comparable timers
+        reloadTimeline() // Reload now that the videos have comparable start and end times
 
         console.log('vodsync', 'Resuming all players after async alignment')
         for (var player of players.values()) {
@@ -272,7 +297,7 @@ function removePlayer() {
   // Update displayed query params to remove this video
   var params = new URLSearchParams(window.location.search);
   params.delete(playerToRemove.id)
-  params.delete(playerToRemove.id + 'offset')
+  params.delete('offset' + playerToRemove.id)
   history.pushState(null, null, '?' + params.toString())
 
   // Remove the div (which also unloads the embed)
@@ -318,7 +343,6 @@ function resizePlayers() {
 
 const RACETIME_GG_MATCH     = /^(?:https?:\/\/)(?:www\.)?racetime\.gg\/([a-z0-9-]+\/[a-z0-9-]+)(?:\/.*)?(?:\?.*)?$/
 const YOUTUBE_VIDEO_MATCH   = /^(?:https:\/\/(?:www\.)?(?:m\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/))?([0-9A-Za-z_-]{10}[048AEIMQUYcgkosw])(?:\?.*)?$/
-const YOUTUBE_CHANNEL_MATCH = /^$/ // TODO: Not sure how to parse these. Twitch and youtube look very similar by just "channel name"
 const TWITCH_VIDEO_MATCH    = /^(?:https?:\/\/(?:www\.)?(?:m\.)?twitch\.tv\/videos\/)?([0-9]+)(?:\?.*)?$/
 const TWITCH_CHANNEL_MATCH  = /^(?:https?:\/\/(?:www\.)?(?:m\.)?twitch\.tv\/)?([a-zA-Z0-9]\w+)\/?(?:\?.*)?$/
 function searchVideo(event) {
@@ -431,8 +455,8 @@ function loadVideos(playerId, videos) {
 
   var player = new Player(div.id, videos)
   players.set(div.id, player)
-  if (params.has(div.id + 'offset')) {
-    player.offset = parseInt(params.get(div.id + 'offset'))
+  if (params.has('offset' + div.id)) {
+    player.offset = parseInt(params.get('offset' + div.id))
   }
 
   player.eventSink = twitchEvent
@@ -490,7 +514,7 @@ function loadVideos(playerId, videos) {
 var raceStartTime = null
 function loadRace(raceDetails) {
   raceStartTime = raceDetails.startTime
-  
+
   // We load a video from the race for each player which is visible (down to a minimum of 4).
   // This means the user can add more placeholders before loading a race to request more videos out of it.
   // However, we won't overwrite any already-loaded videos (e.g. if the user already has an async loaded up).
@@ -787,10 +811,10 @@ function reloadTimeline() {
 
     var start = 100.0 * (player.startTime - timelineStart) / (timelineEnd - timelineStart)
     var end = 100.0 * (player.endTime - timelineStart) / (timelineEnd - timelineStart)
-    if (FEATURES.HIDE_ENDING_TIMES) end = 100.0 // Hide who won by right-justifying all video endings 
+    if (FEATURES.HIDE_ENDING_TIMES) end = 100.0 // Hide who won by right-justifying all video endings
     rect.setAttribute('x', start + '%')
     rect.setAttribute('width', (end - start) + '%')
-    
+
     i++
   }
 
@@ -809,7 +833,7 @@ function reloadTimeline() {
   var currentLabel = document.createElement('div')
   currentLabel.id = 'timelineCurrent'
   labels.appendChild(currentLabel)
-  
+
   var endLabel = document.createElement('div')
   labels.appendChild(endLabel)
   endLabel.style = 'margin-right: 3px'
