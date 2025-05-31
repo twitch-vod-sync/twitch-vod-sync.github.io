@@ -618,7 +618,7 @@ function twitchEvent(event, thisPlayer, seekMillis) {
         break
     }
     
-  if (event == 'seek') {
+  } else if (event == 'seek') {
     switch (thisPlayer.state) {
       // These two states are expected to have a seek event based on automatic seeking actions,
       // so even though it could be a user action we ignore it since it's unlikely.
