@@ -626,7 +626,7 @@ function twitchEvent(event, thisPlayer, seekMillis) {
         thisPlayer.state = PAUSED
         break
       case SEEKING_PLAY:
-        thisPlayer.state = PLAYING
+        // thisPlayer.state = PLAYING
         break
       case SEEKING_START:
         thisPlayer.state = BEFORE_START
