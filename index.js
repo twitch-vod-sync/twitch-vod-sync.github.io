@@ -609,6 +609,15 @@ function printLog() {
 function twitchEvent(event, thisPlayer, seekMillis) {
   eventLog.push([new Date().getTime(), thisPlayer.id, event, thisPlayer.state, seekMillis])
 
+  if (event == 'test_playing') {
+    switch (thisPlayer.state) {
+      case SEEKING_PLAY:
+        thisPlayer.state = PLAYING
+      default:
+        console.log('vodsync', thisPlayer.id, 'had an unhandled event', event, 'while in state', STATE_STRINGS[thisPlayer.state])
+        break
+    }
+    
   if (event == 'seek') {
     switch (thisPlayer.state) {
       // These two states are expected to have a seek event based on automatic seeking actions,
