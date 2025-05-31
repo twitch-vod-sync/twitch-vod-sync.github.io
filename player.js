@@ -8,10 +8,12 @@ const PAUSED        = 5
 const SEEKING_START = 6
 const BEFORE_START  = 7
 const RESTARTING    = 8
-const AFTER_END     = 9
-const ASYNC         = 10
+const SEEKING_END   = 9 // TODO: Implement
+const AFTER_END     = 10
+const ASYNC         = 11
 
-STATE_STRINGS = [
+// TODO: Maybe unneeded if the only place we use this is logging
+const STATE_STRINGS = [
   'LOADING',
   'READY',
   'SEEKING_PLAY',
@@ -21,6 +23,7 @@ STATE_STRINGS = [
   'SEEKING_START',
   'BEFORE_START',
   'RESTARTING',
+  'SEEKING_END',
   'AFTER_END',
   'ASYNC',
 ]
