@@ -176,7 +176,9 @@ class UITests:
     
     # The app will try to load the race, but the token is invalid -- so it will show the twitch popup.
     # Wait for the twitch popup to be visible, then click the 'redirect me' button
-    WebDriverWait(self.driver, 5).until(EC.visibility_of_element_located((By.ID, 'twitchRedirectButton'))).click()
+    redirect = WebDriverWait(self.driver, 5).until(EC.visibility_of_element_located((By.ID, 'twitchRedirectButton')))
+    self.screenshot()
+    redirect.click()
 
     # This should now send us to twitch -- which we obviously shouldn't interact with :)
     # Instead, simulate the redirect by sending the driver back to the callback url with our known token.
