@@ -107,8 +107,7 @@ class UITests:
       
   def print_chrome_log(self):
     for log in self.driver.get_log('browser'):
-      print(log['timestamp'])
-      timestamp = datetime.fromtimestamp(int(log['timestamp'])).isoformat()
+      timestamp = datetime.fromtimestamp(log['timestamp'] / 1000).isoformat()
       message = log['message'].encode('utf-8', errors='backslashreplace')
       level = log['level']
       print(u'%d\t%s\t%s' % (log['timestamp'], log['level'], ))
