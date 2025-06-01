@@ -353,6 +353,10 @@ function searchVideo(event) {
   // Other text will be shown on success or failure
   if (document.getElementById(playerId + '-text').innerText.startsWith('Loading')) return
 
+  // Clear out the video picker if we were showing one
+  var videoPicker = document.getElementById(playerId + '-grid')
+  if (videoPicker != null) videoPicker.remove()
+
   // Check to see if this is a racetime link
   var m = formText.match(RACETIME_GG_MATCH)
   if (m != null) {
@@ -422,6 +426,7 @@ function showVideoPicker(playerId, videos) {
   var videoGrid = document.createElement('div')
   document.getElementById(playerId).appendChild(videoGrid)
   videoGrid.style = 'display: flex; flex-wrap: wrap; gap: 10px; width: 980px' // Need to set a width to get 3 per line
+  videoGrid.id = playerId + '-grid'
 
   for (var i = 0; i < 9; i++) {
     // Copy the loop variable to avoid javascript lambda-in-loop bug
