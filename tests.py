@@ -47,12 +47,10 @@ class UITests:
     self.driver = webdriver.Chrome(options=options, service=service)
 
   def teardown(self):
-    self.driver.close()
-    
-  def on_failure(self):
     self.print_event_log()
     self.print_chrome_log()
     self.screenshot()
+    self.driver.close()
 
   def screenshot(self):
     self.screenshot_no += 1
@@ -209,12 +207,12 @@ if __name__ == '__main__':
     try:
       test_class.setup()
       test[1]()
-      test_class.teardown()
     except Exception:
       print('!!!', test[0], 'failed:')
       traceback.print_exc()
-      test_class.on_failure()
       sys.exit(-1)
+    finally:
+      test_class.teardown()
 
     print('===', test[0], 'passed')
   print('\nAll tests passed')

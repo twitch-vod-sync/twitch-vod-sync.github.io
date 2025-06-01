@@ -585,9 +585,12 @@ function printLog() {
 function twitchEvent(event, thisPlayer, seekMillis) {
   eventLog.push([new Date().getTime(), thisPlayer.id, event, thisPlayer.state, seekMillis])
 
-  if (event == 'test_playing') {
+  if (event == 'playing') {
     switch (thisPlayer.state) {
       case SEEKING_PLAY:
+      case READY:
+      case BEFORE_START:
+      case PAUSED:
         thisPlayer.state = PLAYING
       default:
         console.log('vodsync', thisPlayer.id, 'had an unhandled event', event, 'while in state', STATE_STRINGS[thisPlayer.state])
@@ -615,7 +618,7 @@ function twitchEvent(event, thisPlayer, seekMillis) {
         thisPlayer.state = PAUSED
         break
       case SEEKING_PLAY:
-        // thisPlayer.state = PLAYING
+        // TODO: Now uses playing event // thisPlayer.state = PLAYING
         break
       case SEEKING_START:
         thisPlayer.state = BEFORE_START
@@ -756,7 +759,7 @@ function seekPlayersTo(timestamp, targetState, exceptFor) {
   pendingSeekTimestamp = timestamp
   for (var player of players.values()) {
     if (exceptFor != null && player.id == exceptFor.id) {
-      player.state = targetState
+      // TODO: Now uses playing event // player.state = targetState
       continue
     }
     player.seekTo(timestamp, targetState)
