@@ -583,7 +583,7 @@ function printLog() {
 }
 
 function twitchEvent(event, thisPlayer, seekMillis) {
-  eventLog.push([new Date().getTime(), thisPlayer.id, event, thisPlayer.state, seekMillis])
+  console.log(thisPlayer.id, event, thisPlayer.state, seekMillis)
 
   if (event == 'playing') {
     switch (thisPlayer.state) {
