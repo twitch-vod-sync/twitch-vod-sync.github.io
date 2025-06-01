@@ -109,8 +109,7 @@ class UITests:
     for log in self.driver.get_log('browser'):
       timestamp = datetime.fromtimestamp(log['timestamp'] / 1000).isoformat()
       message = log['message'].encode('utf-8', errors='backslashreplace')
-      level = log['level']
-      print(u'%d\t%s\t%s' % (log['timestamp'], log['level'], ))
+      print(f'{timestamp}\t{message}')
 
   def run(self, script):
     return self.driver.execute_script(script)
