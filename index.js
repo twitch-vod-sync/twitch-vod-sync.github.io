@@ -587,25 +587,25 @@ function printLog() {
 function twitchEvent(event, thisPlayer, seekMillis) {
   console.log(thisPlayer.id, event, thisPlayer.state, seekMillis)
 
+  if (pendingSeekTimestamp > 0) {
+    var anyPlayerStillSeeking = false
+    for (var player of players.values()) {
+      if (player == thisPlayer) continue
+      if ([SEEKING_PLAY, SEEKING_PAUSE, SEEKING_START, SEEKING_END].includes(player.state)) anyPlayerStillSeeking = true
+    }
+
+    if (!anyPlayerStillSeeking) {
+      console.log('vodsync', thisPlayer.id, 'was last to finish seeking to', pendingSeekTimestamp, 'setting pendingSeekTimestamp to 0')
+      pendingSeekTimestamp = 0
+    }
+  }
+
   if (event == 'playing') {
     // This event is now the *one and only* event which sets players into the 'playing' state.
     // We don't care what the player was doing before; if Twitch reports that it's now playing video, it's in the playing state.
     thisPlayer.state = PLAYING
     
   } else if (event == 'seek') {
-    if (pendingSeekTimestamp > 0) {
-      var anyPlayerStillSeeking = false
-      for (var player of players.values()) {
-        if (player == thisPlayer) continue
-        if ([SEEKING_PLAY, SEEKING_PAUSE, SEEKING_START, SEEKING_END].includes(player.state)) anyPlayerStillSeeking = true
-      }
-
-      if (!anyPlayerStillSeeking) {
-        console.log('vodsync', thisPlayer.id, 'was last to finish seeking to', pendingSeekTimestamp, 'setting pendingSeekTimestamp to 0')
-        pendingSeekTimestamp = 0
-      }
-    }
-    
     switch (thisPlayer.state) {
       // These states are expected to have a seek event based on automated seeking actions,
       // so we assume that any 'seek' event corresponds to that action.
