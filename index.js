@@ -191,10 +191,7 @@ window.onload = function() {
         reloadTimeline() // Reload now that the videos have comparable start and end times
 
         console.log('vodsync', 'Resuming all players after async alignment')
-        for (var player of players.values()) {
-          player.state = PLAYING
-          player.play()
-        }
+        for (var player of players.values()) player.play()
       }
     } else {
       // Spacebar pauses (if anyone is playing) or plays (if everyone is paused)
@@ -591,16 +588,9 @@ function twitchEvent(event, thisPlayer, seekMillis) {
   console.log(thisPlayer.id, event, thisPlayer.state, seekMillis)
 
   if (event == 'playing') {
-    switch (thisPlayer.state) {
-      case SEEKING_PLAY:
-      case READY:
-      case BEFORE_START:
-      case PAUSED:
-        thisPlayer.state = PLAYING
-      default:
-        console.log('vodsync', thisPlayer.id, 'had an unhandled event', event, 'while in state', STATE_STRINGS[thisPlayer.state])
-        break
-    }
+    // This event is now the *one and only* event which sets players into the 'playing' state.
+    // We don't care what the player was doing before; if Twitch reports that it's now playing video, it's in the playing state.
+    thisPlayer.state = PLAYING
     
   } else if (event == 'seek') {
     if (pendingSeekTimestamp > 0) {
@@ -617,13 +607,13 @@ function twitchEvent(event, thisPlayer, seekMillis) {
     }
     
     switch (thisPlayer.state) {
-      // These two states are expected to have a seek event based on automatic seeking actions,
-      // so even though it could be a user action we ignore it since it's unlikely.
+      // These states are expected to have a seek event based on automated seeking actions,
+      // so we assume that any 'seek' event corresponds to that action.
       case SEEKING_PAUSE:
         thisPlayer.state = PAUSED
         break
+      // No action needed; PLAYING is now set by the 'playing' event.
       case SEEKING_PLAY:
-        // TODO: Now uses playing event // thisPlayer.state = PLAYING
         break
       case SEEKING_START:
         thisPlayer.state = BEFORE_START
@@ -670,8 +660,8 @@ function twitchEvent(event, thisPlayer, seekMillis) {
           // It is possible that some of them have finished seeking (and are in PAUSED)
           // or that we are loading into a paused state, in which case all other videos are PAUSED.
           // In either case, resume those videos as they are already at the right spot.
+          // TODO: We could also use lastPendingSeek here?
           } else if (player.state == PAUSED) {
-            player.state = PLAYING
             player.play()
           }
 
@@ -905,7 +895,7 @@ function refreshTimeline() {
   // This is also a convenient moment to check if any players are waiting to start because we seeked before their starttime.
   for (var player of players.values()) {
     if (player.state === BEFORE_START && timestamp >= player.startTime) {
-      player.state = PLAYING
+      console.log(player.id, 'was waiting to start, and the current timestamp just passed its startpoint, so we started it')
       player.play()
     }
   }
