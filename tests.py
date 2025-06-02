@@ -47,12 +47,10 @@ class UITests:
     self.driver = webdriver.Chrome(options=options, service=service)
 
   def teardown(self):
-    self.driver.close()
-    
-  def on_failure(self):
     self.print_event_log()
     self.print_chrome_log()
     self.screenshot()
+    self.driver.close()
 
   def screenshot(self):
     self.screenshot_no += 1
@@ -109,7 +107,9 @@ class UITests:
       
   def print_chrome_log(self):
     for log in self.driver.get_log('browser'):
-      print(u'%d\t%s\t%s' % (log['timestamp'], log['level'], log['message'].encode('utf-8', errors='backslashreplace')))
+      timestamp = datetime.fromtimestamp(log['timestamp'] / 1000).isoformat()
+      message = log['message'].encode('utf-8', errors='backslashreplace')
+      print(f'{timestamp}\t{message}')
 
   def run(self, script):
     return self.driver.execute_script(script)
@@ -140,7 +140,7 @@ class UITests:
       self.wait_for_state(player, 'PAUSED')
 
     self.assert_videos_synced_to(1745837312100)
-\
+
   def testSeek(self):
     url = f'http://localhost:3000?player0=2444833212&player1=2444833835#scope=&access_token={self.access_token}&client_id={self.client_id}'
     self.driver.get(url)
@@ -209,12 +209,12 @@ if __name__ == '__main__':
     try:
       test_class.setup()
       test[1]()
-      test_class.teardown()
     except Exception:
       print('!!!', test[0], 'failed:')
       traceback.print_exc()
-      test_class.on_failure()
       sys.exit(-1)
+    finally:
+      test_class.teardown()
 
     print('===', test[0], 'passed')
   print('\nAll tests passed')

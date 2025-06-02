@@ -592,8 +592,8 @@ function twitchEvent(event, thisPlayer, seekMillis) {
 
   if (event == 'seek') {
     switch (thisPlayer.state) {
-      // These two states are expected to have a seek event based on automatic seeking actions,
-      // so even though it could be a user action we ignore it since it's unlikely.
+      // These states are expected to have a seek event based on automated seeking actions,
+      // so we assume that any 'seek' event corresponds to that action.
       case SEEKING_PAUSE:
         thisPlayer.state = PAUSED
         break
@@ -645,6 +645,7 @@ function twitchEvent(event, thisPlayer, seekMillis) {
           // It is possible that some of them have finished seeking (and are in PAUSED)
           // or that we are loading into a paused state, in which case all other videos are PAUSED.
           // In either case, resume those videos as they are already at the right spot.
+          // TODO: We could also use lastPendingSeek here?
           } else if (player.state == PAUSED) {
             player.state = PLAYING
             player.play()
@@ -733,10 +734,10 @@ function twitchEvent(event, thisPlayer, seekMillis) {
     }
   }
 
+  // *After* we transition the video's state, check to see if this completes a pending seek event.
   if (pendingSeekTimestamp > 0) {
     var anyPlayerStillSeeking = false
     for (var player of players.values()) {
-      if (player == thisPlayer) continue
       if ([SEEKING_PLAY, SEEKING_PAUSE, SEEKING_START, SEEKING_END].includes(player.state)) anyPlayerStillSeeking = true
     }
 
@@ -893,6 +894,7 @@ function refreshTimeline() {
   // This is also a convenient moment to check if any players are waiting to start because we seeked before their starttime.
   for (var player of players.values()) {
     if (player.state === BEFORE_START && timestamp >= player.startTime) {
+      console.log(player.id, 'was waiting to start, and the current timestamp just passed its startpoint, so we started it')
       player.state = PLAYING
       player.play()
     }
