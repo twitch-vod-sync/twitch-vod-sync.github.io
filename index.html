@@ -52,6 +52,7 @@
         <input type="radio" name="authPrefs" value="autoRedirect" id="autoRedirect" checked />
         <label for="autoRedirect">Persist my token and automatically redirect me to Twitch when my token needs to be refreshed</label>
         <br />
+        window.localStorage.getItem('authPrefs') == ''
         <input id="twitchRedirectButton" type="submit" value="Redirect me to Twitch" />
       </form>
     </div>

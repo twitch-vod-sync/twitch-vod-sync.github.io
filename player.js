@@ -8,12 +8,10 @@ const PAUSED        = 5
 const SEEKING_START = 6
 const BEFORE_START  = 7
 const RESTARTING    = 8
-const SEEKING_END   = 9 // TODO: Implement
-const AFTER_END     = 10
-const ASYNC         = 11
+const AFTER_END     = 9
+const ASYNC         = 10
 
-// TODO: Maybe unneeded if the only place we use this is logging
-const STATE_STRINGS = [
+STATE_STRINGS = [
   'LOADING',
   'READY',
   'SEEKING_PLAY',
@@ -23,7 +21,6 @@ const STATE_STRINGS = [
   'SEEKING_START',
   'BEFORE_START',
   'RESTARTING',
-  'SEEKING_END',
   'AFTER_END',
   'ASYNC',
 ]
@@ -71,7 +68,12 @@ class Player {
     })
     this._player.addEventListener('pause', () => this.eventSink('pause', this))
     this._player.addEventListener('ended', () => this.eventSink('ended', this))
-    this._player.addEventListener('playing', () => this.eventSink('playing', this))
+
+    // I did not end up using the 'playing' event -- for the most part, twitch pauses videos when the buffer runs out,
+    // which is a sufficient signal to sync up the videos again (although they don't start playing automatically again).
+    // That said, some of my tests seem to be flaky because "play" causes the video to jump into a 'buffering' state (according to getPlayerState().playback)
+    // Re-adding the event listener just to get some logging and see if this is a potential fix.
+    this._player.addEventListener('playing', () => this.eventSink('test_playing', this))
 
     this.onready(this)
   }

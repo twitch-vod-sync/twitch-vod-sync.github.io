@@ -110,9 +110,35 @@ window.onload = function() {
 
   window.addEventListener('resize', resizePlayers)
 
-  // This function updates the timeline cursor and label so they stay up to date with the current videos
-  // It also runs any of our "live" checks, i.e. anything which needs to be updated without user action
-  window.setInterval(() => refreshTimeline(), 100)
+  // Auto-update the timeline cursor and label so they stay up to date with the current videos
+  window.setInterval(() => {
+    var timestamp = getAveragePlayerTimestamp()
+    if (timestamp == null) return // No videos are ready, leave the cursor where it is
+
+    var [timelineStart, timelineEnd] = getTimelineBounds()
+
+    var cursor = document.getElementById('timelineCursor')
+    var perc = 100.0 * (timestamp - timelineStart) / (timelineEnd - timelineStart)
+    if (cursor != null) cursor.setAttribute('x', perc + '%')
+
+    var currentLabel = document.getElementById('timelineCurrent')
+    if (currentLabel != null) currentLabel.innerText = new Date(timestamp).toLocaleString(TIMELINE_DATE_FORMAT)
+
+    // With Twitch auth disabled, we only know the start times from the query params -- the end times are determined at runtime,
+    // when the videos start playing. This means we need to update the timeline once the videos start playing.
+    if (!FEATURES.DO_TWITCH_AUTH) {
+      var endLabel = document.getElementById('timelineEnd')
+      if (endLabel != null) endLabel.innerText = new Date(timelineEnd).toLocaleString(TIMELINE_DATE_FORMAT)
+    }
+
+    // This is also a convenient moment to check if any players are waiting to start because we seeked before their starttime.
+    for (var player of players.values()) {
+      if (player.state === BEFORE_START && timestamp >= player.startTime) {
+        player.state = PLAYING
+        player.play()
+      }
+    }
+  }, 100)
 
   // Handle space, left, and right as global listeners, in case you don't actually have a stream selected
   // Each of these just calls an event (play, pause, seek) on one of the players, so it'll fall through into the default handler.
@@ -191,21 +217,22 @@ window.onload = function() {
         reloadTimeline() // Reload now that the videos have comparable start and end times
 
         console.log('vodsync', 'Resuming all players after async alignment')
-        for (var player of players.values()) player.play()
+        for (var player of players.values()) {
+          player.state = PLAYING
+          player.play()
+        }
       }
     } else {
       // Spacebar pauses (if anyone is playing) or plays (if everyone is paused)
-      // Left and right seek based on the most recent seek (if it hasn't completed) or else the location of the first video (if any video is loaded)
+      // Left and right seek based on the location of the first video (assuming any video is loaded)
       if (firstPlayingVideo != null) {
-        var seekTarget = pendingSeekTimestamp > 0 ? pendingSeekTimestamp : firstPlayingVideo.getCurrentTimestamp()
         if (event.key == ' ') firstPlayingVideo.pause()
-        if (event.key == 'ArrowLeft')  seekPlayersTo(seekTarget - 10000, PLAYING)
-        if (event.key == 'ArrowRight') seekPlayersTo(seekTarget + 10000, PLAYING)
+        if (event.key == 'ArrowLeft')  seekPlayersTo(firstPlayingVideo.getCurrentTimestamp() - 10000, PLAYING)
+        if (event.key == 'ArrowRight') seekPlayersTo(firstPlayingVideo.getCurrentTimestamp() + 10000, PLAYING)
       } else if (firstPausedVideo != null) {
-        var seekTarget = pendingSeekTimestamp > 0 ? pendingSeekTimestamp : firstPausedVideo.getCurrentTimestamp()
         if (event.key == ' ') firstPausedVideo.play()
-        if (event.key == 'ArrowLeft')  seekPlayersTo(seekTarget - 10000, PAUSED)
-        if (event.key == 'ArrowRight') seekPlayersTo(seekTarget + 10000, PAUSED)
+        if (event.key == 'ArrowLeft')  seekPlayersTo(firstPausedVideo.getCurrentTimestamp() - 10000, PAUSED)
+        if (event.key == 'ArrowRight') seekPlayersTo(firstPausedVideo.getCurrentTimestamp() + 10000, PAUSED)
       }
     }
   })
@@ -350,10 +377,6 @@ function searchVideo(event) {
   // Other text will be shown on success or failure
   if (document.getElementById(playerId + '-text').innerText.startsWith('Loading')) return
 
-  // Clear out the video picker if we were showing one
-  var videoPicker = document.getElementById(playerId + '-grid')
-  if (videoPicker != null) videoPicker.remove()
-
   // Check to see if this is a racetime link
   var m = formText.match(RACETIME_GG_MATCH)
   if (m != null) {
@@ -423,7 +446,6 @@ function showVideoPicker(playerId, videos) {
   var videoGrid = document.createElement('div')
   document.getElementById(playerId).appendChild(videoGrid)
   videoGrid.style = 'display: flex; flex-wrap: wrap; gap: 10px; width: 980px' // Need to set a width to get 3 per line
-  videoGrid.id = playerId + '-grid'
 
   for (var i = 0; i < 9; i++) {
     // Copy the loop variable to avoid javascript lambda-in-loop bug
@@ -574,7 +596,6 @@ function loadRace(raceDetails) {
 // TODO: make some kind of github report out of the event log, like Presently does
 // I should also include the URL (which contains the videos) + all video positions at time of submission.
 // https://github.com/jbzdarkid/Presently/blob/master/settings.js#L79
-// I mean I could do that, but it's also totally reasonable to just use this for my tests. I'd rather have really stable code than a bug tracker.
 var eventLog = []
 function printLog() {
   for (var event of eventLog) {
@@ -584,23 +605,19 @@ function printLog() {
   }
 }
 
-function twitchEvent(event, thisPlayer, seekMillis) {
-  console.log(thisPlayer.id, event, thisPlayer.state, seekMillis)
 
-  if (event == 'playing') {
-    // This event is now the *one and only* event which sets players into the 'playing' state.
-    // We don't care what the player was doing before; if Twitch reports that it's now playing video, it's in the playing state.
-    thisPlayer.state = PLAYING
-    
-  } else if (event == 'seek') {
+function twitchEvent(event, thisPlayer, seekMillis) {
+  eventLog.push([new Date().getTime(), thisPlayer.id, event, thisPlayer.state, seekMillis])
+
+  if (event == 'seek') {
     switch (thisPlayer.state) {
-      // These states are expected to have a seek event based on automated seeking actions,
-      // so we assume that any 'seek' event corresponds to that action.
+      // These two states are expected to have a seek event based on automatic seeking actions,
+      // so even though it could be a user action we ignore it since it's unlikely.
       case SEEKING_PAUSE:
         thisPlayer.state = PAUSED
         break
-      // No action needed; PLAYING is now set by the 'playing' event.
       case SEEKING_PLAY:
+        thisPlayer.state = PLAYING
         break
       case SEEKING_START:
         thisPlayer.state = BEFORE_START
@@ -622,7 +639,7 @@ function twitchEvent(event, thisPlayer, seekMillis) {
         break
 
       case RESTARTING:
-      case AFTER_END: // TODO: Shouldn't seek do something for players sitting in AFTER_END? Regardless, this is an expected action, so it should be handled.
+      case AFTER_END:
         console.log('vodsync', thisPlayer.id, 'had an unhandled event', event, 'while in state', STATE_STRINGS[thisPlayer.state])
         break
     }
@@ -647,8 +664,8 @@ function twitchEvent(event, thisPlayer, seekMillis) {
           // It is possible that some of them have finished seeking (and are in PAUSED)
           // or that we are loading into a paused state, in which case all other videos are PAUSED.
           // In either case, resume those videos as they are already at the right spot.
-          // TODO: We could also use lastPendingSeek here?
           } else if (player.state == PAUSED) {
+            player.state = PLAYING
             player.play()
           }
 
@@ -734,28 +751,13 @@ function twitchEvent(event, thisPlayer, seekMillis) {
         break
     }
   }
-
-  // *After* we transition the video's state, check to see if this completes a pending seek event.
-  if (pendingSeekTimestamp > 0) {
-    var anyPlayerStillSeeking = false
-    for (var player of players.values()) {
-      if ([SEEKING_PLAY, SEEKING_PAUSE, SEEKING_START, SEEKING_END].includes(player.state)) anyPlayerStillSeeking = true
-    }
-
-    if (!anyPlayerStillSeeking) {
-      console.log('vodsync', thisPlayer.id, 'was last to finish seeking to', pendingSeekTimestamp, 'setting pendingSeekTimestamp to 0')
-      pendingSeekTimestamp = 0
-    }
-  }
-
 }
 
-var pendingSeekTimestamp = 0 // Will be nonzero after a seek, returns to zero once all videos have finished seeking
 function seekPlayersTo(timestamp, targetState, exceptFor) {
-  pendingSeekTimestamp = timestamp
   for (var player of players.values()) {
     if (exceptFor != null && player.id == exceptFor.id) {
-      // TODO: Now uses playing event // player.state = targetState
+      // TODO: Assumption.
+      player.state = targetState
       continue
     }
     player.seekTo(timestamp, targetState)
@@ -789,8 +791,8 @@ function getAveragePlayerTimestamp() {
   return sum / count
 }
 
-const TIMELINE_COLORS = ['#aaf', '#faa', '#afa', '#aff', '#faf', '#ffa']
-const TIMELINE_DATE_FORMAT = new Intl.DateTimeFormat({}, {'dateStyle': 'short', 'timeStyle': 'short'})
+var TIMELINE_COLORS = ['#aaf', '#faa', '#afa', '#aff', '#faf', '#ffa']
+var TIMELINE_DATE_FORMAT = new Intl.DateTimeFormat({}, {'dateStyle': 'short', 'timeStyle': 'short'})
 function reloadTimeline() {
   var timeline = document.getElementById('timeline')
   if (timeline != null) timeline.remove()
@@ -873,31 +875,3 @@ function reloadTimeline() {
   endLabel.innerText = new Date(timelineEnd).toLocaleString(TIMELINE_DATE_FORMAT)
 }
 
-function refreshTimeline() {
-  var timestamp = pendingSeekTimestamp > 0 ? pendingSeekTimestamp : getAveragePlayerTimestamp()
-  if (timestamp == null) return // No videos are ready, leave the cursor where it is
-
-  var [timelineStart, timelineEnd] = getTimelineBounds()
-
-  var cursor = document.getElementById('timelineCursor')
-  var perc = 100.0 * (timestamp - timelineStart) / (timelineEnd - timelineStart)
-  if (cursor != null) cursor.setAttribute('x', perc + '%')
-
-  var currentLabel = document.getElementById('timelineCurrent')
-  if (currentLabel != null) currentLabel.innerText = new Date(timestamp).toLocaleString(TIMELINE_DATE_FORMAT)
-
-  // With Twitch auth disabled, we only know the start times from the query params -- the end times are determined at runtime,
-  // when the videos start playing. This means we need to update the timeline once the videos start playing.
-  if (!FEATURES.DO_TWITCH_AUTH) {
-    var endLabel = document.getElementById('timelineEnd')
-    if (endLabel != null) endLabel.innerText = new Date(timelineEnd).toLocaleString(TIMELINE_DATE_FORMAT)
-  }
-
-  // This is also a convenient moment to check if any players are waiting to start because we seeked before their starttime.
-  for (var player of players.values()) {
-    if (player.state === BEFORE_START && timestamp >= player.startTime) {
-      console.log(player.id, 'was waiting to start, and the current timestamp just passed its startpoint, so we started it')
-      player.play()
-    }
-  }
-}

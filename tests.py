@@ -47,10 +47,12 @@ class UITests:
     self.driver = webdriver.Chrome(options=options, service=service)
 
   def teardown(self):
+    self.driver.close()
+    
+  def on_failure(self):
     self.print_event_log()
     self.print_chrome_log()
     self.screenshot()
-    self.driver.close()
 
   def screenshot(self):
     self.screenshot_no += 1
@@ -80,9 +82,9 @@ class UITests:
       var interval = setInterval(() => {
         var currentState = players.has(player) ? players.get(player).state : null
         if (currentState === targetState) {
-          /*if (players.get(player)._player.getPlayerState().playback === 'Buffering') {
+          if (players.get(player)._player.getPlayerState().playback === 'Buffering') {
             console.warn('State reached but player still buffering')
-          } else */{
+          } else {
             clearInterval(interval)
             callback()
           }
@@ -107,9 +109,7 @@ class UITests:
       
   def print_chrome_log(self):
     for log in self.driver.get_log('browser'):
-      timestamp = datetime.fromtimestamp(log['timestamp'] / 1000).isoformat()
-      message = log['message'].encode('utf-8', errors='backslashreplace')
-      print(f'{timestamp}\t{message}')
+      print(u'%d\t%s\t%s' % (log['timestamp'], log['level'], log['message'].encode('utf-8', errors='backslashreplace')))
 
   def run(self, script):
     return self.driver.execute_script(script)
@@ -209,12 +209,12 @@ if __name__ == '__main__':
     try:
       test_class.setup()
       test[1]()
+      test_class.teardown()
     except Exception:
       print('!!!', test[0], 'failed:')
       traceback.print_exc()
+      test_class.on_failure()
       sys.exit(-1)
-    finally:
-      test_class.teardown()
 
     print('===', test[0], 'passed')
   print('\nAll tests passed')

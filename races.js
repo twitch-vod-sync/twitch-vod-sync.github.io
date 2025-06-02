@@ -28,8 +28,6 @@ window.loadRaceVideos = async function(race, count) {
       continue
     }
 
-    console.log('Loaded', channelVideos.length, 'race videos for channel', race.channels[i])
-
     for (var video of channelVideos) {
       if (video.startTime <= race.startTime && race.startTime <= video.endTime) {
         raceVideos.push(video)
