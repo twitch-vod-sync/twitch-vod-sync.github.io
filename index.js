@@ -738,7 +738,7 @@ function twitchEvent(event, thisPlayer, seekMillis) {
   if (pendingSeekTimestamp > 0) {
     var anyPlayerStillSeeking = false
     for (var player of players.values()) {
-      if ([SEEKING_PLAY, SEEKING_PAUSE, SEEKING_START, SEEKING_END].includes(player.state)) anyPlayerStillSeeking = true
+      if ([SEEKING_PLAY, SEEKING_PAUSE, SEEKING_START].includes(player.state)) anyPlayerStillSeeking = true
     }
 
     if (!anyPlayerStillSeeking) {
