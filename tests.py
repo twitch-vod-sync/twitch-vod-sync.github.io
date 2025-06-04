@@ -158,7 +158,7 @@ class UITests:
 
   def testSeekWhileSeeking(self):
     # Load 9 copies of the same video (we don't actually care about the video for this one)
-    players = [f'player{i}' for i in range(9)]
+    players = [f'player{i}' for i in range(10)]
     url = f'http://localhost:3000?'
     for player in players:
       url += f'{player}=2444833212&'
