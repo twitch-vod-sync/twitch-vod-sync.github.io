@@ -1,32 +1,18 @@
 // Player states
-const LOADING       = 0
-const READY         = 1
-const SEEKING_PLAY  = 2
-const PLAYING       = 3
-const SEEKING_PAUSE = 4
-const PAUSED        = 5
-const SEEKING_START = 6
-const BEFORE_START  = 7
-const RESTARTING    = 8
-const SEEKING_END   = 9
-const AFTER_END     = 10
-const ASYNC         = 11
+function enumValue(name) { return Object.freeze({toString: () => name}) }
 
-// TODO: Maybe unneeded if the only place we use this is logging
-const STATE_STRINGS = [
-  'LOADING',
-  'READY',
-  'SEEKING_PLAY',
-  'PLAYING',
-  'SEEKING_PAUSE',
-  'PAUSED',
-  'SEEKING_START',
-  'BEFORE_START',
-  'RESTARTING',
-  'SEEKING_END',
-  'AFTER_END',
-  'ASYNC',
-]
+const LOADING       = enumValue('LOADING')
+const READY         = enumValue('READY')
+const SEEKING_PLAY  = enumValue('SEEKING_PLAY')
+const PLAYING       = enumValue('PLAYING')
+const SEEKING_PAUSE = enumValue('SEEKING_PAUSE')
+const PAUSED        = enumValue('PAUSED')
+const SEEKING_START = enumValue('SEEKING_START')
+const BEFORE_START  = enumValue('BEFORE_START')
+const RESTARTING    = enumValue('RESTARTING')
+const SEEKING_END   = enumValue('SEEKING_END')
+const AFTER_END     = enumValue('AFTER_END')
+const ASYNC         = enumValue('ASYNC')
 
 // If you seek (manually or automatically) to a timestamp within the last 10 seconds, twitch ends the video and starts auto-playing the next one.
 // When a video ends, I want to leave it paused somewhere near the end screen -- so this value represents a safe point to seek to which avoids autoplay.
@@ -90,7 +76,7 @@ class Player {
   pause() { this._player.pause() }
   seekToEnd() { this.seekTo(this.endTime) }
   seekTo(timestamp, targetState) {
-    window.eventLog.push([new Date().getTime(), this.id, 'seekTo', targetState, timestamp])
+    console.log(this.id, 'seekTo', targetState, timestamp)
     if (timestamp < this.startTime) {
       var durationSeconds = 0.001 // I think seek(0) does something wrong, so.
       this.state = SEEKING_START

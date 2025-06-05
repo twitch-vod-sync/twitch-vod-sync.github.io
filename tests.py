@@ -96,14 +96,7 @@ class UITests:
 
   def print_event_log(self):
     event_log = self.driver.execute_script('return window.eventLog')
-    if not event_log:
-      print('Event log was empty')
-      return
-    for event in event_log:
-      log_event = [datetime.fromtimestamp(event[0] / 1000).isoformat(), event[1], event[2], self.STATE_STRINGS[event[3]]]
-      if len(event) > 4:
-        log_event.append(event[4])
-      print('\t'.join(map(str, log_event)))
+    print('\n'.join(event_log))
       
   def print_chrome_log(self):
     for log in self.driver.get_log('browser'):
