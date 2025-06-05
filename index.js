@@ -620,7 +620,7 @@ function twitchEvent(event, thisPlayer, seekMillis) {
         break
 
       case RESTARTING:
-      case AFTER_END: // TODO: Shouldn't seek do something for players sitting in AFTER_END? Regardless, this is an expected action, so it should be handled.
+      case AFTER_END: // TODO: Shouldn't seek do something for players sitting in AFTER_END? Regardless, this is an expected action, so it should be handled. HMMM... I don't think so. If we are in AFTER_END we'll get a seekTo to change states, but we shouldn't have an automatic seek event while we're paused at the end. Wait, what if the user clicks on the video? Ah, I see.
         console.log('vodsync', thisPlayer.id, 'had an unhandled event', event, 'while in state', STATE_STRINGS[thisPlayer.state])
         break
     }
