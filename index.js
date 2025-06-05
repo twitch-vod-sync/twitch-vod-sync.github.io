@@ -594,14 +594,17 @@ function twitchEvent(event, thisPlayer, seekMillis) {
     switch (thisPlayer.state) {
       // These states are expected to have a seek event based on automated seeking actions,
       // so we assume that any 'seek' event corresponds to that action.
-      case SEEKING_PAUSE:
-        thisPlayer.state = PAUSED
-        break
       case SEEKING_PLAY:
         thisPlayer.state = PLAYING
         break
+      case SEEKING_PAUSE:
+        thisPlayer.state = PAUSED
+        break
       case SEEKING_START:
         thisPlayer.state = BEFORE_START
+        break
+      case SEEKING_END:
+        thisPlayer.state = AFTER_END
         break
 
       case ASYNC: // If the videos are async'd and the user seeks, update the video's offset to match the seek.
@@ -614,14 +617,13 @@ function twitchEvent(event, thisPlayer, seekMillis) {
       case PAUSED:
       case READY: // If we're still waiting for some other video to load (but this one is ready), treat it like PAUSED.
       case BEFORE_START: // If we're waiting to start it's kinda like we're paused at 0.
+      case AFTER_END: // If we're waiting at the end it's kinda like we're paused at 100.
         console.log('vodsync', 'User has manually seeked', thisPlayer.id, 'seeking all other players')
         var timestamp = thisPlayer.startTime + seekMillis
         seekPlayersTo(timestamp, (thisPlayer.state === PLAYING ? PLAYING : PAUSED))
         break
 
-      case RESTARTING:
-      case AFTER_END: // TODO: Shouldn't seek do something for players sitting in AFTER_END? Regardless, this is an expected action, so it should be handled. HMMM... I don't think so. If we are in AFTER_END we'll get a seekTo to change states, but we shouldn't have an automatic seek event while we're paused at the end. Wait, what if the user clicks on the video? Ah, I see.
-        console.log('vodsync', thisPlayer.id, 'had an unhandled event', event, 'while in state', STATE_STRINGS[thisPlayer.state])
+      case RESTARTING: // This is the only state (other than LOADING) where the player isn't really loaded. Ignore seeks here.
         break
     }
   } else if (event == 'play') {
@@ -634,25 +636,9 @@ function twitchEvent(event, thisPlayer, seekMillis) {
         seekPlayersTo(timestamp, PLAYING, /*exceptFor*/thisPlayer)
         break
 
-      case SEEKING_PAUSE: // However, if the video is currently seeking, we don't know its seek target, so we just swap to SEEKING_PLAY
-        console.log('vodsync', 'User has manually started', thisPlayer.id, 'while it was seeking_paused, switching to seeking_play')
-        for (var player of players.values()) {
-          // Most commonly, all other videos will also be SEEKING_PAUSE (as part of the seekTo).
-          if (player.state == SEEKING_PAUSE) {
-            player.state = SEEKING_PLAY
-            player.play()
-
-          // It is possible that some of them have finished seeking (and are in PAUSED)
-          // or that we are loading into a paused state, in which case all other videos are PAUSED.
-          // In either case, resume those videos as they are already at the right spot.
-          // TODO: We could also use lastPendingSeek here?
-          } else if (player.state == PAUSED) {
-            player.state = PLAYING
-            player.play()
-          }
-
-          // If a video seeked already and found BEFORE_START or AFTER_END, no further action is needed.
-        }
+      case SEEKING_PAUSE: // However, if the video is currently seeking, we use the last seek target instead.
+        console.log('vodsync', 'User has manually started', thisPlayer.id, 'while it was seeking_paused, re-seeking with PLAYING')
+        seekPlayersTo(pendingSeekTimestamp, PLAYING)
         break
 
       case RESTARTING: // We want ended videos to sit somewhere near the end mark, for clarity.
@@ -660,16 +646,14 @@ function twitchEvent(event, thisPlayer, seekMillis) {
         thisPlayer.seekToEnd()
         break
 
+      case SEEKING_PLAY: // Already in the correct state. Take no action and don't worry too much about it.
+      case PLAYING:      // Already in the correct state. Take no action and don't worry too much about it.
+      case SEEKING_START: // Hopefully the user doesn't try to play the video while we're seeking for one of these two actions.
+      case SEEKING_END:   // I'm not sure there's much we can safely do here, though -- just hope the user knows what they're doing.
+      case AFTER_END: // We'd really prefer that the user *didn't* try to interact with players sitting in the AFTER_END state.
+                      // However, if they do, the safest thing is actually to just let it happen, and wait for the player to naturally play out.
+                      // It will hit the end, trigger 'ended', and restart back to here.
       case ASYNC: // No action needed. The user is likely resuming the video so they can watch and sync it up.
-        break
-
-      case SEEKING_PLAY:
-      case PLAYING:
-        break // Already in the correct state.
-
-      case SEEKING_START:
-      case AFTER_END:
-        console.log('vodsync', thisPlayer.id, 'had an unhandled event', event, 'while in state', STATE_STRINGS[thisPlayer.state])
         break
     }
   } else if (event == 'pause') {
@@ -679,7 +663,7 @@ function twitchEvent(event, thisPlayer, seekMillis) {
         console.log('vodsync', 'User has manually paused', thisPlayer.id, 'while it was playing, pausing all other players')
         // When the user clicks outside of the player's buffer, twitch issues 'pause', 'seek', and then 'play' events.
         // Unfortunately, the first of these events (pause) looks identical to the user just pausing the player.
-        // Therefore, we just pause all videos on the first 'pause' event, which will cause twitch to only issue a 'seek' and not a 'play'.
+        // Therefore, we just pause all videos on the first 'pause' event, which will cause Twitch to only issue a 'seek' and not a 'play'.
         // This results in all videos doing a SEEKING_PAUSE, which is fairly close to the user's intent anyways.
         for (var player of players.values()) {
           if (player.state === SEEKING_PLAY) player.state = SEEKING_PAUSE
@@ -693,43 +677,37 @@ function twitchEvent(event, thisPlayer, seekMillis) {
         thisPlayer.offset += (ASYNC_ALIGN - pausedTimestamp)
         break
 
-      case SEEKING_PAUSE:
-      case PAUSED:
-        break // Already in the correct state.
-
-      case READY:
-      case SEEKING_START:
-      case BEFORE_START:
-      case RESTARTING:
-      case AFTER_END:
-        console.log('vodsync', thisPlayer.id, 'had an unhandled event', event, 'while in state', STATE_STRINGS[thisPlayer.state])
+      case SEEKING_PAUSE: // Already in the correct state. Take no action and don't worry too much about it.
+      case PAUSED:        // Already in the correct state. Take no action and don't worry too much about it.
+      case READY:         // The remaining states here are all states where the video isn't actively playing.
+      case SEEKING_START: // If we do get a pause event in one of these states, the safest thing we can do is to ignore it,
+      case RESTARTING:    // and hope that the state graph doesn't get too confused by the video being paused in a location
+      case SEEKING_END:   // which doesn't quite match what we were expecting.
+      case BEFORE_START:  // These last two states are less worrying because they're semi-persistent,
+      case AFTER_END:     // i.e. we'll only transition out of them for 'seek' events.
         break
     }
   } else if (event == 'ended') {
     switch (thisPlayer.state) {
-      case PLAYING: // If the player naturally plays past the end, trigger the AFTER_END state by seeking.
-      case SEEKING_PLAY: // Other states are possible by seeking (if the video is short enough)
-      case PAUSED:
-      case SEEKING_PAUSE:
+      case PLAYING: // This is the most likely state: letting a video play out until its natural end.
+      case READY:         // All other states are possible by seeking, if the user clicks at the end of the timeline.
+      case SEEKING_PLAY:  // There's nothing malicious happening here -- it's just a case of the user taking an action
+      case SEEKING_PAUSE: // while we were busy with something else.
+      case PAUSED:        // For safety, we also trigger a restart here (although it likely wasn't what the user intended),
+      case SEEKING_START: // since Twitch will start autoplaying the next video ~15 seconds after this event.
+      case BEFORE_START:  // Furthermore, we won't get a clear notification that a new video has loaded,
+      case RESTARTING:    // which means our video's start and end times would be wrong for future sync actions.
+      case SEEKING_END:
       case AFTER_END:
         // Once a video as ended, 'play' is the only way to interact with it automatically.
+        // To bring it back into an interactable state, we play() the video and wait for it to restart from the beginning.
         console.log('vodsync', 'restarting', thisPlayer.id)
         thisPlayer.state = RESTARTING
         thisPlayer.play() // This play command will trigger a seek to the beginning first, then a play.
         break
 
-      case BEFORE_START: // If the user seeks to the end of this video while we're waiting to start, treat it like a normal seek event.
-        seekPlayersTo(thisPlayer.endTime, PAUSED)
-        break
-
       case ASYNC: // If this happens while asyncing, just restart the player (but don't change state). The user is responsible here anyways.
         thisPlayer.play()
-        break
-
-      case READY:
-      case SEEKING_START:
-      case RESTARTING:
-        console.log('vodsync', thisPlayer.id, 'had an unhandled event', event, 'while in state', STATE_STRINGS[thisPlayer.state])
         break
     }
   }

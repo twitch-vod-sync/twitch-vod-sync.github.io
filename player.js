@@ -8,8 +8,9 @@ const PAUSED        = 5
 const SEEKING_START = 6
 const BEFORE_START  = 7
 const RESTARTING    = 8
-const AFTER_END     = 9
-const ASYNC         = 10
+const SEEKING_END   = 9
+const AFTER_END     = 10
+const ASYNC         = 11
 
 // TODO: Maybe unneeded if the only place we use this is logging
 const STATE_STRINGS = [
@@ -22,6 +23,7 @@ const STATE_STRINGS = [
   'SEEKING_START',
   'BEFORE_START',
   'RESTARTING',
+  'SEEKING_END',
   'AFTER_END',
   'ASYNC',
 ]
@@ -94,10 +96,10 @@ class Player {
       this.state = SEEKING_START
       this._player.pause()
       this._player.seek(durationSeconds)
-    // If we try to seek past the end time (and the end time is known), instead pause the video and drop into AFTER_END
+    // If we try to seek past the end time (and the end time is known), instead pause the video near the end.
     } else if (this._endTime != null && timestamp >= this.endTime - VIDEO_END_BUFFER) {
       var durationSeconds = (this.endTime - this.startTime - VIDEO_END_BUFFER) / 1000.0
-      this.state = AFTER_END
+      this.state = SEEKING_END
       this._player.pause()
       this._player.seek(durationSeconds)
     } else {
