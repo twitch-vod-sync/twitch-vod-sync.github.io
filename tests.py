@@ -165,7 +165,7 @@ class UITests:
     # Seek on the first player, then quickly seek again on the last player. Since players seek in order (probably?) the last players' seeking won't be done.
     # Simulate a user's seek by using the internal player.
     self.run('''
-      players.get("player0")._player.seek(60.0)
+      players.get("player1")._player.seek(60.0)
       setTimeout(() => players.get("player9")._player.seek(120.0), 10)
     ''')
 
