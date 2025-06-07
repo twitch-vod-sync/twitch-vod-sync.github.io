@@ -164,8 +164,10 @@ class UITests:
 
     # Seek on the first player, then quickly seek again on the last player. Since players seek in order (probably?) the last players' seeking won't be done.
     # Simulate a user's seek by using the internal player.
-    self.run('players.get("player0")._player.seek(60.0)')
-    self.run('players.get("player9")._player.seek(120.0)')
+    self.run('''
+      players.get("player0")._player.seek(60.0)
+      setTimeout(() => players.get("player9")._player.seek(120.0), 10)
+    ''')
 
     # For a while, this caused a nasty thrashing bug, where the two seek values would keep getting hot-potatoed around between players.
     # We can verify that's not happening by waiting for all players to pause.
@@ -173,7 +175,7 @@ class UITests:
       self.wait_for_state(player, 'PAUSED')
 
     # And I guess technically we can expect this to reach a consistent sync time... maybe.
-    self.assert_videos_synced_to(1745837238000)
+    self.assert_videos_synced_to(1745837218000)
 
   def testRaceInterrupt(self):
     # We need to get a fresh race on each run, so that the VODs haven't expired.
