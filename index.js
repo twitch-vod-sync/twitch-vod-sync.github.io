@@ -583,7 +583,7 @@ var console_log = console.log
 console.log = function(...args) {
   var logEvent = [new Date().toISOString(), ...args]
   eventLog.push(logEvent.join('\t'))
-  if (location.hostname == 'localhost') console_log(...args) // Also emit to console in local testing for easier debugging
+  if (location.hostname == 'localhost') console_log(logEvent.join(' ')) // Also emit to console in local testing for easier debugging
 }
 
 function twitchEvent(event, thisPlayer, seekMillis) {

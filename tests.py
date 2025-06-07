@@ -165,9 +165,16 @@ class UITests:
     # Seek on the first player, then quickly seek again on the last player. Since players seek in order (probably?) the last players' seeking won't be done.
     # Simulate a user's seek by using the internal player.
     self.run('''
-      players.get("player0")._player.seek(60.0)
-      setTimeout(() => players.get("player0")._player.seek(60.0), 5)
-      setTimeout(() => players.get("player9")._player.seek(120.0), 15)
+      setTimeout(() => players.get("player0")._player.seek(60.0), 0)
+      setTimeout(() => players.get("player1")._player.seek(61.0), 1)
+      setTimeout(() => players.get("player2")._player.seek(62.0), 2)
+      setTimeout(() => players.get("player3")._player.seek(63.0), 3)
+      setTimeout(() => players.get("player4")._player.seek(64.0), 4)
+      setTimeout(() => players.get("player5")._player.seek(65.0), 5)
+      setTimeout(() => players.get("player6")._player.seek(66.0), 6)
+      setTimeout(() => players.get("player7")._player.seek(67.0), 7)
+      setTimeout(() => players.get("player8")._player.seek(68.0), 8)
+      setTimeout(() => players.get("player9")._player.seek(69.0), 9)
     ''')
 
     # For a while, this caused a nasty thrashing bug, where the two seek values would keep getting hot-potatoed around between players.
@@ -175,7 +182,7 @@ class UITests:
     for player in players:
       self.wait_for_state(player, 'PAUSED')
 
-    # And I guess technically we can expect this to reach a consistent sync time... maybe.
+    # And I guess technically we can expect this to reach a consistent sync time?
     self.assert_videos_synced_to(1745837218000)
 
   def testRaceInterrupt(self):
