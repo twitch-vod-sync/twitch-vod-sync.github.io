@@ -60,6 +60,7 @@ class Player {
 
     // I did not end up using the 'playing' event -- for the most part, twitch pauses videos when the buffer runs out,
     // which is a sufficient signal to sync up the videos again (although they don't start playing automatically again).
+    this._player.addEventListener('playing', () => this.eventSink('test_playing', this))
 
     this.onready(this)
   }

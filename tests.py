@@ -80,10 +80,12 @@ class UITests:
       var interval = setInterval(() => {
         var currentState = players.has(player) ? players.get(player).state : null
         if (currentState === targetState) {
-          if (players.get(player)._player.getPlayerState().playback === 'Buffering') {
+          var playbackState = players.get(player)._player.getPlayerState().playback
+          if (playbackState === 'Buffering') {
             console.warn('State reached but player still buffering')
           } else {
             clearInterval(interval)
+            console.log('Player has reached', targetState, 'within', arguments[0], 'loops. PlaybackState was', playbackState)
             callback()
           }
         }
