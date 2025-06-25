@@ -155,7 +155,7 @@ class UITests:
     self.wait_for_state('player1', 'PAUSED')
 
     # player1 is 2 minutes later than player2, so we should align to that + the seek time
-    self.assert_videos_synced_to(VIDEO_1_START_TIME + 20000)
+    self.assert_videos_synced_to(self.VIDEO_1_START_TIME + 20000)
 
   def testSeekWhileSeeking(self):
     # Load 9 copies of the same video (we don't actually care about the video for this one)
@@ -192,7 +192,7 @@ class UITests:
 
     # And I guess technically we can expect this to reach a consistent sync time?
     # Idk where the hell this value is coming from, or why we trust it.
-    self.assert_videos_synced_to(VIDEO_0_START_TIME + 120000)
+    self.assert_videos_synced_to(self.VIDEO_0_START_TIME + 120000)
 
   def testRaceInterrupt(self):
     # We need to get a fresh race on each run, so that the VODs haven't expired.
