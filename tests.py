@@ -153,6 +153,7 @@ class UITests:
 
     # player1 is 2 minutes later than player2, so we should align to that
     self.assert_videos_synced_to(self.VIDEO_1_START_TIME)
+    self.screenshot()
     
     self.run('players.get("player1")._player.pause()')
     for player in ['player0', 'player1']:
