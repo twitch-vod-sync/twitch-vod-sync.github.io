@@ -85,7 +85,7 @@ class UITests:
             console.warn('State reached but player still buffering')
           } else {
             clearInterval(interval)
-            console.log('Player has reached', targetState, 'within', arguments[0], 'loops. PlaybackState was', playbackState)
+            console.log(player, 'has reached', targetState, 'within', arguments[0], 'loops. PlaybackState was', playbackState)
             callback()
           }
         }
