@@ -149,6 +149,13 @@ class UITests:
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PAUSED')
 
+    # player1 is 2 minutes later than player2, so we should align to that
+    self.assert_videos_synced_to(self.VIDEO_1_START_TIME)
+    
+    self.run('players.get("player1")._player.pause()')
+    for player in ['player0', 'player1']:
+      self.wait_for_state(player, 'PAUSED')
+
     # Simulate a user's seek by using the internal player.
     self.run('players.get("player1")._player.seek(20.0)')
     self.wait_for_state('player0', 'PAUSED')
