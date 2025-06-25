@@ -123,16 +123,23 @@ class UITests:
   #############
   #!# Tests #!#
   #############
+  
+  VIDEO_0_START_TIME = 1745837098000 # Start time for 2444833212 (first test video)
+  VIDEO_1_START_TIME = 1745837218000 # Start time for 2444833835 (second test video)
+  ASYNC_ALIGN = 1500000000000
 
   def testLoadWithOffsetsAndSyncStart(self):
-    url = 'http://localhost:3000?player0=2444833212&offsetplayer0=245837252000&player1=2444833835&offsetplayer1=245837312000'
+    player0offset = 245837252000
+    player1offset = player0offset + 60000
+    url = f'http://localhost:3000?player0=2444833212&offsetplayer0={player0offset}&player1=2444833835&offsetplayer1={player1offset}'
     self.driver.get(url)
 
     # Wait for all players to load and reach the 'pause' state
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PAUSED')
 
-    self.assert_videos_synced_to(1745837312100)
+    # player1 is 1 minute later than player2, so we should align to that
+    self.assert_videos_synced_to(self.ASYNC_ALIGN + player1offset)
 
   def testSeek(self):
     url = f'http://localhost:3000?player0=2444833212&player1=2444833835#scope=&access_token={self.access_token}&client_id={self.client_id}'
@@ -147,7 +154,8 @@ class UITests:
     self.wait_for_state('player0', 'PAUSED')
     self.wait_for_state('player1', 'PAUSED')
 
-    self.assert_videos_synced_to(1745837238000)
+    # player1 is 2 minutes later than player2, so we should align to that + the seek time
+    self.assert_videos_synced_to(VIDEO_1_START_TIME + 20000)
 
   def testSeekWhileSeeking(self):
     # Load 9 copies of the same video (we don't actually care about the video for this one)
@@ -183,7 +191,8 @@ class UITests:
       self.wait_for_state(player, 'PAUSED')
 
     # And I guess technically we can expect this to reach a consistent sync time?
-    self.assert_videos_synced_to(1745837218000)
+    # Idk where the hell this value is coming from, or why we trust it.
+    self.assert_videos_synced_to(VIDEO_0_START_TIME + 120000)
 
   def testRaceInterrupt(self):
     # We need to get a fresh race on each run, so that the VODs haven't expired.
