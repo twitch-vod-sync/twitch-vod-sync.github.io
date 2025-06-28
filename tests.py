@@ -259,16 +259,17 @@ if __name__ == '__main__':
   http_server.start()
 
   for test in tests:
-    print('---', test[0], 'started')
-    try:
+    for i in range(10):
       test_class.setup()
-      test[1]()
-    except Exception:
-      print('!!!', test[0], 'failed:')
-      traceback.print_exc()
-      sys.exit(-1)
-    finally:
-      test_class.teardown()
+      print('---', test[0], 'started')
+      try:
+          test[1]()
+      except Exception:
+        print('!!!', test[0], 'failed:')
+        traceback.print_exc()
+        sys.exit(-1)
+      finally:
+        test_class.teardown()
 
-    print('===', test[0], 'passed')
+      print('===', test[0], 'passed')
   print('\nAll tests passed')
