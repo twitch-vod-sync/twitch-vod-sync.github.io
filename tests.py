@@ -112,6 +112,7 @@ class UITests:
   def assert_videos_synced_to(self, expected_timestamp):
     # We need the videos to be playing to call getCurrentTimestamp (thanks, twitch).
     # As a result, we give the videos a little time to buffer before calling play()
+    print(datetime.utcnow(), 'Sleeping for 5 seconds before asserting sync')
     time.sleep(5)
     self.run('players.get("player0").play()')
     for player in ['player0', 'player1', 'player2', 'player3']:
@@ -139,6 +140,7 @@ class UITests:
     # Wait for all players to load and reach the 'pause' state
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PAUSED')
+    time.sleep(1)
 
     # player1 is 1 minute later than player2, so we should align to that
     self.assert_videos_synced_to(self.ASYNC_ALIGN + player1offset)
