@@ -46,7 +46,7 @@ class Player {
     // Only hook events once the player has loaded, so we don't have to worry about events in the LOADING state.
     this._player.addEventListener('seek', (eventData) => {
       var seekMillis = Math.floor(eventData.position * 1000)
-      console.log('Got seek', eventData, eventData.position, seekMillis)
+      console.log(this.id, 'got seek', JSON.stringify(eventData), eventData.position, seekMillis)
       this.eventSink('seek', this, seekMillis)
     })
     this._player.addEventListener('play',  () => {
@@ -92,7 +92,7 @@ class Player {
       this._player.seek(durationSeconds)
     } else {
       var durationSeconds = (timestamp - this.startTime) / 1000.0
-      console.log('SeekTo', timestamp, this.startTime, durationSeconds)
+      console.log(this.player, 'seek', timestamp, this.startTime, durationSeconds)
       if (durationSeconds === 0) durationSeconds = 0.001 // I think seek(0) does something wrong, so.
 
       if (targetState === PAUSED) {
