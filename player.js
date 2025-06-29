@@ -46,6 +46,7 @@ class Player {
     // Only hook events once the player has loaded, so we don't have to worry about events in the LOADING state.
     this._player.addEventListener('seek', (eventData) => {
       var seekMillis = Math.floor(eventData.position * 1000)
+      console.log('Got seek', eventData, eventData.position, seekMillis)
       this.eventSink('seek', this, seekMillis)
     })
     this._player.addEventListener('play',  () => {
