@@ -590,6 +590,11 @@ function twitchEvent(event, thisPlayer, seekMillis) {
   console.log(thisPlayer.id, 'received event', event, 'while in state', thisPlayer.state, seekMillis)
 
   if (event == 'seek') {
+    if (seekMillis === 0 || seekMillis === 0.01) {
+      console.log('Fake seek event (?)')
+      return
+    }
+
     switch (thisPlayer.state) {
       // These states are expected to have a seek event based on automated seeking actions,
       // so we assume that any 'seek' event corresponds to that action.

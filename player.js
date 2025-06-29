@@ -97,7 +97,10 @@ class Player {
       console.log(this.id, 'seek', this.state, targetState, timestamp, this.startTime, durationSeconds, this._player._target.id)
 
       if (targetState === PAUSED) {
-        if (this.state !== PAUSED && this.state !== READY) this._player.pause()
+        if (this.state !== PAUSED && this.state !== READY) {
+          console.log(this.id, 'pause')
+          this._player.pause()
+        }
         this.state = SEEKING_PAUSE
         this._player.seek(durationSeconds)
       } else if (targetState === PLAYING) {
