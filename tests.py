@@ -136,6 +136,7 @@ class UITests:
     player1offset = player0offset + 60000
     url = f'http://localhost:3000?player0=2444833212&offsetplayer0={player0offset}&player1=2444833835&offsetplayer1={player1offset}'
     self.driver.get(url)
+    time.sleep(1)
 
     # Wait for all players to load and reach the 'pause' state
     for player in ['player0', 'player1']:
@@ -153,6 +154,7 @@ class UITests:
     # Wait for all players to load and reach the 'pause' state
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PAUSED')
+    time.sleep(1)
 
     # player1 is 2 minutes later than player2, so we should align to that
     self.assert_videos_synced_to(self.VIDEO_1_START_TIME)
