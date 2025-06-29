@@ -94,10 +94,10 @@ class Player {
     } else {
       var durationSeconds = (timestamp - this.startTime) / 1000.0
       if (durationSeconds === 0) durationSeconds = 0.001 // I think seek(0) does something wrong, so.
-      console.log(this.id, 'seek', targetState, timestamp, this.startTime, durationSeconds, this._player._target.id)
+      console.log(this.id, 'seek', this.state, targetState, timestamp, this.startTime, durationSeconds, this._player._target.id)
 
       if (targetState === PAUSED) {
-        if (this.state !== PAUSED) this._player.pause()
+        if (this.state !== PAUSED && this.state !== READY) this._player.pause()
         this.state = SEEKING_PAUSE
         this._player.seek(durationSeconds)
       } else if (targetState === PLAYING) {
