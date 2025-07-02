@@ -734,6 +734,7 @@ var pendingSeekTimestamp = 0 // Will be nonzero after a seek, returns to zero on
 function seekPlayersTo(timestamp, targetState, exceptFor) {
   pendingSeekTimestamp = timestamp
   for (var player of players.values()) {
+    if (player.state === LOADING) continue // We cannot seek a video that hasn't loaded yet.
     if (exceptFor != null && player.id == exceptFor.id) {
       player.state = targetState
       continue
