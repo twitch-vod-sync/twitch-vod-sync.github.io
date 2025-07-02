@@ -136,12 +136,10 @@ class UITests:
     player1offset = player0offset + 60000
     url = f'http://localhost:3000?player0=2444833212&offsetplayer0={player0offset}&player1=2444833835&offsetplayer1={player1offset}'
     self.driver.get(url)
-    # time.sleep(1)
 
     # Wait for all players to load and reach the 'pause' state
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PAUSED')
-    # time.sleep(1)
 
     # player1 is 1 minute later than player2, so we should align to that
     self.assert_videos_synced_to(self.ASYNC_ALIGN + player1offset)
@@ -149,30 +147,22 @@ class UITests:
   def testSeek(self):
     url = f'http://localhost:3000?player0=2444833212&player1=2444833835#scope=&access_token={self.access_token}&client_id={self.client_id}'
     self.driver.get(url)
-    time.sleep(1)
-    self.screenshot()
 
     # Wait for all players to load and reach the 'pause' state
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PAUSED')
-    time.sleep(1)
-    self.screenshot()
 
     # player1 is 2 minutes later than player2, so we should align to that
     self.assert_videos_synced_to(self.VIDEO_1_START_TIME)
-    time.sleep(1)
-    self.screenshot()
     
     self.run('players.get("player1")._player.pause()')
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PAUSED')
-    time.sleep(1)
 
     # Simulate a user's seek by using the internal player.
     self.run('players.get("player1")._player.seek(20.0)')
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PAUSED')
-    time.sleep(1)
 
     # player1 is 2 minutes later than player2, so we should align to that + the seek time
     self.assert_videos_synced_to(self.VIDEO_1_START_TIME + 20000)
