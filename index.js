@@ -508,9 +508,6 @@ function loadVideos(playerId, videos) {
         }
       }
       console.log(thisPlayer.id, 'was last to load, syncing all videos to', syncTo)
-      for (var player of players.values()) {
-        console.log(player.id, player._player.getPlayerState().playback)
-      }
       window.setTimeout(() => seekPlayersTo(syncTo, PAUSED), 1000)
     }
   }
