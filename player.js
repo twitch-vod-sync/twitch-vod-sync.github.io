@@ -45,11 +45,6 @@ class Player {
   onPlayerReady() {
     // Only hook events once the player has loaded, so we don't have to worry about events in the LOADING state.
     this._player.addEventListener('seek', (eventData) => {
-    if (eventData.position === 0 || eventData.position === 0.01) {
-      console.log(this.id, 'got FAKE seek', JSON.stringify(eventData), eventData.position, this._player._target.id)
-      return
-    }
-
       var seekMillis = Math.floor(eventData.position * 1000)
       console.log(this.id, 'got seek', JSON.stringify(eventData), eventData.position, seekMillis, this._player._target.id)
       this.eventSink('seek', this, seekMillis)
