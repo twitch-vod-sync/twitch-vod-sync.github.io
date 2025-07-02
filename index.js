@@ -511,7 +511,7 @@ function loadVideos(playerId, videos) {
       for (var player of players.values()) {
         console.log(player.id, player._player.getPlayerState().playback)
       }
-      seekPlayersTo(syncTo, PAUSED)
+      window.setTimeout(() => seekPlayersTo(syncTo, PAUSED), 1000)
     }
   }
 }
