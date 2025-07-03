@@ -111,14 +111,16 @@ class UITests:
     # As a result, we give the videos a little time to buffer before calling play()
     print(datetime.utcnow(), 'Sleeping for 5 seconds before asserting sync')
     time.sleep(5)
+    players = self.run('return players.keys()')
     self.run('players.get("player0").play()')
-    for player in ['player0', 'player1', 'player2', 'player3']:
-      if not self.run(f'return players.has("{player}")'): # Check that this player exists
-        continue
+    failed = []
+    for player in players:
       self.wait_for_state(player, 'PLAYING')
       timestamp = self.run(f'return players.get("{player}").getCurrentTimestamp()')
       if abs(timestamp - expected_timestamp) > 1000:
-        raise AssertionError(f'{player} was not within 1 second of expectation: {timestamp}, {expected_timestamp}, {timestamp - expected_timestamp}')
+        failed.append(player)
+    if len(failed) > 0:
+      raise AssertionError(', '.join(players) + f' was/were not within 1 second of expectation: {timestamp}, {expected_timestamp}, {timestamp - expected_timestamp}')
 
   #############
   #!# Tests #!#
