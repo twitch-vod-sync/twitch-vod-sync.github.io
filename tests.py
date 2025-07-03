@@ -47,9 +47,6 @@ class UITests:
     self.driver = webdriver.Chrome(options=options, service=service)
 
   def teardown(self):
-    self.print_event_log()
-    self.print_chrome_log()
-    self.screenshot()
     self.driver.close()
 
   def screenshot(self):
@@ -260,10 +257,12 @@ if __name__ == '__main__':
   for test in tests:
     for i in range(10):
       test_class.setup()
-      print('---', test[0], 'started')
+      print('---', test[0], 'started, attempt', i + 1)
       try:
-          test[1]()
+        test[1]()
       except Exception:
+        test_class.print_chrome_log()
+        test_class.screenshot()
         print('!!!', test[0], 'failed:')
         traceback.print_exc()
         sys.exit(-1)
