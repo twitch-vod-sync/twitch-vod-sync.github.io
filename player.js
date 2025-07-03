@@ -45,9 +45,9 @@ class Player {
   onPlayerReady() {
     // Only hook events once the player has loaded, so we don't have to worry about events in the LOADING state.
     this._player.addEventListener('seek', (eventData) => {
-      if (eventData.position === 0 || eventData.position === 0.01) return // Phantom seeks, l m a o
+      // Twitch sends a seek event immediately after the video is ready, which isn't a seek we're expecting to process.
+      if (this.state === READY && (eventData.position === 0 || eventData.position === 0.01)) return
       var seekMillis = Math.floor(eventData.position * 1000)
-      console.log(this.id, 'got seek', JSON.stringify(eventData), eventData.position, seekMillis, this._player._target.id)
       this.eventSink('seek', this, seekMillis)
     })
     this._player.addEventListener('play',  () => {
@@ -79,9 +79,8 @@ class Player {
   pause() { this._player.pause() }
   seekToEnd() { this.seekTo(this.endTime) }
   seekTo(timestamp, targetState) {
-    console.log(this.id, 'seekTo', targetState, timestamp)
     if (timestamp < this.startTime) {
-      console.log(timestamp, this.startTime, '???!!!')
+      console.log('Attempted to seek before the startTime, seeking start instead')
       var durationSeconds = 0.001 // I think seek(0) does something wrong, so.
       this.state = SEEKING_START
       this._player.pause()
@@ -95,13 +94,11 @@ class Player {
     } else {
       var durationSeconds = (timestamp - this.startTime) / 1000.0
       if (durationSeconds === 0) durationSeconds = 0.001 // I think seek(0) does something wrong, so.
-      console.log(this.id, 'seek', this.state, targetState, timestamp, this.startTime, durationSeconds, this._player._target.id)
 
       if (targetState === PAUSED) {
-        if (this.state !== PAUSED && this.state !== READY) {
-          console.log(this.id, 'pause')
-          this._player.pause()
-        }
+        // We don't want to pause videos which are still loading (or already paused)
+        // TODO: Why READY?
+        if (this.state !== PAUSED /* && this.state !== READY */) this._player.pause()
         this.state = SEEKING_PAUSE
         this._player.seek(durationSeconds)
       } else if (targetState === PLAYING) {

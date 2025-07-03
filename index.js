@@ -732,6 +732,7 @@ function twitchEvent(event, thisPlayer, seekMillis) {
 
 var pendingSeekTimestamp = 0 // Will be nonzero after a seek, returns to zero once all videos have finished seeking
 function seekPlayersTo(timestamp, targetState, exceptFor) {
+  console.log('Seeking all players to', timestamp, 'and state', targetState, 'except for', exceptFor)
   pendingSeekTimestamp = timestamp
   for (var player of players.values()) {
     if (player.state === LOADING) continue // We cannot seek a video that hasn't loaded yet.

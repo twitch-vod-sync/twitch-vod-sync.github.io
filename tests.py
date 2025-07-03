@@ -96,7 +96,7 @@ class UITests:
   def print_event_log(self):
     event_log = self.driver.execute_script('return window.eventLog')
     print('\n'.join(event_log))
-      
+
   def print_chrome_log(self):
     for log in self.driver.get_log('browser'):
       timestamp = datetime.fromtimestamp(log['timestamp'] / 1000).isoformat()
@@ -123,7 +123,7 @@ class UITests:
   #############
   #!# Tests #!#
   #############
-  
+
   VIDEO_0 = '2444833212'
   VIDEO_1 = '2444833835'
   VIDEO_0_START_TIME = 1745837098000
@@ -133,7 +133,7 @@ class UITests:
   def testLoadWithOffsetsAndSyncStart(self):
     player0offset = 245837252000
     player1offset = player0offset + 60000
-    url = f'http://localhost:3000?player0={VIDEO_0}&offsetplayer0={player0offset}&player1={VIDEO_1}&offsetplayer1={player1offset}'
+    url = f'http://localhost:3000?player0={self.VIDEO_0}&offsetplayer0={player0offset}&player1={self.VIDEO_1}&offsetplayer1={player1offset}'
     self.driver.get(url)
 
     # Wait for all players to load and reach the 'pause' state
@@ -144,7 +144,7 @@ class UITests:
     self.assert_videos_synced_to(self.ASYNC_ALIGN + player1offset)
 
   def testSeek(self):
-    url = f'http://localhost:3000?player0={VIDEO_0}&player1={VIDEO_1}#scope=&access_token={self.access_token}&client_id={self.client_id}'
+    url = f'http://localhost:3000?player0={self.VIDEO_0}&player1={self.VIDEO_1}#scope=&access_token={self.access_token}&client_id={self.client_id}'
     self.driver.get(url)
     time.sleep(1)
 
@@ -156,7 +156,7 @@ class UITests:
     # player1 is 2 minutes later than player2, so we should align to that
     self.assert_videos_synced_to(self.VIDEO_1_START_TIME)
     time.sleep(1)
-    
+
     self.run('players.get("player1")._player.pause()')
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PAUSED')
@@ -176,7 +176,7 @@ class UITests:
     url = f'http://localhost:3000?'
     for player in players:
       # Load 9 copies of the same video (we don't actually care about the video itself for this test)
-      url += f'{player}={VIDEO_0}&'
+      url += f'{player}={self.VIDEO_0}&'
     url += f'#scope=&access_token={self.access_token}&client_id={self.client_id}'
     self.driver.get(url)
 
@@ -217,14 +217,14 @@ class UITests:
         break
     else:
       raise ValueError('None of the OOTR races were suitable for a test')
-    
+
     j = requests.get(f'https://racetime.gg/{race_id}/data').json()
     expected_channel_names = [e['user']['twitch_display_name'] for e in j['entrants']]
     expected_timestamp = datetime.fromisoformat(j['started_at']).timestamp() * 1000
 
     url = f'http://localhost:3000?race=https://racetime.gg/{race_id}#scope=&access_token=invalid'
     self.driver.get(url)
-    
+
     # The app will try to load the race, but the token is invalid -- so it will show the twitch popup.
     # Wait for the twitch popup to be visible, then click the 'redirect me' button
     redirect = WebDriverWait(self.driver, 5).until(EC.visibility_of_element_located((By.ID, 'twitchRedirectButton')))
@@ -261,6 +261,7 @@ if __name__ == '__main__':
       print('---', test[0], 'started, attempt', i + 1)
       try:
         test[1]()
+        test_class.print_chrome_log()
       except Exception:
         test_class.print_chrome_log()
         test_class.screenshot()
