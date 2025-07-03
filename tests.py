@@ -124,14 +124,16 @@ class UITests:
   #!# Tests #!#
   #############
   
-  VIDEO_0_START_TIME = 1745837098000 # Start time for 2444833212 (first test video)
-  VIDEO_1_START_TIME = 1745837218000 # Start time for 2444833835 (second test video)
+  VIDEO_0 = '2444833212'
+  VIDEO_1 = '2444833835'
+  VIDEO_0_START_TIME = 1745837098000
+  VIDEO_1_START_TIME = 1745837218000
   ASYNC_ALIGN = 1500000000000
 
   def testLoadWithOffsetsAndSyncStart(self):
     player0offset = 245837252000
     player1offset = player0offset + 60000
-    url = f'http://localhost:3000?player0=2444833212&offsetplayer0={player0offset}&player1=2444833835&offsetplayer1={player1offset}'
+    url = f'http://localhost:3000?player0={VIDEO_0}&offsetplayer0={player0offset}&player1={VIDEO_1}&offsetplayer1={player1offset}'
     self.driver.get(url)
 
     # Wait for all players to load and reach the 'pause' state
@@ -142,7 +144,7 @@ class UITests:
     self.assert_videos_synced_to(self.ASYNC_ALIGN + player1offset)
 
   def testSeek(self):
-    url = f'http://localhost:3000?player0=2444833212&player1=2444833835#scope=&access_token={self.access_token}&client_id={self.client_id}'
+    url = f'http://localhost:3000?player0={VIDEO_0}&player1={VIDEO_1}#scope=&access_token={self.access_token}&client_id={self.client_id}'
     self.driver.get(url)
     time.sleep(1)
 
@@ -170,11 +172,11 @@ class UITests:
     self.assert_videos_synced_to(self.VIDEO_1_START_TIME + 20000)
 
   def testSeekWhileSeeking(self):
-    # Load 9 copies of the same video (we don't actually care about the video for this one)
     players = [f'player{i}' for i in range(10)]
     url = f'http://localhost:3000?'
     for player in players:
-      url += f'{player}=2444833212&'
+      # Load 9 copies of the same video (we don't actually care about the video itself for this test)
+      url += f'{player}={VIDEO_0}&'
     url += f'#scope=&access_token={self.access_token}&client_id={self.client_id}'
     self.driver.get(url)
 
@@ -186,15 +188,15 @@ class UITests:
     # Simulate a user's seek by using the internal player.
     self.run('''
       setTimeout(() => players.get("player0")._player.seek(60.0), 0)
-      setTimeout(() => players.get("player1")._player.seek(61.0), 1)
-      setTimeout(() => players.get("player2")._player.seek(62.0), 2)
-      setTimeout(() => players.get("player3")._player.seek(63.0), 3)
-      setTimeout(() => players.get("player4")._player.seek(64.0), 4)
-      setTimeout(() => players.get("player5")._player.seek(65.0), 5)
-      setTimeout(() => players.get("player6")._player.seek(66.0), 6)
-      setTimeout(() => players.get("player7")._player.seek(67.0), 7)
-      setTimeout(() => players.get("player8")._player.seek(68.0), 8)
-      setTimeout(() => players.get("player9")._player.seek(69.0), 9)
+      setTimeout(() => players.get("player1")._player.seek(60.1), 1)
+      setTimeout(() => players.get("player2")._player.seek(60.2), 2)
+      setTimeout(() => players.get("player3")._player.seek(60.3), 3)
+      setTimeout(() => players.get("player4")._player.seek(60.4), 4)
+      setTimeout(() => players.get("player5")._player.seek(60.5), 5)
+      setTimeout(() => players.get("player6")._player.seek(60.6), 6)
+      setTimeout(() => players.get("player7")._player.seek(60.7), 7)
+      setTimeout(() => players.get("player8")._player.seek(60.8), 8)
+      setTimeout(() => players.get("player9")._player.seek(60.9), 9)
     ''')
 
     # For a while, this caused a nasty thrashing bug, where the two seek values would keep getting hot-potatoed around between players.
@@ -202,9 +204,8 @@ class UITests:
     for player in players:
       self.wait_for_state(player, 'PAUSED')
 
-    # And I guess technically we can expect this to reach a consistent sync time?
-    # Idk where the hell this value is coming from, or why we trust it.
-    self.assert_videos_synced_to(self.VIDEO_0_START_TIME + 60000)
+    # The 'assert sync' function has a 1s grace period, so we pick the middle time (+60.5s) and it should work no matter who wins the race.
+    self.assert_videos_synced_to(self.VIDEO_0_START_TIME + 60500)
 
   def testRaceInterrupt(self):
     # We need to get a fresh race on each run, so that the VODs haven't expired.
