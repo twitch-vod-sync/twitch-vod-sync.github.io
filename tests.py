@@ -204,7 +204,7 @@ class UITests:
 
     # And I guess technically we can expect this to reach a consistent sync time?
     # Idk where the hell this value is coming from, or why we trust it.
-    self.assert_videos_synced_to(self.VIDEO_0_START_TIME + 120000)
+    self.assert_videos_synced_to(self.VIDEO_0_START_TIME + 60000)
 
   def testRaceInterrupt(self):
     # We need to get a fresh race on each run, so that the VODs haven't expired.
