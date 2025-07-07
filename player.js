@@ -96,15 +96,15 @@ class Player {
       if (durationSeconds === 0) durationSeconds = 0.001 // I think seek(0) does something wrong, so.
 
       if (targetState === PAUSED) {
-        // We don't want to pause videos which are still loading (or already paused)
-        // TODO: Why READY?
-        if (this.state !== PAUSED /* && this.state !== READY */) this._player.pause()
+        // We don't want to pause videos which are already paused. It can cause weird behaviors if a seek is interspersed.
+        if (this.state !== PAUSED) this._player.pause()
+        this._player.seek(durationSeconds)
         this.state = SEEKING_PAUSE
-        this._player.seek(durationSeconds)
       } else if (targetState === PLAYING) {
-        this.state = SEEKING_PLAY
         this._player.seek(durationSeconds)
-        this._player.play()
+        // We don't want to pause videos which are already playing. It can cause weird behaviors if a seek is interspersed.
+        if (this.state !== PLAYING) this._player.play()
+        this.state = SEEKING_PLAY
       }
     }
   }

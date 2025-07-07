@@ -226,6 +226,7 @@ class UITests:
 
     url = f'http://localhost:3000?race=https://racetime.gg/{race_id}#scope=&access_token=invalid'
     self.driver.get(url)
+    self.screenshot()
 
     # The app will try to load the race, but the token is invalid -- so it will show the twitch popup.
     # Wait for the twitch popup to be visible, then click the 'redirect me' button
@@ -238,7 +239,10 @@ class UITests:
     assert self.driver.current_url.startswith('https://www.twitch.tv/login')
     url = f'http://localhost:3000#scope=&access_token={self.access_token}&client_id={self.client_id}'
     self.driver.get(url)
+    self.screenshot()
+
     self.wait_for_state('player0', 'PAUSED')
+    self.screenshot()
 
     # Check that we loaded the right stream (per twitch names)
     player0_name = self.run('return players.get("player0").streamer')
@@ -257,8 +261,12 @@ if __name__ == '__main__':
   http_server = Thread(target=http_server.main, daemon=True)
   http_server.start()
 
+  loop_count = 1
+  if os.environ.get('GITHUB_EVENT_NAME', None) == 'schedule':
+    loop_count = 20 # Require additional consistency for our nightly job vs ad-hoc pushes
+
   for test in tests:
-    for i in range(10):
+    for i in range(loop_count):
       test_class.setup()
       print('---', test[0], 'started, attempt', i + 1)
       try:
