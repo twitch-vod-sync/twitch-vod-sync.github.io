@@ -47,6 +47,7 @@ window.onload = function() {
   var params = null
   if (window.localStorage.getItem('queryParams') != null) {
     params = new URLSearchParams(window.localStorage.getItem('queryParams'))
+    console.log('Loaded query params from storage:', params.toString())
     window.localStorage.removeItem('queryParams')
   } else {
     params = new URLSearchParams(window.location.search)
