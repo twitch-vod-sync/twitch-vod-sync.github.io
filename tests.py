@@ -218,12 +218,12 @@ class UITests:
     for race in j['races']:
       if race.get('streaming_required', True): # Streaming is required by default but some races override this
         race_id = race['url'][1:] # Starts with a '/' which breaks some of our code >.<
-        print(race)
         break
     else:
       raise ValueError('None of the OOTR races were suitable for a test')
 
     j = requests.get(f'https://racetime.gg/{race_id}/data').json()
+    print(j)
     expected_channel_names = [e['user']['twitch_display_name'] for e in j['entrants']]
     expected_timestamp = datetime.fromisoformat(j['started_at']).timestamp() * 1000
 
