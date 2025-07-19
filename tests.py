@@ -82,12 +82,12 @@ class UITests:
             console.warn('State reached but player still buffering')
           } else {
             clearInterval(interval)
-            console.log(player, 'has reached', targetState, 'within', arguments[0], 'loops. PlaybackState was', playbackState)
+            console.log(player, 'has reached', String(targetState), 'within', arguments[0], 'loops. PlaybackState was', playbackState)
             callback()
           }
         }
         if (--maxLoops == 0) {
-          console.error(player, 'did not enter state', targetState, 'within', arguments[0], 'loops. Final state was', currentState)
+          console.error(player, 'did not enter state', String(targetState), 'within', arguments[0], 'loops. Final state was', String(currentState))
           clearInterval(interval)
         }
       }, 10)
@@ -96,6 +96,8 @@ class UITests:
   def print_event_log(self):
     event_log = self.driver.execute_script('return window.eventLog')
     print('\n'.join(event_log))
+    if len(event_log) == 0:
+      print('Event log was empty')
 
   def print_chrome_log(self):
     for log in self.driver.get_log('browser'):
