@@ -51,6 +51,7 @@ window.onload = function() {
     window.localStorage.removeItem('queryParams')
   } else {
     params = new URLSearchParams(window.location.search)
+    console.log('Loaded query params from url:', params.toString())
   }
 
   // Check to see if we should disable Twitch auth. This can be configured manually by the user,
