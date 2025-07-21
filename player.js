@@ -32,7 +32,7 @@ window.newPlayer = function(divId, videos, playerType) {
 }
 
 class TwitchPlayer {
-  constructor(divId, videos) {
+  constructor(divId, videoDetails) {
     this.state = LOADING
 
     this.streamer = videoDetails.streamer
@@ -147,12 +147,10 @@ class YoutubePlayer {
     this._player.mute() // Oddly this cannot be set in the options, so we set it on ready.
 
     // Only hook events once the player has loaded, so we don't have to worry about events in the LOADING state.
-    this._player.addEventListener('onStateChange', (eventData) => {
+    this._player.addEventListener('onStateChange', (event) => {
       switch (event.data) {
-        case YT.PlayerState.UNSTARTED:
-          break
         case YT.PlayerState.ENDED:
-          this.eventSink('ended')
+          this.eventSink('ended', this)
           break
         case YT.PlayerState.PLAYING:
           // Since we're not calling the youtube APIs, we don't know the video duration.
@@ -162,12 +160,14 @@ class YoutubePlayer {
           this.eventSink('play', this)
           break
         case YT.PlayerState.PAUSED:
-          this.eventSink('pause')
+          this.eventSink('pause', this)
           break
+        /*
+        case YT.PlayerState.UNSTARTED:
         case YT.PlayerState.BUFFERING:
-          break
         case YT.PlayerState.CUED:
           break
+        */
       }
     })
 
@@ -186,6 +186,33 @@ class YoutubePlayer {
   pause() { this._player.pauseVideo() }
   seekToEnd() { this.seekTo(this.endTime) }
   seekTo(timestamp, targetState) {
-    // uh
+    if (timestamp < this.startTime) {
+      console.log('Attempted to seek before the startTime, seeking start instead')
+      var durationSeconds = 0.001 // I think seek(0) does something wrong, so.
+      this.state = SEEKING_START
+      this._player.pauseVideo()
+      this._player.seekTo(durationSeconds, true)
+    // If we try to seek past the end time (and the end time is known), instead pause the video near the end.
+    } else if (this._endTime != null && timestamp >= this.endTime - VIDEO_END_BUFFER) {
+      var durationSeconds = (this.endTime - this.startTime - VIDEO_END_BUFFER) / 1000.0
+      this.state = SEEKING_END
+      this._player.pauseVideo()
+      this._player.seekTo(durationSeconds, true)
+    } else {
+      var durationSeconds = (timestamp - this.startTime) / 1000.0
+      if (durationSeconds === 0) durationSeconds = 0.001 // I think seek(0) does something wrong, so.
+
+      if (targetState === PAUSED) {
+        // We don't want to pause videos which are already paused. It can cause weird behaviors if a seek is interspersed.
+        if (this.state !== PAUSED) this._player.pauseVideo()
+        this._player.seekTo(durationSeconds, true)
+        this.state = SEEKING_PAUSE
+      } else if (targetState === PLAYING) {
+        this._player.seekTo(durationSeconds, true)
+        // We don't want to pause videos which are already playing. It can cause weird behaviors if a seek is interspersed.
+        if (this.state !== PLAYING) this._player.playVideo()
+        this.state = SEEKING_PLAY
+      }
+    }
   }
 }
