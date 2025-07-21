@@ -1,6 +1,10 @@
-// Player states
 function enumValue(name) { return Object.freeze({toString: () => name}) }
 
+// Player types
+const TWITCH = enumValue('TWITCH')
+const YOUTUBE = enumValue('YOUTUBE')
+
+// Player states
 const LOADING       = enumValue('LOADING')
 const READY         = enumValue('READY')
 const SEEKING_PLAY  = enumValue('SEEKING_PLAY')
@@ -18,28 +22,34 @@ const ASYNC         = enumValue('ASYNC')
 // When a video ends, I want to leave it paused somewhere near the end screen -- so this value represents a safe point to seek to which avoids autoplay.
 const VIDEO_END_BUFFER = 15000
 
-class Player {
+window.newPlayer = function(divId, videos, playerType) {
+  if (videos == null || videos.length === 0) throw new Exception('Invalid videos: ' + videos.toString())
+  var videoDetails = videos[0] // TODO: Support multiple videos here?
+
+  if (playerType === TWITCH)  return new TwitchPlayer(divId, videoDetails)
+  if (playerType === YOUTUBE) return new YoutubePlayer(divId, videoDetails)
+  throw new Exception('Unknown player type: ' + playerType.toString())
+}
+
+class TwitchPlayer {
   constructor(divId, videos) {
     this.state = LOADING
 
-    if (videos != null && videos.length > 0) {
-      var videoDetails = videos[0] // TODO: Support multiple videos here (everything else should be wired up)
-      this.streamer = videoDetails.streamer
-      this._startTime = videoDetails.startTime
-      this._endTime = videoDetails.endTime
-      this.offset = 0
-      this.id = divId
+    this.streamer = videoDetails.streamer
+    this._startTime = videoDetails.startTime
+    this._endTime = videoDetails.endTime
+    this.offset = 0
+    this.id = divId
 
-      var options = {
-        width: '100%',
-        height: '100%',
-        video: videoDetails.id,
-        autoplay: false,
-        muted: true,
-      }
-      this._player = new Twitch.Player(divId, options)
-      this._player.addEventListener('ready', () => this.onPlayerReady())
+    var options = {
+      width: '100%',
+      height: '100%',
+      video: videoDetails.id,
+      autoplay: false,
+      muted: true,
     }
+    this._player = new Twitch.Player(divId, options)
+    this._player.addEventListener('ready', () => this.onPlayerReady())
   }
 
   onPlayerReady() {
@@ -107,5 +117,75 @@ class Player {
         this.state = SEEKING_PLAY
       }
     }
+  }
+}
+
+class YoutubePlayer {
+  constructor(divId, videoDetails) {
+    this.state = LOADING
+
+    this.streamer = videoDetails.streamer
+    this._startTime = videoDetails.startTime
+    this._endTime = videoDetails.endTime
+    this.offset = 0
+    this.id = divId
+
+    var options = {
+      height: '100%',
+      width: '100%',
+      videoId: videoDetails.id,
+      playerVars: {'autoplay': 0},
+    }
+
+    // The 'onReady' event needs to be hooked precisely so that it's not called *during* the new YT.Player invocation,
+    // and so that 'this' is properly defined inside the callback
+    this._player = new YT.Player(divId, options)
+    this._player.addEventListener('onReady', () => this.onPlayerReady())
+  }
+  
+  onPlayerReady() {
+    this._player.mute() // Oddly this cannot be set in the options, so we set it on ready.
+
+    // Only hook events once the player has loaded, so we don't have to worry about events in the LOADING state.
+    this._player.addEventListener('onStateChange', (eventData) => {
+      switch (event.data) {
+        case YT.PlayerState.UNSTARTED:
+          break
+        case YT.PlayerState.ENDED:
+          this.eventSink('ended')
+          break
+        case YT.PlayerState.PLAYING:
+          // Since we're not calling the youtube APIs, we don't know the video duration.
+          // However, it should be available once the player starts playing.
+          var durationMillis = Math.floor(this._player.getDuration() * 1000)
+          this._endTime = this._startTime + durationMillis
+          this.eventSink('play', this)
+          break
+        case YT.PlayerState.PAUSED:
+          this.eventSink('pause')
+          break
+        case YT.PlayerState.BUFFERING:
+          break
+        case YT.PlayerState.CUED:
+          break
+      }
+    })
+
+    this.onready(this) // Call back into index.js for the main bulk of 'readying'
+  }
+
+  get startTime() { return this._startTime + this.offset }
+  get endTime() { return this._endTime + this.offset }
+
+  getCurrentTimestamp() {
+    var durationMillis = Math.floor(this._player.getCurrentTime() * 1000)
+    return this._startTime + this.offset + durationMillis
+  }
+
+  play() { this._player.playVideo() }
+  pause() { this._player.pauseVideo() }
+  seekToEnd() { this.seekTo(this.endTime) }
+  seekTo(timestamp, targetState) {
+    // uh
   }
 }
