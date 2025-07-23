@@ -37,13 +37,19 @@ window.doTwitchRedirect = function(event) {
     window.localStorage.setItem('authPrefs', authPrefs)
   }
 
-  // If there's somehow already query params, drop them -- we're probably looping.
+  // If there's somehow already query params, stop -- we're probably looping.
   if (window.localStorage.getItem('queryParams') != null) {
-    console.log('Twitch login loop detected, clearing queryParams')
-    window.localStorage.removeItem('queryParams')
+    console.log('Attempting to do twitch redirect but there are already cached queryParams. Not taking another redirect action.')
+
+    // Show the UX manually, just in case something's broken. If we're in the middle of a redirect *anyways*, this won't do anything. I hope.
+    document.getElementById('twitchRedirect').style.display = null
+    document.getElementById('players').style.display = 'none'
+    document.getElementById('timeline').style.display = 'none'
+    return
+  }
 
   // Otherwise, stash the query params before redirecting, as twitch only allows the base URL as a redirect.
-  } else if (window.location.search != null && window.location.search.length > 1) {
+  if (window.location.search != null && window.location.search.length > 1) {
     console.log('Stashing queryParams before twitch redirect:', window.location.search)
     window.localStorage.setItem('queryParams', window.location.search)
   }
