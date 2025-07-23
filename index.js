@@ -13,6 +13,7 @@ window.onload = function() {
   // There's a small chance we didn't get a 'page closing' event fired, so if this setting is still set and we have a token,
   // delete the localstorage so we show the prompt again.
   if (window.localStorage.getItem('authPrefs') == 'neverSave' && window.localStorage.getItem('twitchAuthToken') != null) {
+    console.log('Clearing localStrage onload')
     window.localStorage.clear()
 
     // Normal lifecycle has a pagehide event fire before the window closes. While this is not guaranteed to fire on mobile,
@@ -21,7 +22,10 @@ window.onload = function() {
     // and don't save the fact that the user doesn't want us to persist their token.
     window.addEventListener('pagehide', (event) => {
       if (event.persisted) return // Page is being disabled but only temporarily, no need to clean up
-      if (window.localStorage.getItem('authPrefs') == 'neverSave') window.localStorage.clear()
+      if (window.localStorage.getItem('authPrefs') == 'neverSave') {
+        console.log('Clearing localStrage onhide')
+        window.localStorage.clear()
+      }
     })
   }
 
