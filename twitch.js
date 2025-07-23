@@ -39,10 +39,12 @@ window.doTwitchRedirect = function(event) {
 
   // If there's somehow already query params, drop them -- we're probably looping.
   if (window.localStorage.getItem('queryParams') != null) {
+    console.log('Twitch login loop detected, clearing queryParams')
     window.localStorage.removeItem('queryParams')
 
   // Otherwise, stash the query params before redirecting, as twitch only allows the base URL as a redirect.
   } else if (window.location.search != null && window.location.search.length > 1) {
+    console.log('Stashing queryParams before twitch redirect:', window.location.search)
     window.localStorage.setItem('queryParams', window.location.search)
   }
 
