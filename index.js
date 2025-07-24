@@ -615,7 +615,7 @@ console.log = function(...args) {
 function twitchEvent(event, thisPlayer, seekMillis) {
   console.log(thisPlayer.id, 'received event', event, 'while in state', thisPlayer.state, seekMillis)
 
-  if (event == 'seek') {
+  if (event == SEEK) {
     switch (thisPlayer.state) {
       // These states are expected to have a seek event based on automated seeking actions,
       // so we assume that any 'seek' event corresponds to that action.
@@ -652,7 +652,7 @@ function twitchEvent(event, thisPlayer, seekMillis) {
       case RESTARTING: // This is the only state (other than LOADING) where the player isn't really loaded. Ignore seeks here.
         break
     }
-  } else if (event == 'play') {
+  } else if (event == PLAY) {
     switch (thisPlayer.state) {
       case PAUSED: // If the user manually starts a fully paused video, sync all other videos to it.
       case READY: // A manual play on a 'ready' video (before other players have loaded)
@@ -683,7 +683,7 @@ function twitchEvent(event, thisPlayer, seekMillis) {
         console.log('Ignoring unexpected play event for', thisPlayer.id)
         break
     }
-  } else if (event == 'pause') {
+  } else if (event == PAUSE) {
     switch (thisPlayer.state) {
       case SEEKING_PLAY:
       case PLAYING:
@@ -715,7 +715,7 @@ function twitchEvent(event, thisPlayer, seekMillis) {
         console.log('Ignoring unexpected pause event for', thisPlayer.id)
         break
     }
-  } else if (event == 'ended') {
+  } else if (event == ENDED) {
     switch (thisPlayer.state) {
       case PLAYING: // This is the most likely state: letting a video play out until its natural end.
       case READY:         // All other states are possible by seeking, if the user clicks at the end of the timeline.
@@ -758,7 +758,7 @@ function twitchEvent(event, thisPlayer, seekMillis) {
 
 var pendingSeekTimestamp = 0 // Will be nonzero after a seek, returns to zero once all videos have finished seeking
 function seekPlayersTo(timestamp, targetState, exceptFor) {
-  console.log('Seeking all players to', timestamp, 'and state', targetState, 'except for', exceptFor)
+  console.log('Seeking all players to', timestamp, 'and state', targetState, (exceptFor != null ? 'except for ' + exceptFor.id : null))
   pendingSeekTimestamp = timestamp
   for (var player of players.values()) {
     if (player.state === LOADING) continue // We cannot seek a video that hasn't loaded yet.
