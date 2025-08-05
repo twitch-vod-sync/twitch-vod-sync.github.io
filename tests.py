@@ -176,19 +176,19 @@ class UITests:
     self.assert_videos_synced_to(self.VIDEO_1_START_TIME + 20_000)
 
     # Test a seek while playing (videos are playing as part of the previous assert) which is beyond the buffer
-    self.run('players.get("player0")._player.seek(300.0)')
+    self.run('players.get("player0")._player.seek(200.0)')
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PAUSED')
     time.sleep(1)
 
-    self.assert_videos_synced_to(self.VIDEO_0_START_TIME + 300_000)
+    self.assert_videos_synced_to(self.VIDEO_0_START_TIME + 200_000)
 
     # Test a seek within the buffer time (~10s) which should cause both videos to jump but keep playing
-    self.run('players.get("player0")._player.seek(305.0)')
+    self.run('players.get("player0")._player.seek(205.0)')
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PLAYING')
     time.sleep(1)
-    self.assert_videos_synced_to(self.VIDEO_0_START_TIME + 305_000)
+    self.assert_videos_synced_to(self.VIDEO_0_START_TIME + 205_000)
 
   def testSeekWhileSeeking(self):
     players = [f'player{i}' for i in range(10)]
