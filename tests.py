@@ -136,7 +136,7 @@ class UITests:
 
   def testLoadWithOffsetsAndSyncStart(self):
     player0offset = 245837252000
-    player1offset = player0offset + 60000
+    player1offset = player0offset + 60_000
     url = f'http://localhost:3000?player0={self.VIDEO_0}&offsetplayer0={player0offset}&player1={self.VIDEO_1}&offsetplayer1={player1offset}'
     self.driver.get(url)
 
@@ -173,7 +173,22 @@ class UITests:
     time.sleep(1)
 
     # player1 is 2 minutes later than player2, so we should align to that + the seek time
-    self.assert_videos_synced_to(self.VIDEO_1_START_TIME + 20000)
+    self.assert_videos_synced_to(self.VIDEO_1_START_TIME + 20_000)
+
+    # Test a seek while playing (videos are playing as part of the previous assert) which is beyond the buffer
+    self.run('players.get("player0")._player.seek(300.0)')
+    for player in ['player0', 'player1']:
+      self.wait_for_state(player, 'PAUSED')
+    time.sleep(1)
+
+    self.assert_videos_synced_to(self.VIDEO_0_START_TIME + 300_000)
+
+    # Test a seek within the buffer time (~10s) which should cause both videos to jump but keep playing
+    self.run('players.get("player0")._player.seek(305.0)')
+    for player in ['player0', 'player1']:
+      self.wait_for_state(player, 'PLAYING')
+    time.sleep(1)
+    self.assert_videos_synced_to(self.VIDEO_0_START_TIME + 305_000)
 
   def testSeekWhileSeeking(self):
     players = [f'player{i}' for i in range(10)]
@@ -267,6 +282,8 @@ if __name__ == '__main__':
   loop_count = 1
   if os.environ.get('GITHUB_EVENT_NAME', None) == 'schedule':
     loop_count = 20 # Require additional consistency for our nightly job vs ad-hoc pushes
+  elif len(sys.argv) > 2:
+    loop_count = int(sys.argv[2])
 
   for test in tests:
     for i in range(loop_count):

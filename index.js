@@ -639,7 +639,7 @@ function twitchEvent(event, thisPlayer, seekMillis) {
       case BEFORE_START: // If the user attempts to play a video that's waiting at the start, just sync everyone to this.
         console.log('User has manually started', thisPlayer.id, 'starting all players')
         var timestamp = thisPlayer.getCurrentTimestamp()
-        seekPlayersTo(timestamp, PLAYING, /*exceptFor*/thisPlayer)
+        seekPlayersTo(timestamp, PLAYING, /*exceptFor*/thisPlayer.id)
         break
 
       case SEEKING_PAUSE: // However, if the video is currently seeking, we use the last seek target instead.
@@ -742,7 +742,7 @@ function seekPlayersTo(timestamp, targetState, exceptFor) {
   pendingSeekTimestamp = timestamp
   for (var player of players.values()) {
     if (player.state === LOADING) continue // We cannot seek a video that hasn't loaded yet.
-    if (exceptFor != null && player.id == exceptFor.id) {
+    if (player.id == exceptFor) {
       player.state = targetState
       continue
     }
