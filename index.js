@@ -93,13 +93,12 @@ window.onload = function() {
     // There may be other params, this loop is only for player0, player1, etc
     if (playerId.startsWith('player') && videoIds.length > 0) {
       while (document.getElementById(playerId) == null) window.addPlayer()
-      players.set(playerId, new Player())
     
       // Copy the loop variables to avoid javascript lambda-in-loop bug
       ;((playerId, videoIds) => {
         var promise = FEATURES.DO_TWITCH_AUTH ? getTwitchVideosDetails(videoIds.split('-')) : getStubVideosDetails(videoIds.split('-'))
         promise
-        .then(videos => loadVideos(playerId, videos))
+        .then(videos => loadVideos(playerId, videos, TWITCH))
         .catch(r => showText(playerId, 'Could not process video "' + videoIds + '":\n' + r, /*isError*/true))
       })(playerId, videoIds)
     }
@@ -271,7 +270,10 @@ function addPlayer() {
 }
 
 function showText(playerId, message, isError) {
-  if (isError) debugger;
+  if (isError) {
+    console.error(playerId, message)
+    debugger;
+  }
   var error = document.getElementById(playerId + '-text')
   if (message == null) {
     error.innerText = ''
@@ -378,7 +380,7 @@ function searchVideo(event) {
   if (m != null) {
     showText(playerId, 'Loading video...')
     getTwitchVideosDetails([m[1]])
-    .then(videos => loadVideos(playerId, videos))
+    .then(videos => loadVideos(playerId, videos, TWITCH))
     .catch(r => showText(playerId, 'Could not process twitch video "' + m[1] + '":\n' + r, /*isError*/true))
     return
   }
@@ -412,7 +414,7 @@ function searchVideo(event) {
       }
 
       if (bestVideo != null) {
-        loadVideos(playerId, [bestVideo]) // TODO: Load all matching videos once the player can handle multiple videos
+        loadVideos(playerId, [bestVideo], TWITCH) // TODO: Load all matching videos once the player can handle multiple videos
         return
       }
 
@@ -445,14 +447,14 @@ function showVideoPicker(playerId, videos) {
       videoImg.style = 'width: 320px; height: 180px; object-fit: cover; object-position: top; cursor: pointer'
       videoImg.onclick = function() {
         videoGrid.remove()
-        loadVideos(playerId, [videos[i]])
+        loadVideos(playerId, [videos[i]], TWITCH)
       }
     })(i)
   }
 }
 
 var players = new Map()
-function loadVideos(playerId, videos) {
+function loadVideos(playerId, videos, playerType) {
   document.getElementById(playerId + '-form').style.display = 'none'
   var div = document.getElementById(playerId)
 
@@ -461,7 +463,7 @@ function loadVideos(playerId, videos) {
   params.set(div.id, videos.map(v => v.id).join('-'))
   history.pushState(null, null, '?' + params.toString())
 
-  var player = new Player(div.id, videos)
+  var player = window.newPlayer(div.id, videos, playerType)
   players.set(div.id, player)
   if (params.has('offset' + div.id)) {
     player.offset = parseInt(params.get('offset' + div.id))
@@ -573,7 +575,7 @@ function loadRace(raceDetails) {
       var playerId = 'player' + i
       if (!players.has(playerId)) {
         while (document.getElementById(playerId) == null) window.addPlayer()
-        loadVideos(playerId, [videos.shift()])
+        loadVideos(playerId, [videos.shift()], TWITCH)
       }
       i++
     }

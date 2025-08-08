@@ -1,6 +1,10 @@
-// Player states
 function enumValue(name) { return Object.freeze({toString: () => name}) }
 
+// Player types
+const TWITCH = enumValue('TWITCH')
+const YOUTUBE = enumValue('YOUTUBE')
+
+// Player states
 const LOADING       = enumValue('LOADING')
 const READY         = enumValue('READY')
 const SEEKING_PLAY  = enumValue('SEEKING_PLAY')
@@ -18,28 +22,41 @@ const ASYNC         = enumValue('ASYNC')
 // When a video ends, I want to leave it paused somewhere near the end screen -- so this value represents a safe point to seek to which avoids autoplay.
 const VIDEO_END_BUFFER = 15000
 
+window.newPlayer = function(divId, videos, playerType) {
+  if (videos == null || videos.length === 0) throw new Exception('Invalid videos: ' + videos.toString())
+  var videoDetails = videos[0] // TODO: Support multiple videos here?
+
+  if (playerType === TWITCH)  return new TwitchPlayer(divId, videoDetails)
+  throw new Exception('Unknown player type: ' + playerType.toString())
+}
+
 class Player {
-  constructor(divId, videos) {
+  constructor(divId, videoDetails) {
     this.state = LOADING
 
-    if (videos != null && videos.length > 0) {
-      var videoDetails = videos[0] // TODO: Support multiple videos here (everything else should be wired up)
-      this.streamer = videoDetails.streamer
-      this._startTime = videoDetails.startTime
-      this._endTime = videoDetails.endTime
-      this.offset = 0
-      this.id = divId
+    this.streamer = videoDetails.streamer
+    this._startTime = videoDetails.startTime
+    this._endTime = videoDetails.endTime
+    this.offset = 0
+    this.id = divId
+  }
 
-      var options = {
-        width: '100%',
-        height: '100%',
-        video: videoDetails.id,
-        autoplay: false,
-        muted: true,
-      }
-      this._player = new Twitch.Player(divId, options)
-      this._player.addEventListener('ready', () => this.onPlayerReady())
+  seekToEnd() { this.seekTo(this.endTime) }
+}
+
+class TwitchPlayer extends Player {
+  constructor(divId, videoDetails) {
+    super(divId, videoDetails)
+
+    var options = {
+      width: '100%',
+      height: '100%',
+      video: videoDetails.id,
+      autoplay: false,
+      muted: true,
     }
+    this._player = new Twitch.Player(divId, options)
+    this._player.addEventListener('ready', () => this.onPlayerReady())
   }
 
   onPlayerReady() {
@@ -77,7 +94,6 @@ class Player {
 
   play() { this._player.play() }
   pause() { this._player.pause() }
-  seekToEnd() { this.seekTo(this.endTime) }
   seekTo(timestamp, targetState) {
     if (timestamp < this.startTime) {
       console.log('Attempted to seek before the startTime, seeking start instead')
