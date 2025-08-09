@@ -80,6 +80,8 @@ class Player {
         this.state = SEEKING_PLAY
       }
     }
+    this._player = new Twitch.Player(divId, options)
+    this._player.addEventListener('ready', () => this.onPlayerReady())
   }
 }
 
