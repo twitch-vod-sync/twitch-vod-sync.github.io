@@ -93,13 +93,26 @@ window.onload = function() {
     // There may be other params, this loop is only for player0, player1, etc
     if (playerId.startsWith('player') && videoIds.length > 0) {
       while (document.getElementById(playerId) == null) window.addPlayer()
-    
+
       // Copy the loop variables to avoid javascript lambda-in-loop bug
       ;((playerId, videoIds) => {
-        var promise = FEATURES.DO_TWITCH_AUTH ? getTwitchVideosDetails(videoIds.split('-')) : getStubVideosDetails(videoIds.split('-'))
-        promise
-        .then(videos => loadVideos(playerId, videos, TWITCH))
-        .catch(r => showText(playerId, 'Could not process video "' + videoIds + '":\n' + r, /*isError*/true))
+        // Multi-video players should always be from the same source.
+        var firstVideo = videoIds.split('-')[0]
+        if (firstVideo.match(YOUTUBE_VIDEO_MATCH) != null) {
+          getStubVideosDetails(videoIds.split('-'))
+          .then(videos => loadVideos(playerId, videos, YOUTUBE))
+          .catch(r => showText(playerId, 'Could not process youtube video "' + videoIds + '":\n' + r, /*isError*/true))
+        } else if (!FEATURES.DO_TWITCH_AUTH) {
+          getStubVideosDetails(videoIds.split('-'))
+          .then(videos => loadVideos(playerId, videos, TWITCH))
+          .catch(r => showText(playerId, 'Could not process twitch video "' + videoIds + '":\n' + r, /*isError*/true))
+        } else if (firstVideo.match(TWITCH_VIDEO_MATCH) != null) {
+          getTwitchVideosDetails(videoIds.split('-'))
+          .then(videos => loadVideos(playerId, videos, TWITCH))
+          .catch(r => showText(playerId, 'Could not process twitch video "' + videoIds + '":\n' + r, /*isError*/true))
+        } else {
+          showText(playerId, 'Could not parse video string "' + videoIds + '"', /*isError*/true)
+        }
       })(playerId, videoIds)
     }
   }
@@ -375,11 +388,20 @@ function searchVideo(event) {
     return
   }
 
-  // Check to see if the user provided a direct video link
+  // Check to see if the user provided a direct youtube video (or youtube video id)
+  m = formText.match(YOUTUBE_VIDEO_MATCH)
+  if (m != null) {
+    showText(playerId, 'Loading Youtube video...')
+    getStubVideosDetails([m[1]])
+    .then(videos => loadVideos(playerId, videos, YOUTUBE))
+    .catch(r => showText(playerId, 'Could not process youtube video "' + m[1] + '":\n' + r, /*isError*/true))
+    return
+  }
+  // Check to see if the user provided a direct twitch VOD (or VOD id)
   m = formText.match(TWITCH_VIDEO_MATCH)
   if (m != null) {
-    showText(playerId, 'Loading video...')
-    getTwitchVideosDetails([m[1]])
+    showText(playerId, 'Loading Twitch VOD...')
+    getTwitchVideosDetails([m[1]]) // TODO: How does this work if we disabled twitch auth?
     .then(videos => loadVideos(playerId, videos, TWITCH))
     .catch(r => showText(playerId, 'Could not process twitch video "' + m[1] + '":\n' + r, /*isError*/true))
     return
@@ -595,7 +617,7 @@ console.log = function(...args) {
 
 var pendingSeekTimestamp = 0 // Will be nonzero after a seek, returns to zero once all videos have finished seeking
 function seekPlayersTo(timestamp, targetState, exceptFor) {
-  console.log('Seeking all players to', timestamp, 'and state', targetState, 'except for', exceptFor)
+  console.log('Seeking all players to', timestamp, 'and state', targetState, (exceptFor != null ? 'except for ' + exceptFor.id : null))
   pendingSeekTimestamp = timestamp
   for (var player of players.values()) {
     if (player.state === LOADING) continue // We cannot seek a video that hasn't loaded yet.
