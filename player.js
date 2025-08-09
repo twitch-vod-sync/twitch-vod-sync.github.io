@@ -27,6 +27,7 @@ window.newPlayer = function(divId, videos, playerType) {
   var videoDetails = videos[0] // TODO: Support multiple videos here?
 
   if (playerType === TWITCH)  return new TwitchPlayer(divId, videoDetails)
+  if (playerType === YOUTUBE) return new YoutubePlayer(divId, videoDetails)
   throw new Exception('Unknown player type: ' + playerType.toString())
 }
 
@@ -86,45 +87,47 @@ class TwitchPlayer extends Player {
 
   get startTime() { return this._startTime + this.offset }
   get endTime() { return this._endTime + this.offset }
-
   getCurrentTimestamp() {
     var durationMillis = Math.floor(this._player.getCurrentTime() * 1000)
-    return this._startTime + this.offset + durationMillis
+    return this.startTime + durationMillis
   }
 
   play() { this._player.play() }
   pause() { this._player.pause() }
+  seek(durationSeconds) { this._player.seek(durationSeconds) }
+
   seekTo(timestamp, targetState) {
     if (timestamp < this.startTime) {
       console.log('Attempted to seek before the startTime, seeking start instead')
       var durationSeconds = 0.001 // I think seek(0) does something wrong, so.
       this.state = SEEKING_START
-      this._player.pause()
-      this._player.seek(durationSeconds)
+      this.pause()
+      this.seek(durationSeconds)
     // If we try to seek past the end time (and the end time is known), instead pause the video near the end.
     } else if (this._endTime != null && timestamp >= this.endTime - VIDEO_END_BUFFER) {
       var durationSeconds = (this.endTime - this.startTime - VIDEO_END_BUFFER) / 1000.0
       this.state = SEEKING_END
-      this._player.pause()
-      this._player.seek(durationSeconds)
+      this.pause()
+      this.seek(durationSeconds)
     } else {
       var durationSeconds = (timestamp - this.startTime) / 1000.0
       if (durationSeconds === 0) durationSeconds = 0.001 // I think seek(0) does something wrong, so.
 
       if (targetState === PAUSED) {
         // We don't want to pause videos which are already paused. It can cause weird behaviors if a seek is interspersed.
-        if (this.state !== PAUSED) this._player.pause()
-        this._player.seek(durationSeconds)
+        if (this.state !== PAUSED) this.pause()
+        this.seek(durationSeconds)
         this.state = SEEKING_PAUSE
       } else if (targetState === PLAYING) {
-        this._player.seek(durationSeconds)
+        this.seek(durationSeconds)
         // We don't want to pause videos which are already playing. It can cause weird behaviors if a seek is interspersed.
-        if (this.state !== PLAYING) this._player.play()
+        if (this.state !== PLAYING) this.play()
         this.state = SEEKING_PLAY
       }
     }
   }
 
+  // TODO: Can I just use 'this' instead of 'thisPlayer'?
   eventSink(event, thisPlayer, seekMillis) {
     console.log(thisPlayer.id, 'received event', event, 'while in state', thisPlayer.state, seekMillis)
 
@@ -268,4 +271,194 @@ class TwitchPlayer extends Player {
       }
     }
   }
+}
+
+class YoutubePlayer extends Player {
+  constructor(divId, videoDetails) {
+    super(divId, videoDetails)
+
+    var options = {
+      height: '100%',
+      width: '100%',
+      videoId: videoDetails.id,
+      playerVars: {'autoplay': 0},
+    }
+
+    // The 'onReady' event needs to be hooked precisely so that it's not called *during* the new YT.Player invocation,
+    // and so that 'this' is properly defined inside the callback
+    this._player = new YT.Player(divId, options)
+    this._player.addEventListener('onReady', () => this.onPlayerReady())
+  }
+  
+  onPlayerReady() {
+    this._player.mute() // Oddly this cannot be set in the options, so we set it on ready.
+
+    // Only hook events once the player has loaded, so we don't have to worry about events in the LOADING state.
+    this._player.addEventListener('onStateChange', (event) => {
+      switch (event.data) {
+        case YT.PlayerState.PLAYING:
+          // Since we're not calling the youtube APIs, we don't know the video duration.
+          // However, it should be available once the player starts playing.
+          var durationMillis = Math.floor(this._player.getDuration() * 1000)
+          this._endTime = this._startTime + durationMillis
+          this.eventSink('play', this)
+          break
+        case YT.PlayerState.PAUSED:
+          this.eventSink('pause', this)
+          break
+        case YT.PlayerState.ENDED:
+          this.eventSink('ended', this)
+          break
+      }
+    })
+
+    this.onready(this) // Call back into index.js for the main bulk of 'readying'
+    
+    // Start the seek timer to check for manual seeks
+    this._lastPauseTime = null
+    this._lastPlayTime = null
+    window.setInterval(() => this._seekTimer(), 100)
+  }
+
+  get startTime() { return this._startTime + this.offset }
+  get endTime() { return this._endTime + this.offset }
+  getCurrentTimestamp() {
+    var durationMillis = Math.floor(this._player.getCurrentTime() * 1000)
+    return this.startTime + durationMillis
+  }
+
+  play() { this._player.playVideo() }
+  pause() { this._player.pauseVideo() }
+  seek(durationSeconds) { this._player.seekTo(durationSeconds) }
+
+  seekTo(timestamp, targetState) {
+    var durationSeconds = (timestamp - this.startTime) / 1000.0
+
+    if (targetState === PAUSED) {
+      this.pause()
+      // Seeking a youtube player while in 'ready' will cause it to start autoplaying.
+      if (this.state !== READY) this.seek(durationSeconds)
+    } else if (targetState === PLAYING) {
+      this.seek(durationSeconds)
+      this.play()
+    }
+  }
+
+  eventSink(event, thisPlayer, seekMillis) {
+    console.log(thisPlayer.id, 'received event', event, 'while in state', thisPlayer.state, seekMillis)
+
+    if (event == 'play') {
+      this._lastPauseTime = null
+      this._lastPlayTime = (new Date().getTime()) - this.getCurrentTimestamp()
+
+      switch (thisPlayer.state) {
+        case READY:
+        case PAUSED:
+          console.log('User has manually started', thisPlayer.id, 'starting all players')
+          var timestamp = thisPlayer.getCurrentTimestamp()
+          seekPlayersTo(timestamp, PLAYING, /*exceptFor*/thisPlayer.id)
+          break
+        case PLAYING: // Unexpected
+          break
+      }
+    } else if (event == 'pause') {
+      this._lastPauseTime = this.getCurrentTimestamp()
+      this._lastPlayTime = null
+
+      switch (thisPlayer.state) {
+        case PLAYING:
+          console.log('User has manually paused', thisPlayer.id, 'while it was playing, pausing all other players')
+          for (var player of players.values()) {
+            if (player.state === SEEKING_PLAY) player.state = SEEKING_PAUSE
+            if (player.state === PLAYING)      player.state = PAUSED
+            if (player.id != thisPlayer.id)    player.pause()
+          }
+          break
+        case READY: // Unexpected
+        case PAUSED:
+          break
+      }
+    } else if (event == 'seek') {
+      switch (thisPlayer.state) {
+        case PLAYING:
+        case PAUSED:
+          console.log('User has manually seeked', thisPlayer.id, 'seeking all other players')
+          var timestamp = thisPlayer.startTime + seekMillis
+          seekPlayersTo(timestamp, (thisPlayer.state === PLAYING ? PLAYING : PAUSED))
+          break
+        case READY: // Unexpected
+          break
+      }
+    }
+  }
+  
+  // Unfortunately, the youtube iframe APIs don't actually provide us with a 'onSeek' event.
+  // The only (reliable) way of detecting a seek while paused is to just set a timer which regularly
+  // checks the video to see if the time has gotten out of sync with the expectation (i.e. linear time).
+  _seekTimer() {
+    if (this.state === PAUSED) {
+      var expected = this._lastPauseTime
+      var actual = this.getCurrentTimestamp()
+      if (Math.abs(expected - actual) > 1000) {
+        console.log('Actual pause timestamp', actual, 'differed by more than a second from the expected timestamp', expected, 'assuming seek')
+        this._lastPauseTime = actual
+        this.eventSink('seek', this, actual - this.startTime)
+      }
+    } else if (this.state === PLAYING) {
+      var expected = (new Date().getTime()) - this._lastPlayTime
+      var actual = this.getCurrentTimestamp()
+      if (Math.abs(expected - actual) > 1000) {
+        console.log('Actual playing timestamp', actual, 'differed by more than a second from the expected timestamp', expected, 'assuming seek')
+        this._lastPlayTime += (expected - actual)
+        this.eventSink('seek', this, actual - this.startTime)
+      }
+    }
+  }
+
+
+
+
+
+
+
+  
+  /*
+  // Whenever we (knowingly) change the player's position, make a note of the 'last known timestamp'.
+  // We can use this below (in _seekTimer) to track if the player has been manually seeked without our knowledge.
+  _updateSeekAlignment(durationSeconds) {
+    if (this._player.getPlayerState() === YT.PlayerState.PAUSED) {
+      this._lastPauseTime = durationSeconds
+      this._lastPlayTime = null
+    } else if (this._player.getPlayerState() === YT.PlayerState.PLAYING) {
+      this._lastPauseTime = null
+      this._lastPlayTime = durationSeconds - new Date().getTime()
+    }
+  }
+  
+  // Unfortunately, the youtube iframe APIs don't actually provide us with a 'onSeek' event.
+  // The only (reliable) way of detecting a seek while paused is to just set a timer which regularly
+  // checks the video to see if the time has gotten out of sync with the expectation (i.e. linear time).
+  _seekTimer() {
+    var expected = 0
+    if (this._player.getPlayerState() === YT.PlayerState.PAUSED) {
+      if (this._lastPauseTime == null) return // No known comparison time; don't take any action.
+      
+      expected = this._lastPauseTime
+    } else if (this._player.getPlayerState() === YT.PlayerState.PLAYING) {
+      if (this._lastPlayTime == null) return // No known comparison time; don't take any action.
+
+      expected = this._lastPlayTime + new Date().getTime()
+    } else {
+      return // Unknown state
+    }
+    
+    var actual = this._player.getCurrentTime()
+    if (Math.abs(expected - actual) > 1) {
+      console.log('something')
+      this._updateSeekAlignment(actual)
+      var durationMillis = Math.floor(actual * 1000)
+      this.eventSink(SEEK, this, durationMillis)
+    }
+  }
+  */
 }
