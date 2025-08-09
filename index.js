@@ -208,16 +208,23 @@ window.onload = function() {
     } else {
       // Spacebar pauses (if anyone is playing) or plays (if everyone is paused)
       // Left and right seek based on the most recent seek (if it hasn't completed) or else the location of the first video (if any video is loaded)
+      // Twitch also supports jkl for these keybinds (left/pause/right)
       if (firstPlayingVideo != null) {
         var seekTarget = pendingSeekTimestamp > 0 ? pendingSeekTimestamp : firstPlayingVideo.getCurrentTimestamp()
-        if (event.key == ' ') firstPlayingVideo.pause()
+        if (event.key == ' ')          firstPlayingVideo.pause()
         if (event.key == 'ArrowLeft')  seekPlayersTo(seekTarget - 10000, PLAYING)
         if (event.key == 'ArrowRight') seekPlayersTo(seekTarget + 10000, PLAYING)
+        if (event.key == 'j')          seekPlayersTo(seekTarget - 10000, PLAYING)
+        if (event.key == 'k')          firstPlayingVideo.pause()
+        if (event.key == 'l')          seekPlayersTo(seekTarget + 10000, PLAYING)
       } else if (firstPausedVideo != null) {
         var seekTarget = pendingSeekTimestamp > 0 ? pendingSeekTimestamp : firstPausedVideo.getCurrentTimestamp()
         if (event.key == ' ') firstPausedVideo.play()
         if (event.key == 'ArrowLeft')  seekPlayersTo(seekTarget - 10000, PAUSED)
         if (event.key == 'ArrowRight') seekPlayersTo(seekTarget + 10000, PAUSED)
+        if (event.key == 'j')          seekPlayersTo(seekTarget - 10000, PAUSED)
+        if (event.key == 'k')          firstPausedVideo.play()
+        if (event.key == 'l')          seekPlayersTo(seekTarget + 10000, PAUSED)
       }
     }
   })
@@ -269,6 +276,12 @@ function addPlayer() {
     readme.target = '_blank'
     readme.innerText = 'the readme'
   }, 10000)
+
+  // Youtube's player needs a separate div to target since it replaces it entirely.
+  var ytDiv = document.createElement('div')
+  ytDiv.id = newPlayer.id + '-ytdiv'
+  newPlayer.appendChild(ytDiv)
+  ytDiv.style.display = 'none'
 
   resizePlayers()
 }
@@ -729,17 +742,18 @@ function reloadTimeline() {
 
   var startLabel = document.createElement('div')
   labels.appendChild(startLabel)
-  startLabel.style = 'margin-left: 3px'
+  startLabel.style = 'margin-left: 3px; user-select: none; pointer-events: none'
   startLabel.innerText = new Date(timelineStart).toLocaleString(TIMELINE_DATE_FORMAT)
 
   var currentLabel = document.createElement('div')
-  currentLabel.id = 'timelineCurrent'
   labels.appendChild(currentLabel)
+  currentLabel.id = 'timelineCurrent'
+  currentLabel.style = 'user-select: none; pointer-events: none'
 
   var endLabel = document.createElement('div')
   labels.appendChild(endLabel)
   endLabel.id = 'timelineEnd'
-  endLabel.style = 'margin-right: 3px'
+  endLabel.style = 'margin-right: 3px; user-select: none; pointer-events: none'
   endLabel.innerText = new Date(timelineEnd).toLocaleString(TIMELINE_DATE_FORMAT)
 }
 

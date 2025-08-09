@@ -286,7 +286,8 @@ class YoutubePlayer extends Player {
 
     // The 'onReady' event needs to be hooked precisely so that it's not called *during* the new YT.Player invocation,
     // and so that 'this' is properly defined inside the callback
-    this._player = new YT.Player(divId, options)
+    this._player = new YT.Player(divId + '-ytdiv', options)
+    document.getElementById(divId + '-ytdiv').style.display = null
     this._player.addEventListener('onReady', () => this.onPlayerReady())
   }
   
@@ -359,6 +360,7 @@ class YoutubePlayer extends Player {
           seekPlayersTo(timestamp, PLAYING, /*exceptFor*/thisPlayer.id)
           break
         case PLAYING: // Unexpected
+        case ASYNC: // No action needed. The user is likely resuming the video so they can watch and sync it up.
           break
       }
     } else if (event == 'pause') {
@@ -374,6 +376,10 @@ class YoutubePlayer extends Player {
             if (player.id != thisPlayer.id)    player.pause()
           }
           break
+        case ASYNC: // Either the automatic pause at the start of asyncing, or the user manually paused the video to align it.
+          var pausedTimestamp = thisPlayer.getCurrentTimestamp()
+          thisPlayer.offset += (ASYNC_ALIGN - pausedTimestamp)
+          break
         case READY: // Unexpected
         case PAUSED:
           break
@@ -385,6 +391,11 @@ class YoutubePlayer extends Player {
           console.log('User has manually seeked', thisPlayer.id, 'seeking all other players')
           var timestamp = thisPlayer.startTime + seekMillis
           seekPlayersTo(timestamp, (thisPlayer.state === PLAYING ? PLAYING : PAUSED))
+          break
+        case ASYNC: // If the videos are async'd and the user seeks, update the video's offset to match the seek.
+          console.log('User has manually seeked', thisPlayer.id, 'while in async mode')
+          var timestamp = thisPlayer.startTime + seekMillis
+          thisPlayer.offset += (ASYNC_ALIGN - timestamp)
           break
         case READY: // Unexpected
           break
