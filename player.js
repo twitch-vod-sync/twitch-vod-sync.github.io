@@ -290,7 +290,7 @@ class YoutubePlayer extends Player {
     document.getElementById(divId + '-ytdiv').style.display = null
     this._player.addEventListener('onReady', () => this.onPlayerReady())
   }
-  
+
   onPlayerReady() {
     this._player.mute() // Oddly this cannot be set in the options, so we set it on ready.
 
@@ -314,7 +314,7 @@ class YoutubePlayer extends Player {
     })
 
     this.onready(this) // Call back into index.js for the main bulk of 'readying'
-    
+
     // Start the seek timer to check for manual seeks
     this._lastPauseTime = null
     this._lastPlayTime = null
@@ -402,7 +402,7 @@ class YoutubePlayer extends Player {
       }
     }
   }
-  
+
   // Unfortunately, the youtube iframe APIs don't actually provide us with a 'onSeek' event.
   // The only (reliable) way of detecting a seek while paused is to just set a timer which regularly
   // checks the video to see if the time has gotten out of sync with the expectation (i.e. linear time).
@@ -432,7 +432,7 @@ class YoutubePlayer extends Player {
 
 
 
-  
+
   /*
   // Whenever we (knowingly) change the player's position, make a note of the 'last known timestamp'.
   // We can use this below (in _seekTimer) to track if the player has been manually seeked without our knowledge.
@@ -445,7 +445,7 @@ class YoutubePlayer extends Player {
       this._lastPlayTime = durationSeconds - new Date().getTime()
     }
   }
-  
+
   // Unfortunately, the youtube iframe APIs don't actually provide us with a 'onSeek' event.
   // The only (reliable) way of detecting a seek while paused is to just set a timer which regularly
   // checks the video to see if the time has gotten out of sync with the expectation (i.e. linear time).
@@ -453,7 +453,7 @@ class YoutubePlayer extends Player {
     var expected = 0
     if (this._player.getPlayerState() === YT.PlayerState.PAUSED) {
       if (this._lastPauseTime == null) return // No known comparison time; don't take any action.
-      
+
       expected = this._lastPauseTime
     } else if (this._player.getPlayerState() === YT.PlayerState.PLAYING) {
       if (this._lastPlayTime == null) return // No known comparison time; don't take any action.
@@ -462,7 +462,7 @@ class YoutubePlayer extends Player {
     } else {
       return // Unknown state
     }
-    
+
     var actual = this._player.getCurrentTime()
     if (Math.abs(expected - actual) > 1) {
       console.log('something')
