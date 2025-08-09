@@ -379,7 +379,8 @@ function searchVideo(event) {
   m = formText.match(TWITCH_VIDEO_MATCH)
   if (m != null) {
     showText(playerId, 'Loading video...')
-    getTwitchVideosDetails([m[1]])
+    var promise = FEATURES.DO_TWITCH_AUTH ? getTwitchVideosDetails([m[1]]) : getStubVideosDetails([m[1]])
+    promise
     .then(videos => loadVideos(playerId, videos, TWITCH))
     .catch(r => showText(playerId, 'Could not process twitch video "' + m[1] + '":\n' + r, /*isError*/true))
     return
@@ -388,6 +389,11 @@ function searchVideo(event) {
   // Check to see if it's a channel (in which case we can look for a matching video)
   m = formText.match(TWITCH_CHANNEL_MATCH)
   if (m != null) {
+    if (!FEATURES.DO_TWITCH_AUTH) {
+      showText(playerId, 'Twitch auth is disabled so we cannot load channel videos. Please enter video ids directly.', /*isError*/true)
+      return
+    }
+
     showText(playerId, 'Loading channel videos...')
     getTwitchChannelVideos(m[1])
     .then(videos => {
