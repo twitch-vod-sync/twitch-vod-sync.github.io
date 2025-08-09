@@ -535,7 +535,12 @@ function loadVideos(playerId, videos, playerType) {
         }
       }
       console.log(thisPlayer.id, 'was last to load, syncing all videos to', syncTo)
-      window.setTimeout(() => seekPlayersTo(syncTo, PAUSED), 1000)
+      window.setTimeout(() => {
+        for (var player of players.values()) {
+          if (player.state === PLAYING) return // If the user has started playing any player, don't do the auto-seek.
+        }
+        seekPlayersTo(syncTo, PAUSED)
+      }, 1000)
     }
   }
 }
