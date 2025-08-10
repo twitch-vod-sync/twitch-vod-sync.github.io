@@ -219,7 +219,7 @@ window.onload = function() {
         if (event.key == 'l')          seekPlayersTo(seekTarget + 10000, PLAYING)
       } else if (firstPausedVideo != null) {
         var seekTarget = pendingSeekTimestamp > 0 ? pendingSeekTimestamp : firstPausedVideo.getCurrentTimestamp()
-        if (event.key == ' ') firstPausedVideo.play()
+        if (event.key == ' ')          firstPausedVideo.play()
         if (event.key == 'ArrowLeft')  seekPlayersTo(seekTarget - 10000, PAUSED)
         if (event.key == 'ArrowRight') seekPlayersTo(seekTarget + 10000, PAUSED)
         if (event.key == 'j')          seekPlayersTo(seekTarget - 10000, PAUSED)
