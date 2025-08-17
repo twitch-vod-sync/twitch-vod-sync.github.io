@@ -267,7 +267,7 @@ class UITests:
     assert player0_name in expected_channel_names
 
     self.assert_videos_synced_to(expected_timestamp)
-    
+
   def testYoutube(self):
     pass
     # TODO: Uh. Currently working with this:

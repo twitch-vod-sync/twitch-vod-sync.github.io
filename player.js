@@ -117,12 +117,12 @@ class TwitchPlayer extends Player {
         // We don't want to pause videos which are already paused. It can cause weird behaviors if a seek is interspersed.
         if (this.state !== PAUSED) this.pause()
         this.seek(durationSeconds)
-        this.state = SEEKING_PAUSE
+        this.state = PAUSED
       } else if (targetState === PLAYING) {
         this.seek(durationSeconds)
         // We don't want to pause videos which are already playing. It can cause weird behaviors if a seek is interspersed.
         if (this.state !== PLAYING) this.play()
-        this.state = SEEKING_PLAY
+        this.state = PLAYING
       }
     }
   }
@@ -210,7 +210,7 @@ class TwitchPlayer extends Player {
           for (var player of players.values()) {
             if (player.state === SEEKING_PLAY) player.state = SEEKING_PAUSE
             if (player.state === PLAYING)      player.state = PAUSED
-            if (player.id != this.id)    player.pause() // Note: We don't want to pause the current player, since it might be waiting for a seek event.
+            if (player.id != this.id)          player.pause() // Note: We don't want to pause the current player, since it might be waiting for a seek event.
           }
           break
 
@@ -272,6 +272,8 @@ class TwitchPlayer extends Player {
   }
 }
 
+// TODO: Handle before_start and after_end cases
+// TODO: Something slightly more intelligent when there's a twitch vod and a yt vod, maybe an 'auto-align'?
 class YoutubePlayer extends Player {
   constructor(divId, videoDetails) {
     super(divId, videoDetails)
@@ -340,7 +342,9 @@ class YoutubePlayer extends Player {
       if (this.state !== READY) this.seek(durationSeconds)
     } else if (targetState === PLAYING) {
       this.seek(durationSeconds)
-      this.play()
+      // We don't want to pause videos which are already playing. It can cause weird behaviors if a seek is interspersed.
+      if (this.state !== PLAYING) this.play()
+      this.state = SEEKING_PLAY
     }
   }
 
@@ -367,12 +371,13 @@ class YoutubePlayer extends Player {
       this._lastPlayTime = null
 
       switch (this.state) {
+        case SEEKING_PLAY:
         case PLAYING:
           console.log('User has manually paused', this.id, 'while it was playing, pausing all other players')
           for (var player of players.values()) {
             if (player.state === SEEKING_PLAY) player.state = SEEKING_PAUSE
             if (player.state === PLAYING)      player.state = PAUSED
-            if (player.id != this.id)    player.pause()
+            if (player.id != this.id)          player.pause()
           }
           break
         case ASYNC: // Either the automatic pause at the start of asyncing, or the user manually paused the video to align it.
@@ -400,6 +405,8 @@ class YoutubePlayer extends Player {
           break
       }
     }
+
+    console.log(this.id, 'handled event', event, 'and is now in state', this.state)
   }
 
   // Unfortunately, the youtube iframe APIs don't actually provide us with a 'onSeek' event.
