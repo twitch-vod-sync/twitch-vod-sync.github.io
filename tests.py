@@ -90,8 +90,8 @@ class UITests:
           console.error(player, 'did not enter state', String(targetState), 'within', arguments[0], 'loops. Final state was', String(currentState))
           clearInterval(interval)
         }
-      }, 10)
-      ''' % state, timeout_sec * 100, player)
+      }, 100)
+      ''' % state, timeout_sec * 10, player)
 
   def print_event_log(self):
     event_log = self.driver.execute_script('return window.eventLog')
@@ -113,7 +113,7 @@ class UITests:
     # As a result, we give the videos a little time to buffer before calling play()
     print(datetime.utcnow(), 'Sleeping for 5 seconds before asserting sync')
     time.sleep(5)
-    players = self.run('return players.keys()')
+    players = self.run('return Array.from(players.keys())')
     self.run('players.get("player0").play()')
     failed = []
     for player in players:
