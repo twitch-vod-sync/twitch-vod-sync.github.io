@@ -93,23 +93,27 @@ window.onload = function() {
     // There may be other params, this loop is only for player0, player1, etc
     if (playerId.startsWith('player') && videoIds.length > 0) {
       while (document.getElementById(playerId) == null) window.addPlayer()
-    
+
       // Copy the loop variables to avoid javascript lambda-in-loop bug
       ;((playerId, videoIds) => {
-        var promise = FEATURES.DO_TWITCH_AUTH ? getTwitchVideosDetails(videoIds.split('-')) : getStubVideosDetails(videoIds.split('-'))
-        promise
-        .then(videos => loadVideos(playerId, videos, TWITCH))
-        .catch(r => showText(playerId, 'Could not process video "' + videoIds + '":\n' + r, /*isError*/true))
+        // Multi-video players should always be from the same source.
+        var firstVideo = videoIds.split('-')[0]
+        if (firstVideo.match(YOUTUBE_VIDEO_MATCH) != null) {
+          getStubVideosDetails(videoIds.split('-'))
+          .then(videos => loadVideos(playerId, videos, YOUTUBE))
+          .catch(r => showText(playerId, 'Could not process youtube video "' + videoIds + '":\n' + r, /*isError*/true))
+        } else if (!FEATURES.DO_TWITCH_AUTH) {
+          getStubVideosDetails(videoIds.split('-'))
+          .then(videos => loadVideos(playerId, videos, TWITCH))
+          .catch(r => showText(playerId, 'Could not process twitch video "' + videoIds + '":\n' + r, /*isError*/true))
+        } else if (firstVideo.match(TWITCH_VIDEO_MATCH) != null) {
+          getTwitchVideosDetails(videoIds.split('-'))
+          .then(videos => loadVideos(playerId, videos, TWITCH))
+          .catch(r => showText(playerId, 'Could not process twitch video "' + videoIds + '":\n' + r, /*isError*/true))
+        } else {
+          showText(playerId, 'Could not parse video string "' + videoIds + '"', /*isError*/true)
+        }
       })(playerId, videoIds)
-    }
-  }
-
-  // Handle this after video IDs since we want to preserve videos (e.g. async alongside a race)
-  if (params.has('race')) {
-    var m = params.get('race').match(RACETIME_GG_MATCH)
-    if (m != null) {
-      getRacetimeRaceDetails(m[1])
-      .then(raceDetails => loadRace(raceDetails))
     }
   }
 
@@ -204,16 +208,23 @@ window.onload = function() {
     } else {
       // Spacebar pauses (if anyone is playing) or plays (if everyone is paused)
       // Left and right seek based on the most recent seek (if it hasn't completed) or else the location of the first video (if any video is loaded)
+      // Twitch also supports jkl for these keybinds (left/pause/right)
       if (firstPlayingVideo != null) {
         var seekTarget = pendingSeekTimestamp > 0 ? pendingSeekTimestamp : firstPlayingVideo.getCurrentTimestamp()
-        if (event.key == ' ') firstPlayingVideo.pause()
+        if (event.key == ' ')          firstPlayingVideo.pause()
         if (event.key == 'ArrowLeft')  seekPlayersTo(seekTarget - 10000, PLAYING)
         if (event.key == 'ArrowRight') seekPlayersTo(seekTarget + 10000, PLAYING)
+        if (event.key == 'j')          seekPlayersTo(seekTarget - 10000, PLAYING)
+        if (event.key == 'k')          firstPlayingVideo.pause()
+        if (event.key == 'l')          seekPlayersTo(seekTarget + 10000, PLAYING)
       } else if (firstPausedVideo != null) {
         var seekTarget = pendingSeekTimestamp > 0 ? pendingSeekTimestamp : firstPausedVideo.getCurrentTimestamp()
-        if (event.key == ' ') firstPausedVideo.play()
+        if (event.key == ' ')          firstPausedVideo.play()
         if (event.key == 'ArrowLeft')  seekPlayersTo(seekTarget - 10000, PAUSED)
         if (event.key == 'ArrowRight') seekPlayersTo(seekTarget + 10000, PAUSED)
+        if (event.key == 'j')          seekPlayersTo(seekTarget - 10000, PAUSED)
+        if (event.key == 'k')          firstPausedVideo.play()
+        if (event.key == 'l')          seekPlayersTo(seekTarget + 10000, PAUSED)
       }
     }
   })
@@ -265,6 +276,12 @@ function addPlayer() {
     readme.target = '_blank'
     readme.innerText = 'the readme'
   }, 10000)
+
+  // Youtube's player needs a separate div to target since it replaces it entirely.
+  var ytDiv = document.createElement('div')
+  ytDiv.id = newPlayer.id + '-ytdiv'
+  newPlayer.appendChild(ytDiv)
+  ytDiv.style.display = 'none'
 
   resizePlayers()
 }
@@ -375,10 +392,20 @@ function searchVideo(event) {
     return
   }
 
-  // Check to see if the user provided a direct video link
+  // Check to see if the user provided a direct youtube video (or youtube video id)
+  m = formText.match(YOUTUBE_VIDEO_MATCH)
+  if (m != null) {
+    showText(playerId, 'Loading Youtube video...')
+    getStubVideosDetails([m[1]])
+    .then(videos => loadVideos(playerId, videos, YOUTUBE))
+    .catch(r => showText(playerId, 'Could not process youtube video "' + m[1] + '":\n' + r, /*isError*/true))
+    return
+  }
+
+  // Check to see if the user provided a direct twitch VOD (or VOD id)
   m = formText.match(TWITCH_VIDEO_MATCH)
   if (m != null) {
-    showText(playerId, 'Loading video...')
+    showText(playerId, 'Loading Twitch VOD...')
     var promise = FEATURES.DO_TWITCH_AUTH ? getTwitchVideosDetails([m[1]]) : getStubVideosDetails([m[1]])
     promise
     .then(videos => loadVideos(playerId, videos, TWITCH))
@@ -521,7 +548,12 @@ function loadVideos(playerId, videos, playerType) {
         }
       }
       console.log(thisPlayer.id, 'was last to load, syncing all videos to', syncTo)
-      window.setTimeout(() => seekPlayersTo(syncTo, PAUSED), 1000)
+      window.setTimeout(() => {
+        for (var player of players.values()) {
+          if (player.state === PLAYING) return // If the user has started playing any player, don't do the auto-seek.
+        }
+        seekPlayersTo(syncTo, PAUSED)
+      }, 1000)
     }
   }
 }
@@ -710,17 +742,18 @@ function reloadTimeline() {
 
   var startLabel = document.createElement('div')
   labels.appendChild(startLabel)
-  startLabel.style = 'margin-left: 3px'
+  startLabel.style = 'margin-left: 3px; user-select: none; pointer-events: none'
   startLabel.innerText = new Date(timelineStart).toLocaleString(TIMELINE_DATE_FORMAT)
 
   var currentLabel = document.createElement('div')
-  currentLabel.id = 'timelineCurrent'
   labels.appendChild(currentLabel)
+  currentLabel.id = 'timelineCurrent'
+  currentLabel.style = 'user-select: none; pointer-events: none'
 
   var endLabel = document.createElement('div')
   labels.appendChild(endLabel)
   endLabel.id = 'timelineEnd'
-  endLabel.style = 'margin-right: 3px'
+  endLabel.style = 'margin-right: 3px; user-select: none; pointer-events: none'
   endLabel.innerText = new Date(timelineEnd).toLocaleString(TIMELINE_DATE_FORMAT)
 }
 
