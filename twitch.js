@@ -35,11 +35,6 @@ window.doTwitchRedirect = function(event) {
     event.preventDefault()
     var authPrefs = event.target.elements['authPrefs'].value
     window.localStorage.setItem('authPrefs', authPrefs)
-
-    if (authPrefs == 'disableAuth') {
-      window.location.reload()
-      return
-    }
   }
 
   // If there's somehow already query params, stop -- we're probably looping.

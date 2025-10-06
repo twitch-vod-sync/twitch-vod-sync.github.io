@@ -93,12 +93,13 @@ window.onload = function() {
     // There may be other params, this loop is only for player0, player1, etc
     if (playerId.startsWith('player') && videoIds.length > 0) {
       while (document.getElementById(playerId) == null) window.addPlayer()
+      players.set(playerId, new Player())
     
       // Copy the loop variables to avoid javascript lambda-in-loop bug
       ;((playerId, videoIds) => {
         var promise = FEATURES.DO_TWITCH_AUTH ? getTwitchVideosDetails(videoIds.split('-')) : getStubVideosDetails(videoIds.split('-'))
         promise
-        .then(videos => loadVideos(playerId, videos, TWITCH))
+        .then(videos => loadVideos(playerId, videos))
         .catch(r => showText(playerId, 'Could not process video "' + videoIds + '":\n' + r, /*isError*/true))
       })(playerId, videoIds)
     }
@@ -270,10 +271,7 @@ function addPlayer() {
 }
 
 function showText(playerId, message, isError) {
-  if (isError) {
-    console.error(playerId, message)
-    debugger;
-  }
+  if (isError) debugger;
   var error = document.getElementById(playerId + '-text')
   if (message == null) {
     error.innerText = ''
@@ -379,9 +377,8 @@ function searchVideo(event) {
   m = formText.match(TWITCH_VIDEO_MATCH)
   if (m != null) {
     showText(playerId, 'Loading video...')
-    var promise = FEATURES.DO_TWITCH_AUTH ? getTwitchVideosDetails([m[1]]) : getStubVideosDetails([m[1]])
-    promise
-    .then(videos => loadVideos(playerId, videos, TWITCH))
+    getTwitchVideosDetails([m[1]])
+    .then(videos => loadVideos(playerId, videos))
     .catch(r => showText(playerId, 'Could not process twitch video "' + m[1] + '":\n' + r, /*isError*/true))
     return
   }
@@ -389,11 +386,6 @@ function searchVideo(event) {
   // Check to see if it's a channel (in which case we can look for a matching video)
   m = formText.match(TWITCH_CHANNEL_MATCH)
   if (m != null) {
-    if (!FEATURES.DO_TWITCH_AUTH) {
-      showText(playerId, 'Twitch auth is disabled so we cannot load channel videos. Please enter video ids directly.', /*isError*/true)
-      return
-    }
-
     showText(playerId, 'Loading channel videos...')
     getTwitchChannelVideos(m[1])
     .then(videos => {
@@ -420,7 +412,7 @@ function searchVideo(event) {
       }
 
       if (bestVideo != null) {
-        loadVideos(playerId, [bestVideo], TWITCH) // TODO: Load all matching videos once the player can handle multiple videos
+        loadVideos(playerId, [bestVideo]) // TODO: Load all matching videos once the player can handle multiple videos
         return
       }
 
@@ -453,14 +445,14 @@ function showVideoPicker(playerId, videos) {
       videoImg.style = 'width: 320px; height: 180px; object-fit: cover; object-position: top; cursor: pointer'
       videoImg.onclick = function() {
         videoGrid.remove()
-        loadVideos(playerId, [videos[i]], TWITCH)
+        loadVideos(playerId, [videos[i]])
       }
     })(i)
   }
 }
 
 var players = new Map()
-function loadVideos(playerId, videos, playerType) {
+function loadVideos(playerId, videos) {
   document.getElementById(playerId + '-form').style.display = 'none'
   var div = document.getElementById(playerId)
 
@@ -469,12 +461,13 @@ function loadVideos(playerId, videos, playerType) {
   params.set(div.id, videos.map(v => v.id).join('-'))
   history.pushState(null, null, '?' + params.toString())
 
-  var player = window.newPlayer(div.id, videos, playerType)
+  var player = new Player(div.id, videos)
   players.set(div.id, player)
   if (params.has('offset' + div.id)) {
     player.offset = parseInt(params.get('offset' + div.id))
   }
 
+  player.eventSink = twitchEvent
   player.onready = (thisPlayer) => {
     console.log(thisPlayer.id, 'has loaded')
     reloadTimeline() // Note: This will get called several times in a row if we're loading multiple videos from query params. Whatever.
@@ -580,7 +573,7 @@ function loadRace(raceDetails) {
       var playerId = 'player' + i
       if (!players.has(playerId)) {
         while (document.getElementById(playerId) == null) window.addPlayer()
-        loadVideos(playerId, [videos.shift()], TWITCH)
+        loadVideos(playerId, [videos.shift()])
       }
       i++
     }
@@ -599,13 +592,157 @@ console.log = function(...args) {
   if (location.hostname == 'localhost') console_log(logEvent.join(' ')) // Also emit to console in local testing for easier debugging
 }
 
+function twitchEvent(event, thisPlayer, seekMillis) {
+  console.log(thisPlayer.id, 'received event', event, 'while in state', thisPlayer.state, seekMillis)
+
+  if (event == 'seek') {
+    switch (thisPlayer.state) {
+      // These states are expected to have a seek event based on automated seeking actions,
+      // so we assume that any 'seek' event corresponds to that action.
+      case SEEKING_PLAY:
+        thisPlayer.state = PLAYING
+        break
+      case SEEKING_PAUSE:
+        thisPlayer.state = PAUSED
+        break
+      case SEEKING_START:
+        thisPlayer.state = BEFORE_START
+        break
+      case SEEKING_END:
+        thisPlayer.state = AFTER_END
+        break
+
+      case ASYNC: // If the videos are async'd and the user seeks, update the video's offset to match the seek.
+        console.log('User has manually seeked', thisPlayer.id, 'while in async mode')
+        var timestamp = thisPlayer.startTime + seekMillis
+        thisPlayer.offset += (ASYNC_ALIGN - timestamp)
+        break
+
+      // All other states indicate the user manually seeking the video.
+      case PLAYING:
+      case PAUSED:
+      case READY: // If we're still waiting for some other video to load (but this one is ready), treat it like PAUSED.
+      case BEFORE_START: // If we're waiting to start it's kinda like we're paused at 0.
+      case AFTER_END: // If we're waiting at the end it's kinda like we're paused at 100.
+        console.log('User has manually seeked', thisPlayer.id, 'seeking all other players')
+        var timestamp = thisPlayer.startTime + seekMillis
+        seekPlayersTo(timestamp, (thisPlayer.state === PLAYING ? PLAYING : PAUSED))
+        break
+
+      case RESTARTING: // This is the only state (other than LOADING) where the player isn't really loaded. Ignore seeks here.
+        break
+    }
+  } else if (event == 'play') {
+    switch (thisPlayer.state) {
+      case PAUSED: // If the user manually starts a fully paused video, sync all other videos to it.
+      case READY: // A manual play on a 'ready' video (before other players have loaded)
+      case BEFORE_START: // If the user attempts to play a video that's waiting at the start, just sync everyone to this.
+        console.log('User has manually started', thisPlayer.id, 'starting all players')
+        var timestamp = thisPlayer.getCurrentTimestamp()
+        seekPlayersTo(timestamp, PLAYING, /*exceptFor*/thisPlayer)
+        break
+
+      case SEEKING_PAUSE: // However, if the video is currently seeking, we use the last seek target instead.
+        console.log('User has manually started', thisPlayer.id, 'while it was seeking_paused, re-seeking with PLAYING')
+        seekPlayersTo(pendingSeekTimestamp, PLAYING)
+        break
+
+      case RESTARTING: // We want ended videos to sit somewhere near the end mark, for clarity.
+        console.log('Finished restarting the video after it ended, seeking to a safe end point and pausing')
+        thisPlayer.seekToEnd()
+        break
+
+      case SEEKING_PLAY: // Already in the correct state. Take no action and don't worry too much about it.
+      case PLAYING:      // Already in the correct state. Take no action and don't worry too much about it.
+      case SEEKING_START: // Hopefully the user doesn't try to play the video while we're seeking for one of these two actions.
+      case SEEKING_END:   // I'm not sure there's much we can safely do here, though -- just hope the user knows what they're doing.
+      case AFTER_END: // We'd really prefer that the user *didn't* try to interact with players sitting in the AFTER_END state.
+                      // However, if they do, the safest thing is actually to just let it happen, and wait for the player to naturally play out.
+                      // It will hit the end, trigger 'ended', and restart back to here.
+      case ASYNC: // No action needed. The user is likely resuming the video so they can watch and sync it up.
+        console.log('Ignoring unexpected play event for', thisPlayer.id)
+        break
+    }
+  } else if (event == 'pause') {
+    switch (thisPlayer.state) {
+      case SEEKING_PLAY:
+      case PLAYING:
+        console.log('User has manually paused', thisPlayer.id, 'while it was playing, pausing all other players')
+        // When the user clicks outside of the player's buffer, twitch issues 'pause', 'seek', and then 'play' events.
+        // Unfortunately, the first of these events (pause) looks identical to the user just pausing the player.
+        // Therefore, we just pause all videos on the first 'pause' event, which will cause Twitch to only issue a 'seek' and not a 'play'.
+        // This results in all videos doing a SEEKING_PAUSE, which is fairly close to the user's intent anyways.
+        for (var player of players.values()) {
+          if (player.state === SEEKING_PLAY) player.state = SEEKING_PAUSE
+          if (player.state === PLAYING)      player.state = PAUSED
+          if (player.id != thisPlayer.id)    player.pause() // Note: We don't want to pause the current player, since it might be waiting for a seek event.
+        }
+        break
+
+      case ASYNC: // Either the automatic pause at the start of asyncing, or the user manually paused the video to align it.
+        var pausedTimestamp = thisPlayer.getCurrentTimestamp()
+        thisPlayer.offset += (ASYNC_ALIGN - pausedTimestamp)
+        break
+
+      case SEEKING_PAUSE: // Already in the correct state. Take no action and don't worry too much about it.
+      case PAUSED:        // Already in the correct state. Take no action and don't worry too much about it.
+      case READY:         // The remaining states here are all states where the video isn't actively playing.
+      case SEEKING_START: // If we do get a pause event in one of these states, the safest thing we can do is to ignore it,
+      case RESTARTING:    // and hope that the state graph doesn't get too confused by the video being paused in a location
+      case SEEKING_END:   // which doesn't quite match what we were expecting.
+      case BEFORE_START:  // These last two states are less worrying because they're semi-persistent,
+      case AFTER_END:     // i.e. we'll only transition out of them for 'seek' events.
+        console.log('Ignoring unexpected pause event for', thisPlayer.id)
+        break
+    }
+  } else if (event == 'ended') {
+    switch (thisPlayer.state) {
+      case PLAYING: // This is the most likely state: letting a video play out until its natural end.
+      case READY:         // All other states are possible by seeking, if the user clicks at the end of the timeline.
+      case SEEKING_PLAY:  // There's nothing malicious happening here -- it's just a case of the user taking an action
+      case SEEKING_PAUSE: // while we were busy with something else.
+      case PAUSED:        // For safety, we also trigger a restart here (although it likely wasn't what the user intended),
+      case SEEKING_START: // since Twitch will start autoplaying the next video ~15 seconds after this event.
+      case BEFORE_START:  // Furthermore, we won't get a clear notification that a new video has loaded,
+      case RESTARTING:    // which means our video's start and end times would be wrong for future sync actions.
+      case SEEKING_END:
+      case AFTER_END:
+        // Once a video as ended, 'play' is the only way to interact with it automatically.
+        // To bring it back into an interactable state, we play() the video and wait for it to restart from the beginning.
+        console.log(thisPlayer.id, 'reached the end of the timeline, restarting to avoid autoplay')
+        thisPlayer.state = RESTARTING
+        thisPlayer.play() // This play command will trigger a seek to the beginning first, then a play.
+        break
+
+      case ASYNC: // If this happens while asyncing, just restart the player (but don't change state). The user is responsible here anyways.
+        thisPlayer.play()
+        break
+    }
+  }
+
+  console.log(thisPlayer.id, 'handled event', event, 'and is now in state', thisPlayer.state)
+
+  // *After* we transition the video's state, check to see if this completes a pending seek event.
+  if (pendingSeekTimestamp > 0) {
+    var anyPlayerStillSeeking = false
+    for (var player of players.values()) {
+      if ([SEEKING_PLAY, SEEKING_PAUSE, SEEKING_START, SEEKING_END].includes(player.state)) anyPlayerStillSeeking = true
+    }
+
+    if (!anyPlayerStillSeeking) {
+      console.log(thisPlayer.id, 'was last to finish seeking to', pendingSeekTimestamp, 'setting pendingSeekTimestamp to 0')
+      pendingSeekTimestamp = 0
+    }
+  }
+}
+
 var pendingSeekTimestamp = 0 // Will be nonzero after a seek, returns to zero once all videos have finished seeking
 function seekPlayersTo(timestamp, targetState, exceptFor) {
   console.log('Seeking all players to', timestamp, 'and state', targetState, 'except for', exceptFor)
   pendingSeekTimestamp = timestamp
   for (var player of players.values()) {
     if (player.state === LOADING) continue // We cannot seek a video that hasn't loaded yet.
-    if (player.id == exceptFor) {
+    if (exceptFor != null && player.id == exceptFor.id) {
       player.state = targetState
       continue
     }
