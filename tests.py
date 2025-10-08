@@ -90,8 +90,8 @@ class UITests:
           console.error(player, 'did not enter state', String(targetState), 'within', arguments[0], 'loops. Final state was', String(currentState))
           clearInterval(interval)
         }
-      }, 100)
-      ''' % state, timeout_sec * 10, player)
+      }, 10)
+      ''' % state, timeout_sec * 100, player)
 
   def print_event_log(self):
     event_log = self.driver.execute_script('return window.eventLog')
