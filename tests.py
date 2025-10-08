@@ -113,7 +113,7 @@ class UITests:
     # As a result, we give the videos a little time to buffer before calling play()
     print(datetime.utcnow(), 'Sleeping for 5 seconds before asserting sync')
     time.sleep(5)
-    players = self.run('return Array.from(players.keys())')
+    players = self.run('return players.keys()')
     self.run('players.get("player0").play()')
     failed = []
     for player in players:
