@@ -3,6 +3,9 @@ on:
   push:
     branches: master
   workflow_dispatch:
+    inputs:
+      test_iterations:
+        type: number
   schedule:
     - cron: '43 21 * * *' # A little after noon (PST). Will slow down to weekly once the job is more stable.
 
@@ -37,7 +40,7 @@ jobs:
         pip install chromedriver-py==$major.*
         pip install -r requirements.txt
     - name: Run tests
-      run: python -u tests.py
+      run: python -u tests.py ${{ inputs.test_iterations }} 
       env:
         TWITCH_TOKEN: ${{ secrets.TWITCH_TOKEN }}
     - name: Upload test failure screenshots

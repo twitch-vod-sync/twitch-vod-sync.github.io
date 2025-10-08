@@ -136,7 +136,7 @@ class UITests:
 
   def testLoadWithOffsetsAndSyncStart(self):
     player0offset = 245837252000
-    player1offset = player0offset + 60_000
+    player1offset = player0offset + 60000
     url = f'http://localhost:3000?player0={self.VIDEO_0}&offsetplayer0={player0offset}&player1={self.VIDEO_1}&offsetplayer1={player1offset}'
     self.driver.get(url)
 
