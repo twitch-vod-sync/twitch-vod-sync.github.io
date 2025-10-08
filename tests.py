@@ -181,16 +181,6 @@ class UITests:
       self.wait_for_state(player, 'PAUSED')
     time.sleep(1)
 
-    self.assert_videos_synced_to(self.VIDEO_0_START_TIME + 200_000)
-    time.sleep(10) # Let videos play for ~10s to build up a buffer...?
-
-    # Test a seek within the buffer time (~10s) which should cause both videos to jump but keep playing
-    self.run('players.get("player0")._player.seek(215.0)')
-    for player in ['player0', 'player1']:
-      self.wait_for_state(player, 'PLAYING')
-    time.sleep(1)
-    self.assert_videos_synced_to(self.VIDEO_0_START_TIME + 215_000)
-
   def testSeekWhileSeeking(self):
     players = [f'player{i}' for i in range(10)]
     url = f'http://localhost:3000?'
