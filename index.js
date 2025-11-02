@@ -512,9 +512,9 @@ function loadVideos(playerId, videos, playerType) {
       seekPlayersTo(timestamp, PAUSED)
     } else if (!anyVideoStillLoading) {
       // If we loaded from a race, sync all videos to the race start
-      var syncTo = raceStartTime || 0
-
-      // Otherwise, sync all videos to the latest startTime (i.e. the earliest valid time for all videos).
+      // If the videos already have timestamps, the user was watching before, restore that point
+      // Otherwise, find the earliest valid start time.
+      var syncTo = raceStartTime || getAveragePlayerTimestamp() || 0
       if (syncTo == 0) {
         for (var player of players.values()) {
           if (player.startTime > syncTo) syncTo = player.startTime
