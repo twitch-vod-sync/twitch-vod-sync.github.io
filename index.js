@@ -737,12 +737,9 @@ function refreshTimeline() {
   var currentLabel = document.getElementById('timelineCurrent')
   if (currentLabel != null) currentLabel.innerText = new Date(timestamp).toLocaleString(TIMELINE_DATE_FORMAT)
 
-  // With Twitch auth disabled, we only know the start times from the query params -- the end times are determined at runtime,
-  // when the videos start playing. This means we need to update the timeline once the videos start playing.
-  if (!FEATURES.DO_TWITCH_AUTH) {
-    var endLabel = document.getElementById('timelineEnd')
-    if (endLabel != null) endLabel.innerText = new Date(timelineEnd).toLocaleString(TIMELINE_DATE_FORMAT)
-  }
+  // In some cases, the video end times might be updated when we load the player(s), in which case the end timestamp will be wrong.
+  var endLabel = document.getElementById('timelineEnd')
+  if (endLabel != null) endLabel.innerText = new Date(timelineEnd).toLocaleString(TIMELINE_DATE_FORMAT)
 
   // This is also a convenient moment to check if any players are waiting to start because we seeked before their starttime.
   for (var player of players.values()) {
