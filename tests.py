@@ -265,6 +265,14 @@ class UITests:
     self.assert_videos_synced_to(expected_timestamp)
 
 if __name__ == '__main__':
+  loop_count = 1
+  if os.environ.get('GITHUB_EVENT_NAME', None) == 'schedule':
+    loop_count = 20 # Require additional consistency for our nightly job vs ad-hoc pushes
+  elif len(sys.argv) > 1 and sys.argv[1].isdigit():
+    loop_count = int(sys.argv.pop(1))
+  elif len(sys.argv) > 2:
+    loop_count = int(sys.argv.pop(2))
+
   test_class = UITests()
   is_test = lambda method: inspect.ismethod(method) and method.__name__.startswith('test')
   tests = list(inspect.getmembers(test_class, is_test))
@@ -274,12 +282,6 @@ if __name__ == '__main__':
 
   http_server = Thread(target=http_server.main, daemon=True)
   http_server.start()
-
-  loop_count = 1
-  if os.environ.get('GITHUB_EVENT_NAME', None) == 'schedule':
-    loop_count = 20 # Require additional consistency for our nightly job vs ad-hoc pushes
-  elif len(sys.argv) > 2:
-    loop_count = int(sys.argv[2])
 
   for test in tests:
     for i in range(loop_count):
