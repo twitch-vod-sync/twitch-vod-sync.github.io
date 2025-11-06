@@ -250,7 +250,7 @@ class UITests:
     self.driver.get(url)
     self.screenshot()
 
-    sleep(5)
+    time.sleep(5)
     cc_buttons = self.driver.findElements(By.cssSelector('[data-a-target="content-classification-gate-overlay-start-watching-button"]'))
     for button in cc_buttons:
       button.click()
