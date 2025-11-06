@@ -70,7 +70,7 @@ class UITests:
       }''', message)
 
   def wait_for_state(self, player, state, timeout_sec=30):
-    self.driver.set_script_timeout(timeout_sec)
+    self.driver.set_script_timeout(timeout_sec + 1)
     return self.driver.execute_async_script('''
       var targetState = %s
       var [maxLoops, player, callback] = arguments
@@ -249,6 +249,11 @@ class UITests:
     url = f'http://localhost:3000#scope=&access_token={self.access_token}&client_id={self.client_id}'
     self.driver.get(url)
     self.screenshot()
+
+    sleep(5)
+    cc_buttons = self.driver.findElements(By.cssSelector('[data-a-target="content-classification-gate-overlay-start-watching-button"]'))
+    for button in cc_buttons:
+      button.click()
 
     self.wait_for_state('player0', 'PAUSED')
     self.screenshot()
