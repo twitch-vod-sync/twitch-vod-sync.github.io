@@ -95,9 +95,10 @@ class UITests:
 
   def print_event_log(self):
     event_log = self.driver.execute_script('return window.eventLog')
-    print('\n'.join(event_log))
     if len(event_log) == 0:
       print('Event log was empty')
+    else:
+      print('\n'.join(event_log))
 
   def print_chrome_log(self):
     for log in self.driver.get_log('browser'):
@@ -229,7 +230,7 @@ class UITests:
       raise ValueError('None of the OOTR races were suitable for a test')
 
     j = requests.get(f'https://racetime.gg/{race_id}/data').json()
-    print(j)
+    print(j.decode('utf-8', errors='surrogateescape'))
     expected_channel_names = [e['user']['twitch_display_name'] for e in j['entrants']]
     expected_timestamp = datetime.fromisoformat(j['started_at']).timestamp() * 1000
 
