@@ -232,7 +232,7 @@ class UITests:
     r = requests.get(f'https://racetime.gg/{race_id}/data')
     r.encoding = 'utf-8'
     j = r.json()
-    print(r.text.decode('utf-8', errors='surrogateencode'))
+    print(r.text.encode('utf-8', errors='surrogateencode'))
     expected_channel_names = [e['user']['twitch_display_name'] for e in j['entrants']]
     expected_timestamp = datetime.fromisoformat(j['started_at']).timestamp() * 1000
 
