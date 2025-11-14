@@ -9,6 +9,11 @@ const MIN_PLAYERS = 2 // It's too much work to support this being dynamic, so I 
 // This is somewhere in 2017. It doesn't really matter; videos offsets can be positive, too.
 const ASYNC_ALIGN = 1500000000000
 
+// If the user has manually seeked, keep track of the timestamp they're seeking to. This allows the user to keep making relative seeks,
+// even while the previous seek is still pending.
+// Will be nonzero after a seek, returns to zero once all videos have finished seeking
+var pendingSeekTimestamp = 0
+
 window.onload = function() {
   // There's a small chance we didn't get a 'page closing' event fired, so if this setting is still set and we have a token,
   // delete the localstorage so we show the prompt again.
@@ -203,17 +208,19 @@ window.onload = function() {
       }
     } else {
       // Spacebar pauses (if anyone is playing) or plays (if everyone is paused)
+      if (event.key == ' ') {
+        if (firstPlayingVideo != null) firstPlayingVideo.pause()
+        else if (firstPausedVideo != null) firstPausedVideo.play()
+      }
+
       // Left and right seek based on the most recent seek (if it hasn't completed) or else the location of the first video (if any video is loaded)
-      if (firstPlayingVideo != null) {
+      if (event.key == 'ArrowLeft' || event.key == 'ArrowRight') {
         var seekTarget = pendingSeekTimestamp > 0 ? pendingSeekTimestamp : firstPlayingVideo.getCurrentTimestamp()
-        if (event.key == ' ') firstPlayingVideo.pause()
-        if (event.key == 'ArrowLeft')  seekPlayersTo(seekTarget - 10000, PLAYING)
-        if (event.key == 'ArrowRight') seekPlayersTo(seekTarget + 10000, PLAYING)
-      } else if (firstPausedVideo != null) {
-        var seekTarget = pendingSeekTimestamp > 0 ? pendingSeekTimestamp : firstPausedVideo.getCurrentTimestamp()
-        if (event.key == ' ') firstPausedVideo.play()
-        if (event.key == 'ArrowLeft')  seekPlayersTo(seekTarget - 10000, PAUSED)
-        if (event.key == 'ArrowRight') seekPlayersTo(seekTarget + 10000, PAUSED)
+        if (event.key == 'ArrowLeft')       pendingSeekTimestamp = seekTarget - 10000
+        else if (event.key == 'ArrowRight') pendingSeekTimestamp = seekTarget + 10000
+
+        var targetState = (firstPlayingVideo != null) ? PLAYING : PAUSED
+        seekPlayersTo(pendingSeekTimestamp, targetState)
       }
     }
   })
@@ -514,14 +521,16 @@ function loadVideos(playerId, videos, playerType) {
       // If we loaded from a race, sync all videos to the race start
       // If the videos already have timestamps, the user was watching before, restore that point
       // Otherwise, find the earliest valid start time.
-      var syncTo = raceStartTime || getAveragePlayerTimestamp() || 0
-      if (syncTo == 0) {
-        for (var player of players.values()) {
-          if (player.startTime > syncTo) syncTo = player.startTime
+      window.setTimeout(() => {
+        var syncTo = raceStartTime || getAveragePlayerTimestamp() || 0
+        if (syncTo == 0) {
+          for (var player of players.values()) {
+            if (player.startTime > syncTo) syncTo = player.startTime
+          }
         }
-      }
-      console.log(thisPlayer.id, 'was last to load, syncing all videos to', syncTo)
-      window.setTimeout(() => seekPlayersTo(syncTo, PAUSED), 1000)
+        console.log(thisPlayer.id, 'was last to load, syncing all videos to', syncTo)
+        seekPlayersTo(syncTo, PAUSED)
+      }, 1000)
     }
   }
 }
@@ -599,10 +608,8 @@ console.log = function(...args) {
   if (location.hostname == 'localhost') console_log(logEvent.join(' ')) // Also emit to console in local testing for easier debugging
 }
 
-var pendingSeekTimestamp = 0 // Will be nonzero after a seek, returns to zero once all videos have finished seeking
 function seekPlayersTo(timestamp, targetState, exceptFor) {
   console.log('Seeking all players to', timestamp, 'and state', targetState, 'except for', exceptFor)
-  pendingSeekTimestamp = timestamp
   for (var player of players.values()) {
     if (player.state === LOADING) continue // We cannot seek a video that hasn't loaded yet.
     if (player.id == exceptFor) {
@@ -630,7 +637,7 @@ function getAveragePlayerTimestamp() {
   var count = 0
   for (var player of players.values()) {
     // We only care about the timestamp of videos which are synced up
-    if (player.state === PLAYING || player.state === PAUSED) {
+    if (player.state === READY || player.state === PLAYING || player.state === PAUSED) {
       sum += player.getCurrentTimestamp()
       count += 1
     }
