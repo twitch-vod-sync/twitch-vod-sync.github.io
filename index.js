@@ -512,22 +512,33 @@ function loadVideos(playerId, videos, playerType) {
       thisPlayer.seekTo(timestamp, PLAYING)
     } else if (anyVideoIsPaused) {
       console.log(thisPlayer.id, 'loaded while all other videos were paused, resyncing playhead')
-      // Try to line up with the other videos' sync point if possible, but if it's out of range we probably were just manually loaded later,
-      // and should pick a sync time that works for all videos.
-      var timestamp = getAveragePlayerTimestamp()
-      if (timestamp < thisPlayer.startTime) timestamp = thisPlayer.startTime
-      seekPlayersTo(timestamp, PAUSED)
+      var timestamp = getAveragePlayerTimestamp() // TODO: Are there special cases here?
+      thisPlayer.seekTo(timestamp, PAUSED)
     } else if (!anyVideoStillLoading) {
-      // If we loaded from a race, sync all videos to the race start
-      // If the videos already have timestamps, the user was watching before, restore that point
-      // Otherwise, find the earliest valid start time.
+      // Slight delay so twitch can seek videos to their 'last played'.
       window.setTimeout(() => {
-        var syncTo = raceStartTime || getAveragePlayerTimestamp() || 0
-        if (syncTo == 0) {
+        // By default, we sync all videos to the earliest valid timestamp in all videos.
+        var syncTo = 0
+        for (var player of players.values()) {
+          if (player.startTime > syncTo) syncTo = player.startTime
+        }
+        console.log('Found earliest sync time', syncTo)
+
+        if (raceStartTime > syncTo) {
+          // If we loaded from a race (and at least one race participant was started), switch to the race start time.
+          syncTo = raceStartTime
+          console.log('Loaded from a race, overwriting sync time to', raceStartTime)
+        } else {
+          // If we loaded from video IDs (or anything else), check if any video is > 1 minute past the start time, and sync to that.
           for (var player of players.values()) {
-            if (player.startTime > syncTo) syncTo = player.startTime
+            var timestamp = player.getCurrentTimestamp()
+            if (timestamp > syncTo + 60000) {
+              console.log('Found a player with a saved playback state, adjusting sync time to', timestamp)
+              syncTo = timestamp
+            }
           }
         }
+
         console.log(thisPlayer.id, 'was last to load, syncing all videos to', syncTo)
         seekPlayersTo(syncTo, PAUSED)
       }, 1000)
@@ -637,7 +648,7 @@ function getAveragePlayerTimestamp() {
   var count = 0
   for (var player of players.values()) {
     // We only care about the timestamp of videos which are synced up
-    if (player.state === READY || player.state === PLAYING || player.state === PAUSED) {
+    if (player.state === PLAYING || player.state === PAUSED) {
       sum += player.getCurrentTimestamp()
       count += 1
     }

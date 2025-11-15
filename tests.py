@@ -148,9 +148,10 @@ class UITests:
   VIDEO_1_START_TIME = 1745837218000
   ASYNC_ALIGN = 1500000000000
 
+  # If we manually specify the offsets, they should be retained after loading.
   def testLoadWithOffsetsAndSyncStart(self):
-    player0offset = 245837252000
-    player1offset = player0offset + 60_000
+    player0offset = self.ASYNC_ALIGN + 30_000
+    player1offset = self.ASYNC_ALIGN + 60_000
     url = f'http://localhost:3000?player0={self.VIDEO_0}&offsetplayer0={player0offset}&player1={self.VIDEO_1}&offsetplayer1={player1offset}'
     self.driver.get(url)
 
@@ -158,8 +159,8 @@ class UITests:
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PAUSED')
 
-    # player1 is 1 minute later than player2, so we should align to that
-    self.assert_videos_synced_to(self.ASYNC_ALIGN + player1offset)
+    # player1 is later than player0, so we should align to that
+    self.assert_videos_synced_to(player1offset)
 
   def testSeek(self):
     url = f'http://localhost:3000?player0={self.VIDEO_0}&player1={self.VIDEO_1}#scope=&access_token={self.access_token}&client_id={self.client_id}'
