@@ -10,10 +10,9 @@ from datetime import datetime
 from pathlib import Path
 from threading import Thread
 
-import chromedriver_py
 import requests
 from selenium import webdriver
-from selenium.common.exceptions import JavascriptException, TimeoutException
+from selenium.common.exceptions import JavascriptException, TimeoutException, WebDriverException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
@@ -24,27 +23,38 @@ class UITests:
   def __init__(self):
     client_secret = os.environ.get('TWITCH_TOKEN', None)
     if not client_secret:
-      client_secret = Path('client_secret.txt').open('r').read() # Local testing
+      client_secret = Path('client_secret.txt').open('r').read().strip() # Local testing
     self.client_id = 'hc34d86ir24j38431rkwlekw8wgesp' # Confidential client
     r = requests.post('https://id.twitch.tv/oauth2/token', params={
       'grant_type': 'client_credentials',
       'client_id': self.client_id,
       'client_secret': client_secret,
     })
+    if not r.ok:
+      print(r.status_code, r.text)
     self.access_token = r.json()['access_token']
 
     self.screenshot_no = 0
     self.tmp_folder = Path(os.environ.get('RUNNER_TEMP', Path.home() / 'AppData/Local/Temp'))
 
   def setup(self):
-    options = webdriver.chrome.options.Options()
-    options.add_argument('headless=new')
-    options.set_capability('goog:loggingPrefs', {'browser': 'ALL'})
-    service = webdriver.chrome.service.Service(
-      executable_path=chromedriver_py.binary_path,
-      service_args=['--log-level=ALL'],
-    )
-    self.driver = webdriver.Chrome(options=options, service=service)
+    if 'CI' in os.environ:
+      import chromedriver_py
+      options = webdriver.chrome.options.Options()
+      options.add_argument('headless=new')
+      options.set_capability('goog:loggingPrefs', {'browser': 'ALL'})
+      service = webdriver.chrome.service.Service(
+        executable_path=chromedriver_py.binary_path,
+        service_args=['--log-level=ALL'],
+      )
+      self.driver = webdriver.Chrome(options=options, service=service)
+    else:
+      options = webdriver.firefox.options.Options()
+      options.log.level = 'trace'
+      service = webdriver.firefox.service.Service(
+        executable_path=Path(__file__).with_name('geckodriver.exe'),
+      )
+      self.driver = webdriver.Firefox(options=options, service=service)
 
   def teardown(self):
     self.driver.close()
@@ -72,11 +82,11 @@ class UITests:
   def wait_for_state(self, player, state, timeout_sec=30):
     self.driver.set_script_timeout(timeout_sec + 1)
     return self.driver.execute_async_script('''
-      var targetState = %s
+      var targetState = "%s"
       var [maxLoops, player, callback] = arguments
       var interval = setInterval(() => {
         var currentState = players.has(player) ? players.get(player).state : null
-        if (targetState.includes(currentState)) {
+        if (targetState.includes(String(currentState))) {
           var playbackState = players.get(player)._player.getPlayerState().playback
           if (playbackState === 'Buffering') {
             console.warn('State reached but player still buffering')
@@ -101,10 +111,13 @@ class UITests:
       print('Event log was empty')
 
   def print_chrome_log(self):
-    for log in self.driver.get_log('browser'):
-      timestamp = datetime.fromtimestamp(log['timestamp'] / 1000).isoformat()
-      message = log['message'].encode('utf-8', errors='backslashreplace')
-      print(f'{timestamp}\t{message}')
+    try:
+      for log in self.driver.get_log('browser'):
+        timestamp = datetime.fromtimestamp(log['timestamp'] / 1000).isoformat()
+        message = log['message'].encode('utf-8', errors='backslashreplace')
+        print(f'{timestamp}\t{message}')
+    except WebDriverException:
+      pass # Firefox, probably
 
   def run(self, script):
     return self.driver.execute_script(script)
@@ -259,7 +272,7 @@ class UITests:
       button.click()
 
     # In some cases, one of the runners may have started their stream after the race start time. Ergo, they may be in the 'READY' state.
-    self.wait_for_state('player0', 'PAUSED|READY')
+    self.wait_for_state('player0', 'PAUSED_READY')
     self.screenshot()
 
     # Check that we loaded the right stream (per twitch names)
