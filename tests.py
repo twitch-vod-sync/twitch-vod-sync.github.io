@@ -76,7 +76,7 @@ class UITests:
       var [maxLoops, player, callback] = arguments
       var interval = setInterval(() => {
         var currentState = players.has(player) ? players.get(player).state : null
-        if (currentState === targetState) {
+        if (targetState.includes(currentState)) {
           var playbackState = players.get(player)._player.getPlayerState().playback
           if (playbackState === 'Buffering') {
             console.warn('State reached but player still buffering')
@@ -258,7 +258,8 @@ class UITests:
     for button in cc_buttons:
       button.click()
 
-    self.wait_for_state('player0', 'PAUSED')
+    # In some cases, one of the runners may have started their stream after the race start time. Ergo, they may be in the 'READY' state.
+    self.wait_for_state('player0', 'PAUSED|READY')
     self.screenshot()
 
     # Check that we loaded the right stream (per twitch names)
