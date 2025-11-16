@@ -9,6 +9,11 @@ const MIN_PLAYERS = 2 // It's too much work to support this being dynamic, so I 
 // This is somewhere in 2017. It doesn't really matter; videos offsets can be positive, too.
 const ASYNC_ALIGN = 1500000000000
 
+// If the user has manually seeked, keep track of the timestamp they're seeking to. This allows the user to keep making relative seeks,
+// even while the previous seek is still pending.
+// Will be nonzero after a seek, returns to zero once all videos have finished seeking
+var pendingSeekTimestamp = 0
+
 window.onload = function() {
   // There's a small chance we didn't get a 'page closing' event fired, so if this setting is still set and we have a token,
   // delete the localstorage so we show the prompt again.
@@ -203,17 +208,19 @@ window.onload = function() {
       }
     } else {
       // Spacebar pauses (if anyone is playing) or plays (if everyone is paused)
+      if (event.key == ' ') {
+        if (firstPlayingVideo != null) firstPlayingVideo.pause()
+        else if (firstPausedVideo != null) firstPausedVideo.play()
+      }
+
       // Left and right seek based on the most recent seek (if it hasn't completed) or else the location of the first video (if any video is loaded)
-      if (firstPlayingVideo != null) {
+      if (event.key == 'ArrowLeft' || event.key == 'ArrowRight') {
         var seekTarget = pendingSeekTimestamp > 0 ? pendingSeekTimestamp : firstPlayingVideo.getCurrentTimestamp()
-        if (event.key == ' ') firstPlayingVideo.pause()
-        if (event.key == 'ArrowLeft')  seekPlayersTo(seekTarget - 10000, PLAYING)
-        if (event.key == 'ArrowRight') seekPlayersTo(seekTarget + 10000, PLAYING)
-      } else if (firstPausedVideo != null) {
-        var seekTarget = pendingSeekTimestamp > 0 ? pendingSeekTimestamp : firstPausedVideo.getCurrentTimestamp()
-        if (event.key == ' ') firstPausedVideo.play()
-        if (event.key == 'ArrowLeft')  seekPlayersTo(seekTarget - 10000, PAUSED)
-        if (event.key == 'ArrowRight') seekPlayersTo(seekTarget + 10000, PAUSED)
+        if (event.key == 'ArrowLeft')       pendingSeekTimestamp = seekTarget - 10000
+        else if (event.key == 'ArrowRight') pendingSeekTimestamp = seekTarget + 10000
+
+        var targetState = (firstPlayingVideo != null) ? PLAYING : PAUSED
+        seekPlayersTo(pendingSeekTimestamp, targetState)
       }
     }
   })
@@ -518,23 +525,36 @@ function loadVideos(playerId, videos, playerType) {
       thisPlayer.seekTo(timestamp, PLAYING)
     } else if (anyVideoIsPaused) {
       console.log(thisPlayer.id, 'loaded while all other videos were paused, resyncing playhead')
-      // Try to line up with the other videos' sync point if possible, but if it's out of range we probably were just manually loaded later,
-      // and should pick a sync time that works for all videos.
-      var timestamp = getAveragePlayerTimestamp()
-      if (timestamp < thisPlayer.startTime) timestamp = thisPlayer.startTime
-      seekPlayersTo(timestamp, PAUSED)
+      var timestamp = getAveragePlayerTimestamp() // TODO: Are there special cases here?
+      thisPlayer.seekTo(timestamp, PAUSED)
     } else if (!anyVideoStillLoading) {
-      // If we loaded from a race, sync all videos to the race start
-      var syncTo = raceStartTime || 0
-
-      // Otherwise, sync all videos to the latest startTime (i.e. the earliest valid time for all videos).
-      if (syncTo == 0) {
+      // Slight delay so twitch can seek videos to their 'last played'.
+      window.setTimeout(() => {
+        // By default, we sync all videos to the earliest valid timestamp in all videos.
+        var syncTo = 0
         for (var player of players.values()) {
           if (player.startTime > syncTo) syncTo = player.startTime
         }
-      }
-      console.log(thisPlayer.id, 'was last to load, syncing all videos to', syncTo)
-      window.setTimeout(() => seekPlayersTo(syncTo, PAUSED), 1000)
+        console.log('Found earliest sync time', syncTo)
+
+        if (raceStartTime > syncTo) {
+          // If we loaded from a race (and at least one race participant was started), switch to the race start time.
+          syncTo = raceStartTime
+          console.log('Loaded from a race, overwriting sync time to', raceStartTime)
+        } else {
+          // If we loaded from video IDs (or anything else), check if any video is > 1 minute past the start time, and sync to that.
+          for (var player of players.values()) {
+            var timestamp = player.getCurrentTimestamp()
+            if (timestamp > syncTo + 60000) {
+              console.log('Found a player with a saved playback state, adjusting sync time to', timestamp)
+              syncTo = timestamp
+            }
+          }
+        }
+
+        console.log(thisPlayer.id, 'was last to load, syncing all videos to', syncTo)
+        seekPlayersTo(syncTo, PAUSED)
+      }, 1000)
     }
   }
 }
@@ -612,10 +632,8 @@ console.log = function(...args) {
   if (location.hostname == 'localhost') console_log(logEvent.join(' ')) // Also emit to console in local testing for easier debugging
 }
 
-var pendingSeekTimestamp = 0 // Will be nonzero after a seek, returns to zero once all videos have finished seeking
 function seekPlayersTo(timestamp, targetState, exceptFor) {
   console.log('Seeking all players to', timestamp, 'and state', targetState, 'except for', exceptFor)
-  pendingSeekTimestamp = timestamp
   for (var player of players.values()) {
     if (player.state === LOADING) continue // We cannot seek a video that hasn't loaded yet.
     if (player.id == exceptFor) {
@@ -750,12 +768,9 @@ function refreshTimeline() {
   var currentLabel = document.getElementById('timelineCurrent')
   if (currentLabel != null) currentLabel.innerText = new Date(timestamp).toLocaleString(TIMELINE_DATE_FORMAT)
 
-  // With Twitch auth disabled, we only know the start times from the query params -- the end times are determined at runtime,
-  // when the videos start playing. This means we need to update the timeline once the videos start playing.
-  if (!FEATURES.DO_TWITCH_AUTH) {
-    var endLabel = document.getElementById('timelineEnd')
-    if (endLabel != null) endLabel.innerText = new Date(timelineEnd).toLocaleString(TIMELINE_DATE_FORMAT)
-  }
+  // In some cases, the video end times might be updated when we load the player(s), in which case the end timestamp will be wrong.
+  var endLabel = document.getElementById('timelineEnd')
+  if (endLabel != null) endLabel.innerText = new Date(timelineEnd).toLocaleString(TIMELINE_DATE_FORMAT)
 
   // This is also a convenient moment to check if any players are waiting to start because we seeked before their starttime.
   for (var player of players.values()) {

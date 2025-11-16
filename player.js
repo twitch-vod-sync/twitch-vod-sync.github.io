@@ -96,7 +96,7 @@ class TwitchPlayer extends Player {
   pause() { this._player.pause() }
   seekTo(timestamp, targetState) {
     if (timestamp < this.startTime) {
-      console.log('Attempted to seek before the startTime, seeking start instead')
+      console.log('Attempted to seek', this.id, 'before the startTime, seeking start instead', timestamp, this.startTime)
       var durationSeconds = 0.001 // I think seek(0) does something wrong, so.
       this.state = SEEKING_START
       this._player.pause()
@@ -154,7 +154,6 @@ class TwitchPlayer extends Player {
         // All other states indicate the user manually seeking the video.
         case PLAYING:
         case PAUSED:
-        case READY: // If we're still waiting for some other video to load (but this one is ready), treat it like PAUSED.
         case BEFORE_START: // If we're waiting to start it's kinda like we're paused at 0.
         case AFTER_END: // If we're waiting at the end it's kinda like we're paused at 100.
           console.log('User has manually seeked', thisPlayer.id, 'seeking all other players')
@@ -163,6 +162,7 @@ class TwitchPlayer extends Player {
           break
 
         case RESTARTING: // This is the only state (other than LOADING) where the player isn't really loaded. Ignore seeks here.
+        case READY: // If the user has previously watched one of these videos, we'll get a seek event after it's loaded. Ignore it; we'll align the videos later.
           break
       }
     } else if (event == 'play') {

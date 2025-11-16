@@ -10,10 +10,9 @@ from datetime import datetime
 from pathlib import Path
 from threading import Thread
 
-import chromedriver_py
 import requests
 from selenium import webdriver
-from selenium.common.exceptions import JavascriptException, TimeoutException
+from selenium.common.exceptions import JavascriptException, TimeoutException, WebDriverException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
@@ -24,27 +23,38 @@ class UITests:
   def __init__(self):
     client_secret = os.environ.get('TWITCH_TOKEN', None)
     if not client_secret:
-      client_secret = Path('client_secret.txt').open('r').read() # Local testing
+      client_secret = Path('client_secret.txt').open('r').read().strip() # Local testing
     self.client_id = 'hc34d86ir24j38431rkwlekw8wgesp' # Confidential client
     r = requests.post('https://id.twitch.tv/oauth2/token', params={
       'grant_type': 'client_credentials',
       'client_id': self.client_id,
       'client_secret': client_secret,
     })
+    if not r.ok:
+      print(r.status_code, r.text)
     self.access_token = r.json()['access_token']
 
     self.screenshot_no = 0
     self.tmp_folder = Path(os.environ.get('RUNNER_TEMP', Path.home() / 'AppData/Local/Temp'))
 
   def setup(self):
-    options = webdriver.chrome.options.Options()
-    options.add_argument('headless=new')
-    options.set_capability('goog:loggingPrefs', {'browser': 'ALL'})
-    service = webdriver.chrome.service.Service(
-      executable_path=chromedriver_py.binary_path,
-      service_args=['--log-level=ALL'],
-    )
-    self.driver = webdriver.Chrome(options=options, service=service)
+    if 'CI' in os.environ:
+      import chromedriver_py
+      options = webdriver.chrome.options.Options()
+      options.add_argument('headless=new')
+      options.set_capability('goog:loggingPrefs', {'browser': 'ALL'})
+      service = webdriver.chrome.service.Service(
+        executable_path=chromedriver_py.binary_path,
+        service_args=['--log-level=ALL'],
+      )
+      self.driver = webdriver.Chrome(options=options, service=service)
+    else:
+      options = webdriver.firefox.options.Options()
+      options.log.level = 'trace'
+      service = webdriver.firefox.service.Service(
+        executable_path=Path(__file__).with_name('geckodriver.exe'),
+      )
+      self.driver = webdriver.Firefox(options=options, service=service)
 
   def teardown(self):
     self.driver.close()
@@ -70,13 +80,13 @@ class UITests:
       }''', message)
 
   def wait_for_state(self, player, state, timeout_sec=30):
-    self.driver.set_script_timeout(timeout_sec)
+    self.driver.set_script_timeout(timeout_sec + 1)
     return self.driver.execute_async_script('''
-      var targetState = %s
+      var targetState = "%s"
       var [maxLoops, player, callback] = arguments
       var interval = setInterval(() => {
         var currentState = players.has(player) ? players.get(player).state : null
-        if (currentState === targetState) {
+        if (targetState.includes(String(currentState))) {
           var playbackState = players.get(player)._player.getPlayerState().playback
           if (playbackState === 'Buffering') {
             console.warn('State reached but player still buffering')
@@ -95,15 +105,19 @@ class UITests:
 
   def print_event_log(self):
     event_log = self.driver.execute_script('return window.eventLog')
-    print('\n'.join(event_log))
-    if len(event_log) == 0:
+    if event_log:
+      print('\n'.join(event_log))
+    else:
       print('Event log was empty')
 
   def print_chrome_log(self):
-    for log in self.driver.get_log('browser'):
-      timestamp = datetime.fromtimestamp(log['timestamp'] / 1000).isoformat()
-      message = log['message'].encode('utf-8', errors='backslashreplace')
-      print(f'{timestamp}\t{message}')
+    try:
+      for log in self.driver.get_log('browser'):
+        timestamp = datetime.fromtimestamp(log['timestamp'] / 1000).isoformat()
+        message = log['message'].encode('utf-8', errors='backslashreplace')
+        print(f'{timestamp}\t{message}')
+    except WebDriverException:
+      pass # Firefox, probably
 
   def run(self, script):
     return self.driver.execute_script(script)
@@ -134,9 +148,10 @@ class UITests:
   VIDEO_1_START_TIME = 1745837218000
   ASYNC_ALIGN = 1500000000000
 
+  # If we manually specify the offsets, they should be retained after loading.
   def testLoadWithOffsetsAndSyncStart(self):
-    player0offset = 245837252000
-    player1offset = player0offset + 60_000
+    player0offset = self.ASYNC_ALIGN + 30_000
+    player1offset = self.ASYNC_ALIGN + 60_000
     url = f'http://localhost:3000?player0={self.VIDEO_0}&offsetplayer0={player0offset}&player1={self.VIDEO_1}&offsetplayer1={player1offset}'
     self.driver.get(url)
 
@@ -144,8 +159,8 @@ class UITests:
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PAUSED')
 
-    # player1 is 1 minute later than player2, so we should align to that
-    self.assert_videos_synced_to(self.ASYNC_ALIGN + player1offset)
+    # player1 is later than player0, so we should align to that
+    self.assert_videos_synced_to(player1offset)
 
   def testSeek(self):
     url = f'http://localhost:3000?player0={self.VIDEO_0}&player1={self.VIDEO_1}#scope=&access_token={self.access_token}&client_id={self.client_id}'
@@ -228,8 +243,10 @@ class UITests:
     else:
       raise ValueError('None of the OOTR races were suitable for a test')
 
-    j = requests.get(f'https://racetime.gg/{race_id}/data').json()
-    print(j)
+    r = requests.get(f'https://racetime.gg/{race_id}/data')
+    r.encoding = 'utf-8'
+    j = r.json()
+    print(r.text.encode('utf-8', errors='surrogateencode'))
     expected_channel_names = [e['user']['twitch_display_name'] for e in j['entrants']]
     expected_timestamp = datetime.fromisoformat(j['started_at']).timestamp() * 1000
 
@@ -250,7 +267,13 @@ class UITests:
     self.driver.get(url)
     self.screenshot()
 
-    self.wait_for_state('player0', 'PAUSED')
+    time.sleep(5)
+    cc_buttons = self.driver.find_elements(By.CSS_SELECTOR, '[data-a-target="content-classification-gate-overlay-start-watching-button"]')
+    for button in cc_buttons:
+      button.click()
+
+    # In some cases, one of the runners may have started their stream after the race start time. Ergo, they may be in the 'READY' state.
+    self.wait_for_state('player0', 'PAUSED_READY')
     self.screenshot()
 
     # Check that we loaded the right stream (per twitch names)
@@ -260,6 +283,14 @@ class UITests:
     self.assert_videos_synced_to(expected_timestamp)
 
 if __name__ == '__main__':
+  loop_count = 1
+  if os.environ.get('GITHUB_EVENT_NAME', None) == 'schedule':
+    loop_count = 20 # Require additional consistency for our nightly job vs ad-hoc pushes
+  elif len(sys.argv) > 1 and sys.argv[1].isdigit():
+    loop_count = int(sys.argv.pop(1))
+  elif len(sys.argv) > 2:
+    loop_count = int(sys.argv.pop(2))
+
   test_class = UITests()
   is_test = lambda method: inspect.ismethod(method) and method.__name__.startswith('test')
   tests = list(inspect.getmembers(test_class, is_test))
@@ -269,12 +300,6 @@ if __name__ == '__main__':
 
   http_server = Thread(target=http_server.main, daemon=True)
   http_server.start()
-
-  loop_count = 1
-  if os.environ.get('GITHUB_EVENT_NAME', None) == 'schedule':
-    loop_count = 20 # Require additional consistency for our nightly job vs ad-hoc pushes
-  elif len(sys.argv) > 2:
-    loop_count = int(sys.argv[2])
 
   for test in tests:
     for i in range(loop_count):

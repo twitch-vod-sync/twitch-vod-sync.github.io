@@ -1,3 +1,5 @@
 client_secret.txt
 venv/*
 __pycache__/*
+geckodriver.exe
+geckodriver.log
