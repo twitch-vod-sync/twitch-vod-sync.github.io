@@ -277,7 +277,7 @@ class UITests:
     self.screenshot()
 
     # Check that we loaded the right stream (per twitch names)
-    player0_name = self.run('return players.get("player0").streamer')
+    player0_name = self.run('return players.get("player0").channel')
     assert player0_name in expected_channel_names
 
     self.assert_videos_synced_to(expected_timestamp)

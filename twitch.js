@@ -88,7 +88,7 @@ function parseVideo(videoDetails) {
 
   return {
     'id': videoDetails.id,
-    'streamer': videoDetails.user_name,
+    'channel': videoDetails.user_name,
     'title': videoDetails.title,
     'preview': thumbnail_url, // Twitch-provided thumbnail
     'preview_hover': hover_url, // 'animated' preview when hovering on the past broadcasts page
