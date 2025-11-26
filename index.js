@@ -13,6 +13,7 @@ const ASYNC_ALIGN = 1500000000000
 // even while the previous seek is still pending.
 // Will be nonzero after a seek, returns to zero once all videos have finished seeking
 var pendingSeekTimestamp = 0
+var pendingSeekSource = null // Will be the ID of the player ('player0') if the seek originated from a player. Will be 'keyboard' if from larr/rarr.
 
 window.onload = function() {
   // There's a small chance we didn't get a 'page closing' event fired, so if this setting is still set and we have a token,
@@ -218,6 +219,8 @@ window.onload = function() {
         var seekTarget = pendingSeekTimestamp > 0 ? pendingSeekTimestamp : firstPlayingVideo.getCurrentTimestamp()
         if (event.key == 'ArrowLeft')       pendingSeekTimestamp = seekTarget - 10000
         else if (event.key == 'ArrowRight') pendingSeekTimestamp = seekTarget + 10000
+        console.log('User has manually seeked via', event.key, 'pendingSeekTimestamp is now', pendingSeekTimestamp)
+        pendingSeekSource = 'keyboard'
 
         var targetState = (firstPlayingVideo != null) ? PLAYING : PAUSED
         seekPlayersTo(pendingSeekTimestamp, targetState)
@@ -756,6 +759,7 @@ function reloadTimeline() {
 }
 
 function refreshTimeline() {
+  // If the user seeked, use their intended seek as the timeline marker (so it looks like we react fast)
   var timestamp = pendingSeekTimestamp > 0 ? pendingSeekTimestamp : getAveragePlayerTimestamp()
   if (timestamp == null) return // No videos are ready, leave the cursor where it is
 
