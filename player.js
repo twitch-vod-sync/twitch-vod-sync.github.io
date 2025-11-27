@@ -181,8 +181,8 @@ class TwitchPlayer extends Player {
         case SEEKING_PAUSE: // However, if the video is currently seeking, we use the last seek target instead.
           console.log('User has manually started', thisPlayer.id, 'while it was seeking_paused, re-seeking with PLAYING')
 
-          // There's a small race condition here... is there? Have I ever gotten here with a pending timestamp? Testing!
-          debugger;
+          // TODO: I think there might be a race condition here; I've seen this called when pendingSeekTimestamp is 0.
+          if (pendingSeekTimestamp == 0) debugger;
           pendingSeekSource = thisPlayer.id
           seekPlayersTo(pendingSeekTimestamp, PLAYING)
           break
