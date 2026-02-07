@@ -23,6 +23,7 @@ class UITests:
   def __init__(self):
     client_secret = os.environ.get('TWITCH_TOKEN', None)
     if not client_secret:
+      # Download from https://dev.twitch.tv/console/apps/hc34d86ir24j38431rkwlekw8wgesp
       client_secret = Path('client_secret.txt').open('r').read().strip() # Local testing
     self.client_id = 'hc34d86ir24j38431rkwlekw8wgesp' # Confidential client
     r = requests.post('https://id.twitch.tv/oauth2/token', params={
