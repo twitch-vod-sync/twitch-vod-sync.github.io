@@ -21,6 +21,8 @@ This app is *not* for watching live streams. If you want to watch multiple lives
    - Click on the timeline and press "a"
    - Use each player's controls to adjust them to the same time (e.g. the start of the race)
    - Click on the timeline and press "a" again to confirm alignment
+- You can reduce the video quality by clicking on the timeline and pressing "q". It will cycle through all available qualities.
+   - To increase the quality instead, press "Shift-Q".
 
 **[Head over here to get started](https://twitch-vod-sync.github.io)**
 

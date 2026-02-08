@@ -13,6 +13,8 @@ const ASYNC_ALIGN = 1500000000000
 // even while the previous seek is still pending.
 // Will be nonzero after a seek, returns to zero once all videos have finished seeking
 var pendingSeekTimestamp = 0
+var pendingSeekSource = null // Will be the ID of the player ('player0') if the seek originated from a player. Will be 'keyboard' if from larr/rarr.
+var currentQuality = null
 
 window.onload = function() {
   // There's a small chance we didn't get a 'page closing' event fired, so if this setting is still set and we have a token,
@@ -78,7 +80,7 @@ window.onload = function() {
       }
     }
   }
-  
+
   if ((anyVideoParams && allVideosHaveOffsets) || window.localStorage.getItem('authPrefs') == 'disableAuth') {
     FEATURES.DO_TWITCH_AUTH = false
   }
@@ -98,7 +100,7 @@ window.onload = function() {
     // There may be other params, this loop is only for player0, player1, etc
     if (playerId.startsWith('player') && videoIds.length > 0) {
       while (document.getElementById(playerId) == null) window.addPlayer()
-    
+
       // Copy the loop variables to avoid javascript lambda-in-loop bug
       ;((playerId, videoIds) => {
         var promise = FEATURES.DO_TWITCH_AUTH ? getTwitchVideosDetails(videoIds.split('-')) : getStubVideosDetails(videoIds.split('-'))
@@ -146,13 +148,20 @@ window.onload = function() {
       FEATURES.HIDE_ENDING_TIMES = !FEATURES.HIDE_ENDING_TIMES
       reloadTimeline()
 
-    } else if (event.key == 'q') {
-      // TODO: Quality cycle
-      // 1. Fetch all available qualities from all videos with player.getQualities
-      // 2. Bucket/group/whatever to find the minimum supported qualities between all players
-      // 3. Determine the current quality based on the average? or something.
-      // 4. Increment to the next quality in the minimum list (player.setQuality)
-      // idk. I'm not sure what behavior you really want here -- I think for now this can just toggle between "min" and "max"
+    } else if (event.key == 'q' || event.key == 'Q') {
+      var qualities = new Set()
+      for (var player of players.values()) {
+        qualities = qualities.union(player.getQualities())
+      }
+
+      qualities = Array.from(qualities).sort((a, b) => QUALITY_TABLE.get(a) - QUALITY_TABLE.get(b))
+      var currentIndex = qualities.indexOf(currentQuality)
+      // TODO: Attempt to discover current quality if no index set? I'm just assuming 'highest' for now.
+      if (currentIndex == -1) currentIndex = 0
+
+      currentIndex = (currentIndex + qualities.length + (event.shiftKey ? -1 : 1)) % qualities.length
+      currentQuality = qualities[currentIndex]
+      for (var player of players.values()) player.setQuality(currentQuality)
 
     } else if (event.key == 'a') {
       // On the first press, bring all videos into 'async mode', where they can be adjusted freely.
@@ -218,6 +227,8 @@ window.onload = function() {
         var seekTarget = pendingSeekTimestamp > 0 ? pendingSeekTimestamp : firstPlayingVideo.getCurrentTimestamp()
         if (event.key == 'ArrowLeft')       pendingSeekTimestamp = seekTarget - 10000
         else if (event.key == 'ArrowRight') pendingSeekTimestamp = seekTarget + 10000
+        console.log('User has manually seeked via', event.key, 'pendingSeekTimestamp is now', pendingSeekTimestamp)
+        pendingSeekSource = 'keyboard'
 
         var targetState = (firstPlayingVideo != null) ? PLAYING : PAUSED
         seekPlayersTo(pendingSeekTimestamp, targetState)
@@ -296,10 +307,12 @@ function showText(playerId, message, isError) {
 function removePlayer() {
   var playersDiv = document.getElementById('players')
   var playerToRemove = playersDiv.childNodes[playersDiv.childElementCount - 1]
-  if (playersDiv.childElementCount <= MIN_PLAYERS) {
-    // If we've already got 2 players, and the second player is empty, '-' should clear the first player instead
-    var playerHasContent = players.has(playerToRemove.id) || document.getElementById(playerToRemove.id + '-form').style.display == null
-    if (!playerHasContent) playerToRemove = playersDiv.childNodes[0]
+  // If we're removing the final player, wipe out both divs so that addPlayer can just create sequential IDs
+  if (playersDiv.childElementCount <= MIN_PLAYERS
+    && !players.has('player1')
+    && players.has('player0')) {
+    playersDiv.childNodes[1].remove()
+    playerToRemove = playersDiv.childNodes[0]
   }
 
   // Untrack the player and update the timeline
@@ -631,14 +644,10 @@ console.log = function(...args) {
   if (location.hostname == 'localhost') console_log(logEvent.join(' ')) // Also emit to console in local testing for easier debugging
 }
 
-function seekPlayersTo(timestamp, targetState, exceptFor) {
-  console.log('Seeking all players to', timestamp, 'and state', targetState, 'except for', exceptFor)
+function seekPlayersTo(timestamp, targetState) {
+  console.log('Seeking all players to', timestamp, 'and state', targetState)
   for (var player of players.values()) {
     if (player.state === LOADING) continue // We cannot seek a video that hasn't loaded yet.
-    if (player.id == exceptFor) {
-      player.state = targetState
-      continue
-    }
     player.seekTo(timestamp, targetState)
   }
 }
@@ -755,6 +764,7 @@ function reloadTimeline() {
 }
 
 function refreshTimeline() {
+  // If the user seeked, use their intended seek as the timeline marker (so it looks like we react fast)
   var timestamp = pendingSeekTimestamp > 0 ? pendingSeekTimestamp : getAveragePlayerTimestamp()
   if (timestamp == null) return // No videos are ready, leave the cursor where it is
 

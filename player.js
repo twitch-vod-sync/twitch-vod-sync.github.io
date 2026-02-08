@@ -22,6 +22,27 @@ const ASYNC         = enumValue('ASYNC')
 // When a video ends, I want to leave it paused somewhere near the end screen -- so this value represents a safe point to seek to which avoids autoplay.
 const VIDEO_END_BUFFER = 15000
 
+const QUALITY_TABLE = new Map(Object.entries({
+  // Twitch qualities
+  '1080p60': [1080, 60],
+  '1080p30': [1080, 30],
+  '720p60':  [720, 60],
+  '720p30':  [720, 30],
+  '720p':    [720, 30],
+  '480p30':  [480, 30],
+  '360p30':  [360, 30],
+  '160p30':  [160, 30],
+  // Youtube qualities
+  'hd2160':  [2160, 60],
+  'hd1440':  [1440, 60],
+  'hd1080':  [1080, 60],
+  'hd720':   [720, 60],
+  'large':   [480, 30],
+  'medium':  [360, 30],
+  'small':   [240, 30],
+  'tiny':    [160, 30],
+}))
+
 window.newPlayer = function(divId, videos, playerType) {
   if (videos == null || videos.length === 0) throw new Exception('Invalid videos: ' + videos.toString())
   var videoDetails = videos[0] // TODO: Support multiple videos here?
@@ -94,9 +115,32 @@ class TwitchPlayer extends Player {
     return this._startTime + this.offset + durationMillis
   }
 
+  getQualities() {
+    var qualities = new Set()
+    for (var quality of this._player.getQualities()) {
+      if (!QUALITY_TABLE.has(quality.group)) continue
+      qualities.add(quality.group)
+    }
+
+    return qualities
+  }
+
+  setQuality(qualityName) {
+    for (var quality of this._player.getQualities()) {
+      if (!QUALITY_TABLE.has(quality.group)) continue
+      if (quality.group == qualityName) {
+        this._player.setQuality(quality.group)
+        break
+      }
+    }
+  }
+
   play() { this._player.play() }
   pause() { this._player.pause() }
   seekTo(timestamp, targetState) {
+    // If there is a seek pending FROM US, ignore all 'seekTo' instructions, since they're almost certainly noise.
+    if (pendingSeekTimestamp > 0 && pendingSeekSource == this.id) return
+
     if (timestamp < this.startTime) {
       console.log('Attempted to seek', this.id, 'before the startTime, seeking start instead', timestamp, this.startTime)
       var durationSeconds = 0.001 // I think seek(0) does something wrong, so.
@@ -128,7 +172,7 @@ class TwitchPlayer extends Player {
   }
 
   eventSink(event, seekMillis) {
-    console.log(this.id, 'received event', event, 'while in state', this.state, seekMillis)
+    // console.log(this.id, 'received event', event, 'while in state', this.state, seekMillis)
 
     if (event == 'seek') {
       switch (this.state) {
@@ -158,8 +202,10 @@ class TwitchPlayer extends Player {
         case PAUSED:
         case BEFORE_START: // If we're waiting to start it's kinda like we're paused at 0.
         case AFTER_END: // If we're waiting at the end it's kinda like we're paused at 100.
-          console.log('User has manually seeked', this.id, 'seeking all other players')
           var timestamp = this.startTime + seekMillis
+          console.log('User has manually seeked', this.id, 'to', timestamp, 'seeking all other players')
+          pendingSeekTimestamp = timestamp
+          pendingSeekSource = this.id
           seekPlayersTo(timestamp, (this.state === PLAYING ? PLAYING : PAUSED))
           break
 
@@ -174,11 +220,14 @@ class TwitchPlayer extends Player {
         case BEFORE_START: // If the user attempts to play a video that's waiting at the start, just sync everyone to this.
           console.log('User has manually started', this.id, 'starting all players')
           var timestamp = this.getCurrentTimestamp()
-          seekPlayersTo(timestamp, PLAYING, /*exceptFor*/this.id)
+          pendingSeekTimestamp = timestamp
+          pendingSeekSource = this.id
+          seekPlayersTo(timestamp, PLAYING)
           break
 
         case SEEKING_PAUSE: // However, if the video is currently seeking, we use the last seek target instead.
           console.log('User has manually started', this.id, 'while it was seeking_paused, re-seeking with PLAYING')
+          pendingSeekSource = this.id
           seekPlayersTo(pendingSeekTimestamp, PLAYING)
           break
 
@@ -195,7 +244,7 @@ class TwitchPlayer extends Player {
                         // However, if they do, the safest thing is actually to just let it happen, and wait for the player to naturally play out.
                         // It will hit the end, trigger 'ended', and restart back to here.
         case ASYNC: // No action needed. The user is likely resuming the video so they can watch and sync it up.
-          console.log('Ignoring unexpected play event for', this.id)
+          console.log('Ignoring unexpected play event for', this.id, 'was in state', this.state)
           break
       }
     } else if (event == 'pause') {
@@ -232,7 +281,7 @@ class TwitchPlayer extends Player {
       }
     } else if (event == 'ended') {
       switch (this.state) {
-        case PLAYING: // This is the most likely state: letting a video play out until its natural end.
+        case PLAYING:       // This is the most likely state: letting a video play out until its natural end.
         case READY:         // All other states are possible by seeking, if the user clicks at the end of the timeline.
         case SEEKING_PLAY:  // There's nothing malicious happening here -- it's just a case of the user taking an action
         case SEEKING_PAUSE: // while we were busy with something else.
@@ -272,7 +321,7 @@ class TwitchPlayer extends Player {
       }
     }
 
-    console.log(this.id, 'handled event', event, 'and is now in state', this.state)
+    // console.log(this.id, 'handled event', event, 'and is now in state', this.state)
 
     // *After* we transition the video's state, check to see if this completes a pending seek event.
     if (pendingSeekTimestamp > 0) {
@@ -284,6 +333,7 @@ class TwitchPlayer extends Player {
       if (!anyPlayerStillSeeking) {
         console.log(this.id, 'was last to finish seeking to', pendingSeekTimestamp, 'setting pendingSeekTimestamp to 0')
         pendingSeekTimestamp = 0
+        pendingSeekSource = null
       }
     }
   }
