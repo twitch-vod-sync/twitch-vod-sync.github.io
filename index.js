@@ -148,7 +148,7 @@ window.onload = function() {
       FEATURES.HIDE_ENDING_TIMES = !FEATURES.HIDE_ENDING_TIMES
       reloadTimeline()
 
-    } else if (event.key == 'q') {
+    } else if (event.key == 'q' || event.key == 'Q') {
       var qualities = new Set()
       for (var player of players.values()) {
         qualities = qualities.union(player.getQualities())
