@@ -307,10 +307,12 @@ function showText(playerId, message, isError) {
 function removePlayer() {
   var playersDiv = document.getElementById('players')
   var playerToRemove = playersDiv.childNodes[playersDiv.childElementCount - 1]
-  if (playersDiv.childElementCount <= MIN_PLAYERS) {
-    // If we've already got 2 players, and the second player is empty, '-' should clear the first player instead
-    var playerHasContent = players.has(playerToRemove.id) || document.getElementById(playerToRemove.id + '-form').style.display == null
-    if (!playerHasContent) playerToRemove = playersDiv.childNodes[0]
+  // If we're removing the final player, wipe out both divs so that addPlayer can just create sequential IDs
+  if (playersDiv.childElementCount <= MIN_PLAYERS
+    && !players.has('player1')
+    && players.has('player0')) {
+    playersDiv.childNodes[1].remove()
+    playerToRemove = playersDiv.childNodes[0]
   }
 
   // Untrack the player and update the timeline
