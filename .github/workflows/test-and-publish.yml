@@ -30,7 +30,7 @@ jobs:
     - name: Install python 3.11+
       uses: actions/setup-python@v5
       with:
-        python-version: '>=3.11' 
+        python-version: '>=3.11'
     - name: Install requirements
       run: |
         $chrome = "C:\Program Files\Google\Chrome\Application\chrome.exe"
@@ -40,7 +40,7 @@ jobs:
         pip install chromedriver-py==$major.*
         pip install -r requirements.txt
     - name: Run tests
-      run: python -u tests.py ${{ inputs.test_iterations }} 
+      run: python -u tests.py ${{ inputs.test_iterations }}
       env:
         TWITCH_TOKEN: ${{ secrets.TWITCH_TOKEN }}
     - name: Upload test failure screenshots
@@ -67,3 +67,10 @@ jobs:
       with:
         path: pages/
     - uses: actions/deploy-pages@v4
+
+  workflow-keepalive:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+    - uses: liskin/gh-workflow-keepalive@f72ff1a1336129f29bf0166c0fd0ca6cf1bcb38c
