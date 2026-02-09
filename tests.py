@@ -145,8 +145,12 @@ class UITests:
 
   VIDEO_0 = '2444833212'
   VIDEO_1 = '2444833835'
+  VIDEO_2 = '2692810339'
+  VIDEO_3 = '2692816434'
   VIDEO_0_START_TIME = 1745837098000
   VIDEO_1_START_TIME = 1745837218000
+  VIDEO_2_START_TIME = 1770590580000
+  VIDEO_3_START_TIME = 1770591181000
   ASYNC_ALIGN = 1500000000000
 
   # If we manually specify the offsets, they should be retained after loading.
@@ -282,6 +286,16 @@ class UITests:
     assert player0_name in expected_channel_names
 
     self.assert_videos_synced_to(expected_timestamp)
+
+  def testDiscontinuity(self):
+    url = f'http://localhost:3000?player0={self.VIDEO_2}&player1={self.VIDEO_3}'
+    self.driver.get(url)
+
+    # Wait for all players to load and reach the 'pause' state
+    for player in ['player0', 'player1']:
+      self.wait_for_state(player, 'PAUSED')
+      
+    # Uh. What am I actually testing here?
 
 if __name__ == '__main__':
   loop_count = 1
