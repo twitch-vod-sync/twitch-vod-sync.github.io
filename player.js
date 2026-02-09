@@ -1,4 +1,4 @@
-function enumValue(name) { return Object.freeze({toString: () => name}) }
+function enumValue(name) { return Object.freeze({name: name, toString: () => name}) }
 
 // Player types
 const TWITCH = enumValue('TWITCH')
@@ -172,7 +172,7 @@ class TwitchPlayer extends Player {
   }
 
   eventSink(event, seekMillis) {
-    // console.log(this.id, 'received event', event, 'while in state', this.state, seekMillis)
+    console.log(this.id, 'received event', event, 'while in state', this.state, seekMillis)
 
     if (event == 'seek') {
       switch (this.state) {
@@ -206,6 +206,7 @@ class TwitchPlayer extends Player {
           console.log('User has manually seeked', this.id, 'to', timestamp, 'seeking all other players')
           pendingSeekTimestamp = timestamp
           pendingSeekSource = this.id
+          this.state = this.state === PLAYING ? SEEKING_PLAY : SEEKING_PAUSE
           seekPlayersTo(timestamp, (this.state === PLAYING ? PLAYING : PAUSED))
           break
 
@@ -222,12 +223,14 @@ class TwitchPlayer extends Player {
           var timestamp = this.getCurrentTimestamp()
           pendingSeekTimestamp = timestamp
           pendingSeekSource = this.id
+          this.state = PLAYING
           seekPlayersTo(timestamp, PLAYING)
           break
 
         case SEEKING_PAUSE: // However, if the video is currently seeking, we use the last seek target instead.
           console.log('User has manually started', this.id, 'while it was seeking_paused, re-seeking with PLAYING')
           pendingSeekSource = this.id
+          this.state = PLAYING
           seekPlayersTo(pendingSeekTimestamp, PLAYING)
           break
 
@@ -258,7 +261,7 @@ class TwitchPlayer extends Player {
           // This results in all videos doing a SEEKING_PAUSE, which is fairly close to the user's intent anyways.
           for (var player of players.values()) {
             if (player.state === SEEKING_PLAY) player.state = SEEKING_PAUSE
-            if (player.state === PLAYING)      player.state = PAUSED
+            if (player.state === PLAYING)      player.state = PAUSED // We change the state to PAUSED before pausing so that it's clear it's not a manual pause.
             if (player.id != this.id)    player.pause() // Note: We don't want to pause the current player, since it might be waiting for a seek event.
           }
           break
@@ -276,7 +279,7 @@ class TwitchPlayer extends Player {
         case SEEKING_END:   // which doesn't quite match what we were expecting.
         case BEFORE_START:  // These last two states are less worrying because they're semi-persistent,
         case AFTER_END:     // i.e. we'll only transition out of them for 'seek' events.
-          console.log('Ignoring unexpected pause event for', this.id)
+          console.log('Ignoring unexpected pause event for', this.id, 'was in state', this.state)
           break
       }
     } else if (event == 'ended') {
@@ -321,7 +324,7 @@ class TwitchPlayer extends Player {
       }
     }
 
-    // console.log(this.id, 'handled event', event, 'and is now in state', this.state)
+    console.log(this.id, 'handled event', event, 'and is now in state', this.state)
 
     // *After* we transition the video's state, check to see if this completes a pending seek event.
     if (pendingSeekTimestamp > 0) {

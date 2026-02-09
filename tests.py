@@ -145,13 +145,16 @@ class UITests:
 
   VIDEO_0 = '2444833212'
   VIDEO_1 = '2444833835'
-  VIDEO_2 = '2692810339'
-  VIDEO_3 = '2692816434'
+  VIDEO_2 = '2693277776'
+  VIDEO_3 = '2693278320'
+  VIDEO_4 = '2693281245'
   VIDEO_0_START_TIME = 1745837098000
   VIDEO_1_START_TIME = 1745837218000
-  VIDEO_2_START_TIME = 1770590580000
-  VIDEO_3_START_TIME = 1770591181000
+  VIDEO_2_START_TIME = 1770652140000
+  VIDEO_3_START_TIME = 1770652200000
+  VIDEO_4_START_TIME = 1770652500000
   ASYNC_ALIGN = 1500000000000
+
 
   # If we manually specify the offsets, they should be retained after loading.
   def testLoadWithOffsetsAndSyncStart(self):
@@ -288,14 +291,48 @@ class UITests:
     self.assert_videos_synced_to(expected_timestamp)
 
   def testDiscontinuity(self):
-    url = f'http://localhost:3000?player0={self.VIDEO_2}&player1={self.VIDEO_3}'
+    url = f'http://localhost:3000?player0={self.VIDEO_2}#scope=&access_token={self.access_token}&client_id={self.client_id}'
     self.driver.get(url)
 
     # Wait for all players to load and reach the 'pause' state
-    for player in ['player0', 'player1']:
+    for player in ['player0']:
       self.wait_for_state(player, 'PAUSED')
-      
-    # Uh. What am I actually testing here?
+
+    # self.assert_videos_synced_to(self.VIDEO_2_START_TIME)
+
+    # Override the channel lookup function, since we need to test with highlights (for stability)
+    self.run('window.getTwitchChannelVideos = function () { return window.getTwitchVideosDetails(["' + self.VIDEO_3 + '", "' + self.VIDEO_4 + '"]) }')
+    
+    player1_form = self.driver.find_element(By.ID, 'player1-form')
+    player1_video_text = player1_form.find_element(By.NAME, 'video')
+    player1_video_text.send_keys('test_channel_name')
+    player1_form.submit()
+
+    k = self.run('return players.get("player1").videoId')
+    assert  == self.VIDEO_1
+    assert self.run('return players.get("player1").nextVideoDetails.id') == '0'
+
+    # Video3 has a later start time, so we should shift the sync time when it loads
+    self.assert_videos_synced_to(self.VIDEO_3_START_TIME)
+
+    pass
+    # Sync to the end of video3 so that we load the next video ID.
+    # self.run('players.get("player0")._player.seek(240.0)')
+
+
+    self.run('players.get("player0")._player.play()')
+    
+    
+    
+    # No. Just make the videos and test the two main scenarios.
+    
+    # Here is the video layout I want:
+    #
+    #   |--------------------|
+    #   |-----|      |-------|
+    #
+    # So, I need a video from 0:59 -> 1:11
+    # and two videos from 1:00 -> 1:04, 1:05 -> 1:10
 
 if __name__ == '__main__':
   loop_count = 1
