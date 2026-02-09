@@ -294,37 +294,43 @@ class UITests:
     url = f'http://localhost:3000?player0={self.VIDEO_2}#scope=&access_token={self.access_token}&client_id={self.client_id}'
     self.driver.get(url)
     time.sleep(5)
-    self.wait_for_state('player0', 'PAUSED')
 
-    # self.assert_videos_synced_to(self.VIDEO_2_START_TIME)
+    self.wait_for_state('player0', 'PAUSED')
 
     # Override the channel lookup function, since we need to test with highlights (for stability)
     self.run('window.getTwitchChannelVideos = function () { return window.getTwitchVideosDetails(["' + self.VIDEO_3 + '", "' + self.VIDEO_4 + '"]) }')
     
     player1_form = self.driver.find_element(By.ID, 'player1-form')
     player1_video_text = player1_form.find_element(By.NAME, 'video')
+    player1_video_text.send_keys('t')
     player1_video_text.send_keys('test_channel_name')
+    player1_video_text.send_keys(Keys.ENTER)
     player1_form.submit()
-    time.sleep(10000)
     
-    self.wait_for_state('player1', 'PAUSED')
+    # Since player0 is already loaded, we resync player1 to the existing timestamp.
+    self.wait_for_state('player1', 'BEFORE_START')
+    self.assert_videos_synced_to(self.VIDEO_2_START_TIME)
 
+    # We should find VIDEO_3, since it's the earliest video which overlaps the timeline. (neither video overlaps the playhead)
     assert self.run('return players.get("player1").videoId') == self.VIDEO_3
     assert self.run('return players.get("player1").nextVideoDetails.id') == '0'
 
-    # Video3 has a later start time, so we should shift the sync time when it loads
-    self.assert_videos_synced_to(self.VIDEO_3_START_TIME)
-
-    # Sync to the end of video3 so that we load the next video ID.
-    self.run('players.get("player0")._player.seek(240.0)')
+    # Seek to the end of VIDEO_3 and confirm that we load the next video.
+    self.run('players.get("player1")._player.seek(235.0)')
     self.wait_for_state('player0', 'PAUSED')
     self.wait_for_state('player1', 'PAUSED')
+    self.assert_videos_synced_to(self.VIDEO_3_START_TIME + 235_000)
 
     assert self.run('return players.get("player1").videoId') == self.VIDEO_3
     assert self.run('return players.get("player1").nextVideoDetails.id') == self.VIDEO_4
 
-    self.run('players.get("player0")._player.play()')
+    # There's about 5 seconds left in the second video, so it should end (and refresh) within a 10 seconds.
+    # (we are already playing because of the assert_sync)
+    time.sleep(15)
     
+    self.wait_for_state('player1', 'BEFORE_START')
+    assert self.run('return players.get("player1").videoId') == self.VIDEO_4
+    assert self.run('return players.get("player1").nextVideoDetails.id') == '0'
     
     
     # No. Just make the videos and test the two main scenarios.
@@ -370,6 +376,7 @@ if __name__ == '__main__':
         traceback.print_exc()
         sys.exit(-1)
       finally:
+        time.sleep(10000)
         test_class.teardown()
 
       print('===', test[0], 'passed')
