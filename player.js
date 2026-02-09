@@ -220,6 +220,7 @@ class TwitchPlayer extends Player {
           var timestamp = thisPlayer.getCurrentTimestamp()
           pendingSeekTimestamp = timestamp
           pendingSeekSource = thisPlayer.id
+          thisPlayer.state = PLAYING
           seekPlayersTo(timestamp, PLAYING)
           break
 
