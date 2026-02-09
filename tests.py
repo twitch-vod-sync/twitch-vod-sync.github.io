@@ -302,9 +302,7 @@ class UITests:
     
     player1_form = self.driver.find_element(By.ID, 'player1-form')
     player1_video_text = player1_form.find_element(By.NAME, 'video')
-    player1_video_text.send_keys('t')
     player1_video_text.send_keys('test_channel_name')
-    player1_video_text.send_keys(Keys.ENTER)
     player1_form.submit()
     
     # Since player0 is already loaded, we resync player1 to the existing timestamp.
@@ -313,26 +311,57 @@ class UITests:
 
     # We should find VIDEO_3, since it's the earliest video which overlaps the timeline. (neither video overlaps the playhead)
     assert self.run('return players.get("player1").videoId') == self.VIDEO_3
-    assert self.run('return players.get("player1").nextVideoDetails.id') == '0'
+    assert self.run('return players.get("player1").nextVideoDetails') == None
+    
+    time.sleep(10)
+    print('Seeking player 1 to 220.0')
 
     # Seek to the end of VIDEO_3 and confirm that we load the next video.
-    self.run('players.get("player1")._player.seek(235.0)')
-    self.wait_for_state('player0', 'PAUSED')
-    self.wait_for_state('player1', 'PAUSED')
-    self.assert_videos_synced_to(self.VIDEO_3_START_TIME + 235_000)
+    self.run('players.get("player1")._player.seek(220.0)')
+    for player in ['player0', 'player1']:
+      self.wait_for_state(player, 'PAUSED')
+    self.assert_videos_synced_to(self.VIDEO_3_START_TIME + 220_000)
 
     assert self.run('return players.get("player1").videoId') == self.VIDEO_3
     assert self.run('return players.get("player1").nextVideoDetails.id') == self.VIDEO_4
 
-    # There's about 5 seconds left in the second video, so it should end (and refresh) within a 10 seconds.
+    # There's about 15 seconds left in the second video, so it should end (and refresh) within 20 seconds.
     # (we are already playing because of the assert_sync)
-    time.sleep(15)
+    time.sleep(20)
     
     self.wait_for_state('player1', 'BEFORE_START')
     assert self.run('return players.get("player1").videoId') == self.VIDEO_4
-    assert self.run('return players.get("player1").nextVideoDetails.id') == '0'
+    assert self.run('return players.get("player1").nextVideoDetails') == None
+
+  def testLiveVideo(self):
+    url = f'http://localhost:3000?player0={self.VIDEO_2}&player1={self.VIDEO_3}#scope=&access_token={self.access_token}&client_id={self.client_id}'
+    self.driver.get(url)
+    time.sleep(5)
+
+    self.run('window.getTwitchChannelVideos = function () { return window.getTwitchVideosDetails(["' + self.VIDEO_2 + '"]) }')
+
+    for player in ['player0', 'player1']:
+      self.wait_for_state(player, 'PAUSED')
+
+    assert self.run('return players.get("player1").videoId') == self.VIDEO_3
+    assert self.run('return players.get("player1").nextVideoDetails') == None
+
+    # Seek to the end of VIDEO_3 and confirm that we load the next video.
+    self.run('players.get("player1")._player.seek(220.0)')
+    for player in ['player0', 'player1']:
+      self.wait_for_state(player, 'PAUSED')
+    self.assert_videos_synced_to(self.VIDEO_3_START_TIME + 220_000)
+
+    # There's about 15 seconds left in the second video, so it should end (and refresh) within 20 seconds.
+    # (we are already playing because of the assert_sync)
+    time.sleep(20)
+
+    self.wait_for_state('player1', 'PLAYING')
+    assert self.run('return players.get("player1").videoId') == self.VIDEO_2
+    assert self.run('return players.get("player1").nextVideoDetails') == None
     
-    
+    self.assert_videos_synced_to(self.VIDEO_2_START_TIME + 240_000) # Guesswork a little bit, but we shouldn't (in theory) lose our spot
+
     # No. Just make the videos and test the two main scenarios.
     
     # Here is the video layout I want:
