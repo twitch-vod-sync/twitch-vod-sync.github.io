@@ -206,7 +206,7 @@ class TwitchPlayer extends Player {
           console.log('User has manually seeked', this.id, 'to', timestamp, 'seeking all other players')
           pendingSeekTimestamp = timestamp
           pendingSeekSource = this.id
-          this.state = this.state === PLAYING ? SEEKING_PLAY : SEEKING_PAUSE
+          this.state = this.state === PLAYING ? PLAYING : PAUSED
           seekPlayersTo(timestamp, (this.state === PLAYING ? PLAYING : PAUSED))
           break
 

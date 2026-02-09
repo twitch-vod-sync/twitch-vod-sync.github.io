@@ -293,10 +293,8 @@ class UITests:
   def testDiscontinuity(self):
     url = f'http://localhost:3000?player0={self.VIDEO_2}#scope=&access_token={self.access_token}&client_id={self.client_id}'
     self.driver.get(url)
-
-    # Wait for all players to load and reach the 'pause' state
-    for player in ['player0']:
-      self.wait_for_state(player, 'PAUSED')
+    time.sleep(5)
+    self.wait_for_state('player0', 'PAUSED')
 
     # self.assert_videos_synced_to(self.VIDEO_2_START_TIME)
 
@@ -307,18 +305,23 @@ class UITests:
     player1_video_text = player1_form.find_element(By.NAME, 'video')
     player1_video_text.send_keys('test_channel_name')
     player1_form.submit()
+    time.sleep(10000)
+    
+    self.wait_for_state('player1', 'PAUSED')
 
-    k = self.run('return players.get("player1").videoId')
-    assert  == self.VIDEO_1
+    assert self.run('return players.get("player1").videoId') == self.VIDEO_3
     assert self.run('return players.get("player1").nextVideoDetails.id') == '0'
 
     # Video3 has a later start time, so we should shift the sync time when it loads
     self.assert_videos_synced_to(self.VIDEO_3_START_TIME)
 
-    pass
     # Sync to the end of video3 so that we load the next video ID.
-    # self.run('players.get("player0")._player.seek(240.0)')
+    self.run('players.get("player0")._player.seek(240.0)')
+    self.wait_for_state('player0', 'PAUSED')
+    self.wait_for_state('player1', 'PAUSED')
 
+    assert self.run('return players.get("player1").videoId') == self.VIDEO_3
+    assert self.run('return players.get("player1").nextVideoDetails.id') == self.VIDEO_4
 
     self.run('players.get("player0")._player.play()')
     

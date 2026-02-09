@@ -418,6 +418,7 @@ function searchVideo(event) {
     showText(playerId, 'Loading channel videos...')
     getBestVideo(m[1], getAveragePlayerTimestamp())
     .then(bestVideo => {
+      console.log('Found best video for player', playerId, bestVideo.id)
       if (bestVideo == null) {
         showVideoPicker(playerId, videos)
       } else {
@@ -537,9 +538,12 @@ function loadVideos(playerId, videos, playerType) {
       var timestamp = getAveragePlayerTimestamp()
       thisPlayer.seekTo(timestamp, PLAYING)
     } else if (anyVideoIsPaused) {
-      console.log(thisPlayer.id, 'loaded while all other videos were paused, resyncing playhead')
-      var timestamp = getAveragePlayerTimestamp() // TODO: Are there special cases here?
-      thisPlayer.seekTo(timestamp, PAUSED)
+      console.log(thisPlayer.id, 'loaded while all other videos were paused, aligning it to the current time')
+      // Delay to account for twitch seeking to 'last played' (which we don't want in this case)
+      var timestamp = getAveragePlayerTimestamp()
+      window.setTimeout(() => {
+        thisPlayer.seekTo(timestamp, PAUSED)
+      }, 1000)
     } else if (!anyVideoStillLoading) {
       // Slight delay so twitch can seek videos to their 'last played'.
       window.setTimeout(() => {
