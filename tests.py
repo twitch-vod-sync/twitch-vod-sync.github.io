@@ -302,7 +302,7 @@ class UITests:
 
     # Override the channel lookup function, since we need to test with highlights (for stability)
     self.run('window.getTwitchChannelVideos = function () { return window.getTwitchVideosDetails(["' + self.VIDEO_3 + '", "' + self.VIDEO_4 + '"]) }')
-    
+
     player1_form = self.driver.find_element(By.ID, 'player1-form')
     player1_video_text = player1_form.find_element(By.NAME, 'video')
     player1_video_text.send_keys('test_channel_name')
