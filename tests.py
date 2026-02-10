@@ -6,7 +6,7 @@ import os
 import sys
 import time
 import traceback
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from threading import Thread
 
@@ -123,10 +123,12 @@ class UITests:
   def run(self, script):
     return self.driver.execute_script(script)
 
+  # TODO: This might be improvable by having Selenium grab the raw duration out of the video.
+  # <p data-a-target="player-seekbar-current-time" class="CoreText-sc-1txzju1-0 cVgnVN">00:06:29</p>
   def assert_videos_synced_to(self, expected_timestamp):
     # We need the videos to be playing to call getCurrentTimestamp (thanks, twitch).
     # As a result, we give the videos a little time to buffer before calling play()
-    print(datetime.utcnow(), 'Sleeping for 5 seconds before asserting sync')
+    print(datetime.now(timezone.utc), 'Sleeping for 5 seconds before asserting sync')
     time.sleep(5)
     players = self.run('return players.keys()')
     self.run('players.get("player0").play()')
@@ -138,6 +140,7 @@ class UITests:
         failed.append(player)
     if len(failed) > 0:
       raise AssertionError(', '.join(players) + f' was/were not within 1 second of expectation: {timestamp}, {expected_timestamp}, {timestamp - expected_timestamp}')
+    print(datetime.now(timezone.utc), 'All videos synced to within 1 second of', expected_timestamp)
 
   #############
   #!# Tests #!#
@@ -313,8 +316,7 @@ class UITests:
     assert self.run('return players.get("player1").videoId') == self.VIDEO_3
     assert self.run('return players.get("player1").nextVideoDetails') == None
     
-    time.sleep(10)
-    print('Seeking player 1 to 220.0')
+    time.sleep(10) # Not sure why this one is necessary tbqh.
 
     # Seek to the end of VIDEO_3 and confirm that we load the next video.
     self.run('players.get("player1")._player.seek(220.0)')
@@ -325,9 +327,8 @@ class UITests:
     assert self.run('return players.get("player1").videoId') == self.VIDEO_3
     assert self.run('return players.get("player1").nextVideoDetails.id') == self.VIDEO_4
 
-    # There's about 15 seconds left in the second video, so it should end (and refresh) within 20 seconds.
-    # (we are already playing because of the assert_sync)
-    time.sleep(20)
+    # There's about 20 seconds left in the second video, so it should end (and refresh) within 30 seconds.
+    time.sleep(30)
     
     self.wait_for_state('player1', 'BEFORE_START')
     assert self.run('return players.get("player1").videoId') == self.VIDEO_4
@@ -360,7 +361,7 @@ class UITests:
     assert self.run('return players.get("player1").videoId') == self.VIDEO_2
     assert self.run('return players.get("player1").nextVideoDetails') == None
     
-    self.assert_videos_synced_to(self.VIDEO_2_START_TIME + 240_000) # Guesswork a little bit, but we shouldn't (in theory) lose our spot
+    self.assert_videos_synced_to(self.VIDEO_2_START_TIME + 240_000)
 
     # No. Just make the videos and test the two main scenarios.
     
@@ -405,7 +406,7 @@ if __name__ == '__main__':
         traceback.print_exc()
         sys.exit(-1)
       finally:
-        time.sleep(10000)
+        time.sleep(1000)
         test_class.teardown()
 
       print('===', test[0], 'passed')

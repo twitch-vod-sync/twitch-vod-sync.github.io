@@ -311,6 +311,7 @@ class TwitchPlayer extends Player {
               this._endTime = this.nextVideoDetails.endTime
               this.videoId = this.nextVideoDetails.id
               this._player.setVideo(this.nextVideoDetails.id)
+              this.nextVideoDetails = null
               // Twitch does not call our onPlayerLoaded callback, and we don't need to reattach the event listeners.
               // Just fire the callback into the index.js onready function after a short delay.
               setTimeout(() => this.onready(this), 1000)

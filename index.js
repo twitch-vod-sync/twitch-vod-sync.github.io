@@ -456,7 +456,7 @@ function getBestVideo(channel, currentTimestamp) {
 
     // Now that we've filtered the videos, pick the one that best suits the user's intention.
     // First, check to see if there's a video which overlaps the current timestamp (there can only be one of these)
-    var overlapsPlayhead = overlappingVideos.find(video => (video.startTime <= currentTimestamp && currentTimestamp <= video.endTime))
+    var overlapsPlayhead = overlappingVideos.find(video => (video.startTime < currentTimestamp && currentTimestamp < video.endTime))
     if (overlapsPlayhead != null) return overlapsPlayhead
 
     // If there's no video which matches the current playhead, then find the next video after the playhead
