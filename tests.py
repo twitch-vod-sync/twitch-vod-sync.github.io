@@ -104,31 +104,32 @@ class UITests:
       }, 10)
       ''' % state, timeout_sec * 100, player)
 
+  print_log = []
+  def print(self, *args):
+    timestamp = datetime.now(timezone.utc).isoformat()
+    message = '\t'.join([timestamp, *map(str, args)])
+    self.print_log.append(message)
+    print(message)
+
   def print_event_log(self):
     event_log = self.driver.execute_script('return window.eventLog')
-    if event_log:
-      print('\n'.join(event_log))
-    else:
-      print('Event log was empty')
-
-  def print_chrome_log(self):
-    try:
-      for log in self.driver.get_log('browser'):
-        timestamp = datetime.fromtimestamp(log['timestamp'] / 1000).isoformat()
-        message = log['message'].encode('utf-8', errors='backslashreplace')
-        print(f'{timestamp}\t{message}')
-    except WebDriverException:
-      pass # Firefox, probably
+    event_log += self.print_log
+    event_log.sort()
+    print('\n'.join(event_log))
 
   def run(self, script):
     return self.driver.execute_script(script)
+    
+  def simulate_seek(self, player, duration):
+    self.print('Seeking', player, 'to', f'{duration:.1f}')
+    self.run(f'players.get("{player}")._player.seek({duration:.1f})')
 
   # TODO: This might be improvable by having Selenium grab the raw duration out of the video.
   # <p data-a-target="player-seekbar-current-time" class="CoreText-sc-1txzju1-0 cVgnVN">00:06:29</p>
   def assert_videos_synced_to(self, expected_timestamp):
     # We need the videos to be playing to call getCurrentTimestamp (thanks, twitch).
     # As a result, we give the videos a little time to buffer before calling play()
-    print(datetime.now(timezone.utc), 'Sleeping for 5 seconds before asserting sync')
+    self.print('Sleeping for 5 seconds before asserting sync')
     time.sleep(5)
     players = self.run('return players.keys()')
     self.run('players.get("player0").play()')
@@ -140,7 +141,7 @@ class UITests:
         failed.append(player)
     if len(failed) > 0:
       raise AssertionError(', '.join(players) + f' was/were not within 1 second of expectation: {timestamp}, {expected_timestamp}, {timestamp - expected_timestamp}')
-    print(datetime.now(timezone.utc), 'All videos synced to within 1 second of', expected_timestamp)
+    self.print('All videos synced to within 1 second of', expected_timestamp)
 
   #############
   #!# Tests #!#
@@ -193,7 +194,7 @@ class UITests:
     time.sleep(1)
 
     # Simulate a user's seek by using the internal player.
-    self.run('players.get("player1")._player.seek(20.0)')
+    self.simulate_seek('player1', 20.0)
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PAUSED')
     time.sleep(1)
@@ -202,7 +203,7 @@ class UITests:
     self.assert_videos_synced_to(self.VIDEO_1_START_TIME + 20_000)
 
     # Test a seek while playing (videos are playing as part of the previous assert) which is beyond the buffer
-    self.run('players.get("player0")._player.seek(200.0)')
+    self.simulate_seek('player0', 200.0)
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PAUSED')
     time.sleep(1)
@@ -222,6 +223,7 @@ class UITests:
 
     # Seek on the first player, then quickly seek again on the last player. Since players seek in order (probably?) the last players' seeking won't be done.
     # Simulate a user's seek by using the internal player.
+    self.print('Simulating seeks for all players')
     self.run('''
       setTimeout(() => players.get("player0")._player.seek(60.0), 0)
       setTimeout(() => players.get("player1")._player.seek(60.1), 1)
@@ -257,18 +259,16 @@ class UITests:
     r = requests.get(f'https://racetime.gg/{race_id}/data')
     r.encoding = 'utf-8'
     j = r.json()
-    print(r.text.encode('utf-8', errors='surrogateencode'))
     expected_channel_names = [e['user']['twitch_display_name'] for e in j['entrants']]
     expected_timestamp = datetime.fromisoformat(j['started_at']).timestamp() * 1000
 
     url = f'http://localhost:3000?race=https://racetime.gg/{race_id}#scope=&access_token=invalid'
     self.driver.get(url)
-    self.screenshot()
 
     # The app will try to load the race, but the token is invalid -- so it will show the twitch popup.
     # Wait for the twitch popup to be visible, then click the 'redirect me' button
-    redirect = WebDriverWait(self.driver, 5).until(EC.visibility_of_element_located((By.ID, 'twitchRedirectButton')))
-    self.screenshot()
+    self.print('Clicking twitch redirect button')
+    redirect = self.driver.find_element(By.ID, 'twitchRedirectButton')
     redirect.click()
 
     # This should now send us to twitch -- which we obviously shouldn't interact with :)
@@ -276,7 +276,6 @@ class UITests:
     assert self.driver.current_url.startswith('https://www.twitch.tv/login')
     url = f'http://localhost:3000#scope=&access_token={self.access_token}&client_id={self.client_id}'
     self.driver.get(url)
-    self.screenshot()
 
     time.sleep(5)
     cc_buttons = self.driver.find_elements(By.CSS_SELECTOR, '[data-a-target="content-classification-gate-overlay-start-watching-button"]')
@@ -284,8 +283,8 @@ class UITests:
       button.click()
 
     # In some cases, one of the runners may have started their stream after the race start time. Ergo, they may be in the 'READY' state.
+    # TODO: Shouldn't that be BEFORE_START? Why is READY ok?
     self.wait_for_state('player0', 'PAUSED_READY')
-    self.screenshot()
 
     # Check that we loaded the right stream (per twitch names)
     player0_name = self.run('return players.get("player0").channel')
@@ -303,6 +302,7 @@ class UITests:
     # Override the channel lookup function, since we need to test with highlights (for stability)
     self.run('window.getTwitchChannelVideos = function () { return window.getTwitchVideosDetails(["' + self.VIDEO_3 + '", "' + self.VIDEO_4 + '"]) }')
 
+    self.print('Mock loading channel videos into player1')
     player1_form = self.driver.find_element(By.ID, 'player1-form')
     player1_video_text = player1_form.find_element(By.NAME, 'video')
     player1_video_text.send_keys('test_channel_name')
@@ -316,10 +316,10 @@ class UITests:
     assert self.run('return players.get("player1").videoId') == self.VIDEO_3
     assert self.run('return players.get("player1").nextVideoDetails') == None
     
-    time.sleep(10) # Not sure why this one is necessary tbqh.
+    time.sleep(5) # Not sure why this one is necessary tbqh.
 
     # Seek to the end of VIDEO_3 and confirm that we load the next video.
-    self.run('players.get("player1")._player.seek(220.0)')
+    self.simulate_seek('player1', 220.0)
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PAUSED')
     self.assert_videos_synced_to(self.VIDEO_3_START_TIME + 220_000)
@@ -348,7 +348,7 @@ class UITests:
     assert self.run('return players.get("player1").nextVideoDetails') == None
 
     # Seek to the end of VIDEO_3 and confirm that we load the next video.
-    self.run('players.get("player1")._player.seek(220.0)')
+    self.simulate_seek('player1', 220.0)
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PAUSED')
     self.assert_videos_synced_to(self.VIDEO_3_START_TIME + 220_000)
@@ -400,13 +400,11 @@ if __name__ == '__main__':
         test[1]()
       except Exception:
         test_class.print_event_log()
-        test_class.print_chrome_log()
         test_class.screenshot()
         print('!!!', test[0], 'failed:')
         traceback.print_exc()
         sys.exit(-1)
       finally:
-        time.sleep(1000)
         test_class.teardown()
 
       print('===', test[0], 'passed')

@@ -418,7 +418,7 @@ function searchVideo(event) {
     showText(playerId, 'Loading channel videos...')
     getBestVideo(m[1], getAveragePlayerTimestamp())
     .then(bestVideo => {
-      console.log('Found best video for player', playerId, bestVideo.id)
+      console.log('Found best video for', playerId, bestVideo.id)
       if (bestVideo == null) {
         showVideoPicker(playerId, videos)
       } else {
