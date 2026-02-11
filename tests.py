@@ -113,35 +113,46 @@ class UITests:
 
   def print_event_log(self):
     event_log = self.driver.execute_script('return window.eventLog')
+    if event_log is None:
+      event_log = []
     event_log += self.print_log
     event_log.sort()
     print('\n'.join(event_log))
 
   def run(self, script):
     return self.driver.execute_script(script)
-    
+
   def simulate_seek(self, player, duration):
     self.print('Seeking', player, 'to', f'{duration:.1f}')
     self.run(f'players.get("{player}")._player.seek({duration:.1f})')
 
-  # TODO: This might be improvable by having Selenium grab the raw duration out of the video.
-  # <p data-a-target="player-seekbar-current-time" class="CoreText-sc-1txzju1-0 cVgnVN">00:06:29</p>
-  def assert_videos_synced_to(self, expected_timestamp):
-    # We need the videos to be playing to call getCurrentTimestamp (thanks, twitch).
-    # As a result, we give the videos a little time to buffer before calling play()
-    self.print('Sleeping for 5 seconds before asserting sync')
-    time.sleep(5)
-    players = self.run('return players.keys()')
-    self.run('players.get("player0").play()')
-    failed = []
+  def simulate_play(self, player):
+    self.print('Playing', player)
+    self.run(f'players.get("{player}")._player.play()')
+
+  def assert_players_synced_to(self, expected_timestamp):
+    players = self.run('return Array.from(players.keys())')
+    assert len(players) > 0
     for player in players:
-      self.wait_for_state(player, 'PLAYING')
-      timestamp = self.run(f'return players.get("{player}").getCurrentTimestamp()')
-      if abs(timestamp - expected_timestamp) > 1000:
-        failed.append(player)
-    if len(failed) > 0:
-      raise AssertionError(', '.join(players) + f' was/were not within 1 second of expectation: {timestamp}, {expected_timestamp}, {timestamp - expected_timestamp}')
-    self.print('All videos synced to within 1 second of', expected_timestamp)
+      self.assert_player_position(player, expected_timestamp)
+    self.print('All players synced to within 1 second of', expected_timestamp)
+
+  def assert_player_position(self, player, expected_timestamp):
+    player_iframe = self.driver.find_element(By.CSS_SELECTOR, f'div[id="{player}"] > iframe')
+    self.driver.switch_to.frame(player_iframe)
+    duration = self.driver.find_element(By.CSS_SELECTOR, 'p[data-a-target="player-seekbar-current-time"]').text
+    self.driver.switch_to.default_content()
+    timestamp = self.run(f'return players.get("{player}").startTime') / 1000
+    timestamp += int(duration[0:2]) * 3600 # Hours
+    timestamp += int(duration[3:5]) *   60 # Minutes
+    timestamp += int(duration[6:8]) *    1 # Seconds
+    if abs(timestamp - expected_timestamp) > 1:
+      raise AssertionError(f'''
+{player} was not within 1 second of expectation.
+Expected: {datetime.fromtimestamp(expected_timestamp)}
+Actual:   {datetime.fromtimestamp(timestamp)}
+Delta:    {timestamp - expected_timestamp} seconds
+''')
 
   #############
   #!# Tests #!#
@@ -152,11 +163,11 @@ class UITests:
   VIDEO_2 = '2693277776'
   VIDEO_3 = '2693278320'
   VIDEO_4 = '2693281245'
-  VIDEO_0_START_TIME = 1745837098000
-  VIDEO_1_START_TIME = 1745837218000
-  VIDEO_2_START_TIME = 1770652140000
-  VIDEO_3_START_TIME = 1770652200000
-  VIDEO_4_START_TIME = 1770652500000
+  VIDEO_0_START_TIME = 1745837098 # 000
+  VIDEO_1_START_TIME = 1745837218 # 000
+  VIDEO_2_START_TIME = 1770652140 # 000
+  VIDEO_3_START_TIME = 1770652200 # 000
+  VIDEO_4_START_TIME = 1770652500 # 000
   ASYNC_ALIGN = 1500000000000
 
 
@@ -309,26 +320,28 @@ class UITests:
     player1_video_text.send_keys('test_channel_name')
     player1_form.submit()
     
-    # Since player0 is already loaded, we resync player1 to the existing timestamp.
+    # Since player0 is already loaded, we resync player1 to the existing timestamp (before its start)
     self.wait_for_state('player1', 'BEFORE_START')
-    self.assert_videos_synced_to(self.VIDEO_2_START_TIME)
+    self.assert_player_position('player0', self.VIDEO_2_START_TIME)
+    self.assert_player_position('player1', self.VIDEO_3_START_TIME)
 
     # We should find VIDEO_3, since it's the earliest video which overlaps the timeline. (neither video overlaps the playhead)
     assert self.run('return players.get("player1").videoId') == self.VIDEO_3
     assert self.run('return players.get("player1").nextVideoDetails') == None
     
-    time.sleep(5) # Not sure why this one is necessary tbqh.
-
     # Seek to the end of VIDEO_3 and confirm that we load the next video.
+    time.sleep(1)
     self.simulate_seek('player1', 220.0)
+    time.sleep(1)
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PAUSED')
-    self.assert_videos_synced_to(self.VIDEO_3_START_TIME + 220_000)
+    self.assert_players_synced_to(self.VIDEO_3_START_TIME + 220)
 
     assert self.run('return players.get("player1").videoId') == self.VIDEO_3
     assert self.run('return players.get("player1").nextVideoDetails.id') == self.VIDEO_4
 
     # There's about 20 seconds left in the second video, so it should end (and refresh) within 30 seconds.
+    self.simulate_play('player1')
     time.sleep(30)
     
     self.wait_for_state('player1', 'BEFORE_START')
