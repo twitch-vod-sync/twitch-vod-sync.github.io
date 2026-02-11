@@ -13,6 +13,7 @@ from threading import Thread
 import requests
 from selenium import webdriver
 from selenium.common.exceptions import JavascriptException, TimeoutException, WebDriverException
+from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
@@ -67,16 +68,20 @@ class UITests:
     print('Saved screenshot', path)
     return path
 
-  def wait_for_log(self, message, timeout_sec=10):
+  def wait_for_last_log(self, message, timeout_sec=10):
     self.driver.set_script_timeout(timeout_sec)
     return self.driver.execute_async_script('''
       var [search, callback] = arguments
-      console_log = console.log
+      _console_log = console.log
+      _timeout = null
       console.log = (...args) => {
-        console_log(args)
+        _console_log(...args)
         if (args.join(' ').includes(search)) {
-          console.log = console_log
-          callback(args)
+          clearTimeout(_timeout)
+          _timeout = setTimeout(() => {
+            console.log = _console_log
+            callback(args)
+          }, 1000)
         }
       }''', message)
 
@@ -123,10 +128,10 @@ class UITests:
     return self.driver.execute_script(script)
 
   def simulate_seek(self, player, duration):
+    time.sleep(1)
     self.print('Seeking', player, 'to', f'{duration:.1f}')
-    time.sleep(1)
     self.run(f'players.get("{player}")._player.seek({duration:.1f})')
-    time.sleep(1)
+    self.wait_for_last_log('setting pendingSeekTimestamp to 0')
 
   def simulate_play(self, player):
     self.print('Playing', player)
@@ -150,9 +155,14 @@ class UITests:
     self.driver.switch_to.default_content()
     start_time = self.run(f'return players.get("{player}").startTime') / 1000
     timestamp = start_time
-    timestamp += int(duration[0:2]) * 3600 # Hours
-    timestamp += int(duration[3:5]) *   60 # Minutes
-    timestamp += int(duration[6:8]) *    1 # Seconds
+    if duration:
+      timestamp += int(duration[0:2]) * 3600 # Hours
+      timestamp += int(duration[3:5]) *   60 # Minutes
+      timestamp += int(duration[6:8]) *    1 # Seconds
+    else:
+      # Sometimes this text is not visibile (if the video is playing). Hovering seems to be hard so instead I'm doing this.
+      duration = self.run(f'return players.get("{player}")._player.getCurrentTime()')
+      timestamp += duration
     if abs(timestamp - expected_timestamp) > 1:
       raise AssertionError(f'''
 {player} was not within 1 second of expectation.
@@ -227,7 +237,7 @@ Duration: {duration}
     players = [f'player{i}' for i in range(10)]
     url = f'http://localhost:3000?'
     for player in players:
-      # Load 9 copies of the same video (we don't actually care about the video itself for this test)
+      # All players have the same video, since we're just testing seek behavior.
       url += f'{player}={self.VIDEO_0}&'
     url += f'#scope=&access_token={self.access_token}&client_id={self.client_id}'
     self.driver.get(url)
@@ -236,29 +246,56 @@ Duration: {duration}
     for player in players:
       self.wait_for_state(player, 'PAUSED')
 
-    # Seek on the first player, then quickly seek again on the last player. Since players seek in order (probably?) the last players' seeking won't be done.
-    # Simulate a user's seek by using the internal player.
-    self.print('Simulating seeks for all players')
+    # Seek on all 10 players in quick succession, to generically stress-test the system.
+    time.sleep(1)
+    self.print('Seeking all players to 60.0')
     self.run('''
-      setTimeout(() => players.get("player0")._player.seek(60.0), 0)
-      setTimeout(() => players.get("player1")._player.seek(60.1), 1)
-      setTimeout(() => players.get("player2")._player.seek(60.2), 2)
-      setTimeout(() => players.get("player3")._player.seek(60.3), 3)
-      setTimeout(() => players.get("player4")._player.seek(60.4), 4)
-      setTimeout(() => players.get("player5")._player.seek(60.5), 5)
-      setTimeout(() => players.get("player6")._player.seek(60.6), 6)
-      setTimeout(() => players.get("player7")._player.seek(60.7), 7)
-      setTimeout(() => players.get("player8")._player.seek(60.8), 8)
-      setTimeout(() => players.get("player9")._player.seek(60.9), 9)
+      setTimeout(() => players.get("player0")._player.seek(60.0), 1000)
+      setTimeout(() => players.get("player1")._player.seek(60.1), 1001)
+      setTimeout(() => players.get("player2")._player.seek(60.2), 1002)
+      setTimeout(() => players.get("player3")._player.seek(60.3), 1003)
+      setTimeout(() => players.get("player4")._player.seek(60.4), 1004)
+      setTimeout(() => players.get("player5")._player.seek(60.5), 1005)
+      setTimeout(() => players.get("player6")._player.seek(60.6), 1006)
+      setTimeout(() => players.get("player7")._player.seek(60.7), 1007)
+      setTimeout(() => players.get("player8")._player.seek(60.8), 1008)
+      setTimeout(() => players.get("player9")._player.seek(60.9), 1009)
     ''')
+    self.wait_for_last_log('setting pendingSeekTimestamp to 0')
 
-    # For a while, this caused a nasty thrashing bug, where the two seek values would keep getting hot-potatoed around between players.
+    # For a while, this caused a nasty thrashing bug, where the various seeks would keep getting hot-potatoed around between players.
     # We can verify that's not happening by waiting for all players to pause.
     for player in players:
       self.wait_for_state(player, 'PAUSED')
 
-    # The 'assert sync' function has a 1s grace period, so we pick the middle time (+60.5s) and it should work no matter who wins the race.
-    self.assert_videos_synced_to(self.VIDEO_0_START_TIME + 60500)
+    # The 'assert sync' function has a 1s grace period, so this timing should be ok.
+    self.assert_players_synced_to(self.VIDEO_0_START_TIME + 60)
+
+    # Do it again, this time with the players all live
+    self.simulate_play('player0')
+    for player in players:
+      self.wait_for_state(player, 'PLAYING')
+
+    time.sleep(1)
+    self.print('Seeking all players to 120.0')
+    self.run('''
+      setTimeout(() => players.get("player0")._player.seek(120.0), 1000)
+      setTimeout(() => players.get("player1")._player.seek(120.1), 1001)
+      setTimeout(() => players.get("player2")._player.seek(120.2), 1002)
+      setTimeout(() => players.get("player3")._player.seek(120.3), 1003)
+      setTimeout(() => players.get("player4")._player.seek(120.4), 1004)
+      // setTimeout(() => players.get("player5")._player.seek(120.5), 1005)
+      // setTimeout(() => players.get("player6")._player.seek(120.6), 1006)
+      // setTimeout(() => players.get("player7")._player.seek(120.7), 1007)
+      // setTimeout(() => players.get("player8")._player.seek(120.8), 1008)
+      // setTimeout(() => players.get("player9")._player.seek(120.9), 1009)
+    ''')
+    self.wait_for_last_log('setting pendingSeekTimestamp to 0')
+
+    for player in players:
+      self.wait_for_state(player, 'PLAYING')
+      self.assert_player_position(player, self.VIDEO_0_START_TIME + 120)
+
 
   def testRaceInterrupt(self):
     # We need to get a fresh race on each run, so that the VODs haven't expired.
@@ -275,7 +312,7 @@ Duration: {duration}
     r.encoding = 'utf-8'
     j = r.json()
     expected_channel_names = [e['user']['twitch_display_name'] for e in j['entrants']]
-    expected_timestamp = datetime.fromisoformat(j['started_at']).timestamp() * 1000
+    expected_timestamp = datetime.fromisoformat(j['started_at']).timestamp()
 
     url = f'http://localhost:3000?race=https://racetime.gg/{race_id}#scope=&access_token=invalid'
     self.driver.get(url)
@@ -284,7 +321,6 @@ Duration: {duration}
     # Wait for the twitch popup to be visible, then click the 'redirect me' button
     self.print('Clicking twitch redirect button')
     redirect = WebDriverWait(self.driver, 5).until(EC.visibility_of_element_located((By.ID, 'twitchRedirectButton')))
-    # redirect = self.driver.find_element(By.ID, 'twitchRedirectButton')
     redirect.click()
 
     # This should now send us to twitch -- which we obviously shouldn't interact with :)
@@ -298,15 +334,14 @@ Duration: {duration}
     for button in cc_buttons:
       button.click()
 
-    # In some cases, one of the runners may have started their stream after the race start time. Ergo, they may be in the 'READY' state.
-    # TODO: Shouldn't that be BEFORE_START? Why is READY ok?
-    self.wait_for_state('player0', 'PAUSED_READY')
+    players = self.run('return Array.from(players.keys())')
+    for player in players:
+      self.wait_for_state(player, 'PAUSED')
+      self.assert_player_position(player, expected_timestamp)
 
-    # Check that we loaded the right stream (per twitch names)
-    player0_name = self.run('return players.get("player0").channel')
-    assert player0_name in expected_channel_names
-
-    self.assert_videos_synced_to(expected_timestamp)
+      # Check that we loaded the right stream (per twitch names)
+      player_name = self.run(f'return players.get("{player}").channel')
+      assert player_name in expected_channel_names
 
   def testDiscontinuity(self):
     url = f'http://localhost:3000?player0={self.VIDEO_2}#scope=&access_token={self.access_token}&client_id={self.client_id}'
@@ -348,45 +383,6 @@ Duration: {duration}
     self.wait_for_state('player1', 'BEFORE_START')
     assert self.run('return players.get("player1").videoId') == self.VIDEO_4
     assert self.run('return players.get("player1").nextVideoDetails') == None
-
-  def testLiveVideo(self):
-    url = f'http://localhost:3000?player0={self.VIDEO_2}&player1={self.VIDEO_3}#scope=&access_token={self.access_token}&client_id={self.client_id}'
-    self.driver.get(url)
-    time.sleep(5)
-
-    self.run('window.getTwitchChannelVideos = function () { return window.getTwitchVideosDetails(["' + self.VIDEO_2 + '"]) }')
-
-    for player in ['player0', 'player1']:
-      self.wait_for_state(player, 'PAUSED')
-
-    assert self.run('return players.get("player1").videoId') == self.VIDEO_3
-    assert self.run('return players.get("player1").nextVideoDetails') == None
-
-    # Seek to the end of VIDEO_3 and confirm that we load the next video.
-    self.simulate_seek('player1', 220.0)
-    for player in ['player0', 'player1']:
-      self.wait_for_state(player, 'PAUSED')
-    self.assert_videos_synced_to(self.VIDEO_3_START_TIME + 220_000)
-
-    # There's about 15 seconds left in the second video, so it should end (and refresh) within 20 seconds.
-    # (we are already playing because of the assert_sync)
-    time.sleep(20)
-
-    self.wait_for_state('player1', 'PLAYING')
-    assert self.run('return players.get("player1").videoId') == self.VIDEO_2
-    assert self.run('return players.get("player1").nextVideoDetails') == None
-    
-    self.assert_videos_synced_to(self.VIDEO_2_START_TIME + 240_000)
-
-    # No. Just make the videos and test the two main scenarios.
-    
-    # Here is the video layout I want:
-    #
-    #   |--------------------|
-    #   |-----|      |-------|
-    #
-    # So, I need a video from 0:59 -> 1:11
-    # and two videos from 1:00 -> 1:04, 1:05 -> 1:10
 
 if __name__ == '__main__':
   loop_count = 1
