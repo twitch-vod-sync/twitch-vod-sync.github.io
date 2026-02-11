@@ -116,7 +116,7 @@ class UITests:
     if event_log is None:
       event_log = []
     event_log += self.print_log
-    event_log.sort()
+    event_log.sort(key = lambda line: line.split('\t')[0])
     print('\n'.join(event_log))
 
   def run(self, script):
@@ -124,11 +124,17 @@ class UITests:
 
   def simulate_seek(self, player, duration):
     self.print('Seeking', player, 'to', f'{duration:.1f}')
+    time.sleep(1)
     self.run(f'players.get("{player}")._player.seek({duration:.1f})')
+    time.sleep(1)
 
   def simulate_play(self, player):
     self.print('Playing', player)
     self.run(f'players.get("{player}")._player.play()')
+
+  def simulate_pause(self, player):
+    self.print('Pausing', player)
+    self.run(f'players.get("{player}")._player.pause()')
 
   def assert_players_synced_to(self, expected_timestamp):
     players = self.run('return Array.from(players.keys())')
@@ -142,7 +148,8 @@ class UITests:
     self.driver.switch_to.frame(player_iframe)
     duration = self.driver.find_element(By.CSS_SELECTOR, 'p[data-a-target="player-seekbar-current-time"]').text
     self.driver.switch_to.default_content()
-    timestamp = self.run(f'return players.get("{player}").startTime') / 1000
+    start_time = self.run(f'return players.get("{player}").startTime') / 1000
+    timestamp = start_time
     timestamp += int(duration[0:2]) * 3600 # Hours
     timestamp += int(duration[3:5]) *   60 # Minutes
     timestamp += int(duration[6:8]) *    1 # Seconds
@@ -152,6 +159,8 @@ class UITests:
 Expected: {datetime.fromtimestamp(expected_timestamp)}
 Actual:   {datetime.fromtimestamp(timestamp)}
 Delta:    {timestamp - expected_timestamp} seconds
+startTime: {datetime.fromtimestamp(start_time)}
+Duration: {duration}
 ''')
 
   #############
@@ -188,36 +197,31 @@ Delta:    {timestamp - expected_timestamp} seconds
   def testSeek(self):
     url = f'http://localhost:3000?player0={self.VIDEO_0}&player1={self.VIDEO_1}#scope=&access_token={self.access_token}&client_id={self.client_id}'
     self.driver.get(url)
-    time.sleep(1)
 
     # Wait for all players to load and reach the 'pause' state
-    for player in ['player0', 'player1']:
-      self.wait_for_state(player, 'PAUSED')
-    time.sleep(1)
-
     # player1 is 2 minutes later than player2, so we should align to that
-    self.assert_videos_synced_to(self.VIDEO_1_START_TIME)
-    time.sleep(1)
-
-    self.run('players.get("player1")._player.pause()')
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PAUSED')
-    time.sleep(1)
+    self.assert_players_synced_to(self.VIDEO_1_START_TIME)
 
-    # Simulate a user's seek by using the internal player.
+    # Test seeking while players are paused (they should stay paused)
+    # player1 is 2 minutes later than player2, so we should align to that + the seek time
     self.simulate_seek('player1', 20.0)
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PAUSED')
-    time.sleep(1)
+    self.assert_players_synced_to(self.VIDEO_1_START_TIME + 20)
 
-    # player1 is 2 minutes later than player2, so we should align to that + the seek time
-    self.assert_videos_synced_to(self.VIDEO_1_START_TIME + 20_000)
-
-    # Test a seek while playing (videos are playing as part of the previous assert) which is beyond the buffer
-    self.simulate_seek('player0', 200.0)
+    # Resume the players, then test seeking while playing (they should stay playing)
+    self.simulate_play('player0')
     for player in ['player0', 'player1']:
-      self.wait_for_state(player, 'PAUSED')
-    time.sleep(1)
+      self.wait_for_state(player, 'PLAYING')
+    
+    # Test a seek while playing which is beyond the buffer
+    self.simulate_seek('player0', 240.0)
+
+    for player in ['player0', 'player1']:
+      self.wait_for_state(player, 'PLAYING')
+      self.assert_player_position(player, self.VIDEO_0_START_TIME + 240)
 
   def testSeekWhileSeeking(self):
     players = [f'player{i}' for i in range(10)]
@@ -307,7 +311,6 @@ Delta:    {timestamp - expected_timestamp} seconds
   def testDiscontinuity(self):
     url = f'http://localhost:3000?player0={self.VIDEO_2}#scope=&access_token={self.access_token}&client_id={self.client_id}'
     self.driver.get(url)
-    time.sleep(5)
 
     self.wait_for_state('player0', 'PAUSED')
 
@@ -330,9 +333,7 @@ Delta:    {timestamp - expected_timestamp} seconds
     assert self.run('return players.get("player1").nextVideoDetails') == None
     
     # Seek to the end of VIDEO_3 and confirm that we load the next video.
-    time.sleep(1)
     self.simulate_seek('player1', 220.0)
-    time.sleep(1)
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PAUSED')
     self.assert_players_synced_to(self.VIDEO_3_START_TIME + 220)
@@ -419,7 +420,6 @@ if __name__ == '__main__':
         traceback.print_exc()
         sys.exit(-1)
       finally:
-        time.sleep(1000)
         test_class.teardown()
 
       print('===', test[0], 'passed')

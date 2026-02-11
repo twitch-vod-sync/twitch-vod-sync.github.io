@@ -220,11 +220,13 @@ class TwitchPlayer extends Player {
         case READY: // A manual play on a 'ready' video (before other players have loaded)
         case BEFORE_START: // If the user attempts to play a video that's waiting at the start, just sync everyone to this.
           console.log('User has manually started', this.id, 'starting all players')
-          var timestamp = this.getCurrentTimestamp()
-          pendingSeekTimestamp = timestamp
-          pendingSeekSource = this.id
+          if (pendingSeekTimestamp == 0) {
+            var timestamp = this.getCurrentTimestamp()
+            pendingSeekTimestamp = timestamp
+            pendingSeekSource = this.id
+          }
           this.state = PLAYING
-          seekPlayersTo(timestamp, PLAYING)
+          seekPlayersTo(pendingSeekTimestamp, PLAYING)
           break
 
         case SEEKING_PAUSE: // However, if the video is currently seeking, we use the last seek target instead.
