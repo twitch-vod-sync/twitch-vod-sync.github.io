@@ -135,7 +135,7 @@ class UITests:
     assert len(players) > 0
     for player in players:
       self.assert_player_position(player, expected_timestamp)
-    self.print('All players synced to within 1 second of', expected_timestamp)
+    self.print('All players synced to within 1 second of', datetime.fromtimestamp(expected_timestamp))
 
   def assert_player_position(self, player, expected_timestamp):
     player_iframe = self.driver.find_element(By.CSS_SELECTOR, f'div[id="{player}"] > iframe')
@@ -163,27 +163,27 @@ Delta:    {timestamp - expected_timestamp} seconds
   VIDEO_2 = '2693277776'
   VIDEO_3 = '2693278320'
   VIDEO_4 = '2693281245'
-  VIDEO_0_START_TIME = 1745837098 # 000
-  VIDEO_1_START_TIME = 1745837218 # 000
-  VIDEO_2_START_TIME = 1770652140 # 000
-  VIDEO_3_START_TIME = 1770652200 # 000
-  VIDEO_4_START_TIME = 1770652500 # 000
-  ASYNC_ALIGN = 1500000000000
+  VIDEO_0_START_TIME = 1745837098
+  VIDEO_1_START_TIME = 1745837218
+  VIDEO_2_START_TIME = 1770652140
+  VIDEO_3_START_TIME = 1770652200
+  VIDEO_4_START_TIME = 1770652500
+  ASYNC_ALIGN = 1500000000_000
 
 
   # If we manually specify the offsets, they should be retained after loading.
   def testLoadWithOffsetsAndSyncStart(self):
-    player0offset = self.ASYNC_ALIGN + 30_000
-    player1offset = self.ASYNC_ALIGN + 60_000
+    player0offset = 30_000
+    player1offset = 60_000
     url = f'http://localhost:3000?player0={self.VIDEO_0}&offsetplayer0={player0offset}&player1={self.VIDEO_1}&offsetplayer1={player1offset}'
     self.driver.get(url)
 
     # Wait for all players to load and reach the 'pause' state
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PAUSED')
-
+      
     # player1 is later than player0, so we should align to that
-    self.assert_videos_synced_to(player1offset)
+    self.assert_players_synced_to((self.ASYNC_ALIGN + player1offset) / 1000)
 
   def testSeek(self):
     url = f'http://localhost:3000?player0={self.VIDEO_0}&player1={self.VIDEO_1}#scope=&access_token={self.access_token}&client_id={self.client_id}'
@@ -419,6 +419,7 @@ if __name__ == '__main__':
         traceback.print_exc()
         sys.exit(-1)
       finally:
+        time.sleep(1000)
         test_class.teardown()
 
       print('===', test[0], 'passed')

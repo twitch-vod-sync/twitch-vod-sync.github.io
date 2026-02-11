@@ -799,22 +799,25 @@ function refreshTimeline() {
   // There are two cases where we need to load another video after this one, and they are both handled by getBestVideo:
   // 1. If the video is a 'live VOD', and there is more content than when we loaded it originally
   // 2. If the stream went down, and there's another VOD which also overlaps the timeline
-  for (var player of players.values()) {
-    // Copy the loop variables to avoid javascript lambda-in-loop bug
-    ;((player) => {
-      if (player.nextVideoDetails != null) return // Already found a next video.
-      if (timestamp < player.endTime - 60000) return // Only search when we're 1 minute from the end of the video (or less)
+  // Note that this is only possible if we're authorized to talk to twitch.
+  if (FEATURES.DO_TWITCH_AUTH) {
+    for (var player of players.values()) {
+      // Copy the loop variables to avoid javascript lambda-in-loop bug
+      ;((player) => {
+        if (player.nextVideoDetails != null) return // Already found a next video.
+        if (timestamp < player.endTime - 60000) return // Only search when we're 1 minute from the end of the video (or less)
 
-      player.nextVideoDetails = {'id': 0} // Add a placeholder object so we only make this call once. (TODO: Is this correct? What if multiple VODs need reloading?)
-      
-      // N.B. we're using the player's endTime here, as opposed to the current playhead.
-      getBestVideo(player.channel, player.endTime)
-      .then(videoDetails => {
-        if (videoDetails == null) return // Should be impossible but who knows, maybe the twitch APIs fail.
-        else if (videoDetails.endTime != player._endTime) player.nextVideoDetails = videoDetails // Case 1
-        else if (videoDetails.id != player.videoId) player.nextVideoDetails = videoDetails // Case 2
-      })
+        player.nextVideoDetails = {'id': 0} // Add a placeholder object so we only make this call once. (TODO: Is this correct? What if multiple VODs need reloading?)
+        
+        // N.B. we're using the player's endTime here, as opposed to the current playhead.
+        getBestVideo(player.channel, player.endTime)
+        .then(videoDetails => {
+          if (videoDetails == null) return // Should be impossible but who knows, maybe the twitch APIs fail.
+          else if (videoDetails.endTime != player._endTime) player.nextVideoDetails = videoDetails // Case 1
+          else if (videoDetails.id != player.videoId) player.nextVideoDetails = videoDetails // Case 2
+        })
 
-    })(player)
+      })(player)
+    }
   }
 }
