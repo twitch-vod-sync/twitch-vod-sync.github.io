@@ -8,16 +8,20 @@ This is a web application that can play back multiple Twitch recordings (also kn
 This app is *not* for watching live streams. If you want to watch multiple livestreams at the same time, consider [MultiTwitch.tv](https://www.multitwitch.tv/) ([GitHub](https://github.com/bhamrick/multitwitch)) or Twitch's own "Squad Stream" mode.
 
 ## Features
-- Watch up to 6 streams at the same time (use the + and - buttons next to the timeline)
-- Enter streams by ID or by channel name (if you've already entered one video, it will find overlapping videos from another channel)
-  - You can also enter race URLs from racetime.gg and it will automatically load the top 6 finishes
+- Watch multiple VODs at the same time by using the + and - buttons next to the timeline
+- Enter a VOD url to load it and sync to the other VODs
+- Enter a channel name to automatically find a VOD from the appropriate time range
+- Enter a racetime.gg URL to load the top 4 finishers (in a random order)
 - Control streams using the native Twitch player controls (left/right, play/pause, or seek with the timeline)
 - Share the URL with others to share the same videos
 - The timeline will hide video end times by default (to avoid spoilers). You can click on the timeline and press 'h' to toggle this functionality.
 - The players can handle (with occasional hiccups) videos with significantly different lengths.
   - Videos will pause at their start and wait for other videos before starting automatically
   - Videos will pause if they reach the end and allow other videos to continue playing
-- You can manually re-align videos which were not simultanous with the "async" mode:
+- The players can handle (with occasional hiccups) stream downtime.
+  - If a video ends and there is a suitable next video, it will be loaded
+  - If a streamer is still live, and the vod ends, it will reload and resume
+- You can manually re-align videos which were not simultaneous with the "async" mode:
    - Click on the timeline and press "a"
    - Use each player's controls to adjust them to the same time (e.g. the start of the race)
    - Click on the timeline and press "a" again to confirm alignment

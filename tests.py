@@ -231,8 +231,11 @@ Duration: {duration}
     self.assert_players_synced_to(self.VIDEO_1_START_TIME + 20)
 
     # Resume the players, then test seeking while playing (they should stay playing)
-    self.simulate_play('player0')
-    self.simulate_play('player0')
+    print(self.run('return window.players'))
+    print(self.run('return window.players.get("player0")'))
+    print(self.run('return window.players.get("player0")._player'))
+    print(self.run('return window.players.get("player0")._player.play()'))
+    # self.simulate_play('player0')
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PLAYING')
     
@@ -421,7 +424,7 @@ if __name__ == '__main__':
         test[1]()
       except Exception:
         test_class.print_event_log()
-        test_class.print_chrome_log()
+        # test_class.print_chrome_log()
         test_class.screenshot()
         print('!!!', test[0], 'failed:')
         traceback.print_exc()
