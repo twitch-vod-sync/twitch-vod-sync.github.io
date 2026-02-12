@@ -145,7 +145,9 @@ class UITests:
   def simulate_play(self, player):
     self.print('Playing', player)
     player_iframe = self.driver.find_element(By.CSS_SELECTOR, f'div[id="{player}"] > iframe')
-    player_iframe.click()
+    self.driver.switch_to.frame(player_iframe)
+    self.driver.find_element(By.CSS_SELECTOR, 'button[data-a-target="player-overlay-play-button"]').click()
+    self.driver.switch_to.default_content()
     # Having some trouble with this, twitch is blocking "autoplay" because it thinks the player is hidden.
     # self.run(f'players.get("{player}")._player.play()')
 
@@ -234,10 +236,7 @@ Duration: {duration}
     self.assert_players_synced_to(self.VIDEO_1_START_TIME + 20)
 
     # Resume the players, then test seeking while playing (they should stay playing)
-    print(self.run('return window.players.get("player0")._player.play'))
-    print(self.run('console.log(window.players.get("player0"))'))
-    print(self.run('return window.players.get("player0")._player.play()'))
-    # self.simulate_play('player0')
+    self.simulate_play('player0')
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PLAYING')
 
