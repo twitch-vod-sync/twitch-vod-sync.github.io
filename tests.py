@@ -124,6 +124,15 @@ class UITests:
     event_log.sort(key = lambda line: line.split('\t')[0])
     print('\n'.join(event_log))
 
+  def print_chrome_log(self):
+    try:
+      for log in self.driver.get_log('browser'):
+        timestamp = datetime.fromtimestamp(log['timestamp'] / 1000).isoformat()
+        message = log['message'].encode('utf-8', errors='backslashreplace')
+        print(f'{timestamp}\t{message}')
+    except WebDriverException:
+      pass # Firefox, probably
+
   def run(self, script):
     return self.driver.execute_script(script)
 
@@ -412,6 +421,7 @@ if __name__ == '__main__':
         test[1]()
       except Exception:
         test_class.print_event_log()
+        test_class.print_chrome_log()
         test_class.screenshot()
         print('!!!', test[0], 'failed:')
         traceback.print_exc()
