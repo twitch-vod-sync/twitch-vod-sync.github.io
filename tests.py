@@ -230,7 +230,9 @@ Duration: {duration}
     self.assert_players_synced_to(self.VIDEO_1_START_TIME + 20)
 
     # Resume the players, then test seeking while playing (they should stay playing)
-    print(self.run('window.players.get("player0")._player.play()'))
+    time.sleep(5)
+    print(self.run('return window.players.get("player0")._player.play'))
+    print(self.run('return window.players.get("player0")._player.play()'))
     # self.simulate_play('player0')
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PLAYING')
