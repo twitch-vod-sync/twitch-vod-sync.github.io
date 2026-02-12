@@ -223,6 +223,7 @@ Duration: {duration}
 
     # Resume the players, then test seeking while playing (they should stay playing)
     self.simulate_play('player0')
+    self.simulate_play('player0')
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PLAYING')
     
