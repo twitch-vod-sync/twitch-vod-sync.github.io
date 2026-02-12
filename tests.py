@@ -12,6 +12,7 @@ from threading import Thread
 
 import requests
 from selenium import webdriver
+from selenium.webdriver import ActionChains
 from selenium.common.exceptions import JavascriptException, TimeoutException, WebDriverException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
@@ -143,7 +144,10 @@ class UITests:
 
   def simulate_play(self, player):
     self.print('Playing', player)
-    self.run(f'players.get("{player}")._player.play()')
+    player_iframe = self.driver.find_element(By.CSS_SELECTOR, f'div[id="{player}"] > iframe')
+    player_iframe.click()
+    # Having some trouble with this, twitch is blocking "autoplay" because it thinks the player is hidden.
+    # self.run(f'players.get("{player}")._player.play()')
 
   def simulate_pause(self, player):
     self.print('Pausing', player)
@@ -230,8 +234,8 @@ Duration: {duration}
     self.assert_players_synced_to(self.VIDEO_1_START_TIME + 20)
 
     # Resume the players, then test seeking while playing (they should stay playing)
-    time.sleep(5)
     print(self.run('return window.players.get("player0")._player.play'))
+    print(self.run('console.log(window.players.get("player0"))'))
     print(self.run('return window.players.get("player0")._player.play()'))
     # self.simulate_play('player0')
     for player in ['player0', 'player1']:
