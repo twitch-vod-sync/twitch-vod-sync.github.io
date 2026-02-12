@@ -13,7 +13,6 @@ from threading import Thread
 import requests
 from selenium import webdriver
 from selenium.common.exceptions import JavascriptException, TimeoutException, WebDriverException
-from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
@@ -209,7 +208,7 @@ Duration: {duration}
     # Wait for all players to load and reach the 'pause' state
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PAUSED')
-      
+
     # player1 is later than player0, so we should align to that
     self.assert_players_synced_to((self.ASYNC_ALIGN + player1offset) / 1000)
 
@@ -231,14 +230,11 @@ Duration: {duration}
     self.assert_players_synced_to(self.VIDEO_1_START_TIME + 20)
 
     # Resume the players, then test seeking while playing (they should stay playing)
-    print(self.run('return window.players'))
-    print(self.run('return window.players.get("player0")'))
-    print(self.run('return window.players.get("player0")._player'))
-    print(self.run('return window.players.get("player0")._player.play()'))
+    print(self.run('window.players.get("player0")._player.play()'))
     # self.simulate_play('player0')
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PLAYING')
-    
+
     # Test a seek while playing which is beyond the buffer
     self.simulate_seek('player0', 240.0)
 
@@ -370,7 +366,7 @@ Duration: {duration}
     player1_video_text = player1_form.find_element(By.NAME, 'video')
     player1_video_text.send_keys('test_channel_name')
     player1_form.submit()
-    
+
     # Since player0 is already loaded, we resync player1 to the existing timestamp (before its start)
     self.wait_for_state('player1', 'BEFORE_START')
     self.assert_player_position('player0', self.VIDEO_2_START_TIME)
@@ -379,7 +375,7 @@ Duration: {duration}
     # We should find VIDEO_3, since it's the earliest video which overlaps the timeline. (neither video overlaps the playhead)
     assert self.run('return players.get("player1").videoId') == self.VIDEO_3
     assert self.run('return players.get("player1").nextVideoDetails') == None
-    
+
     # Seek to the end of VIDEO_3 and confirm that we load the next video.
     self.simulate_seek('player1', 220.0)
     for player in ['player0', 'player1']:
@@ -392,7 +388,7 @@ Duration: {duration}
     # There's about 20 seconds left in the second video, so it should end (and refresh) within 30 seconds.
     self.simulate_play('player1')
     time.sleep(30)
-    
+
     self.wait_for_state('player1', 'BEFORE_START')
     assert self.run('return players.get("player1").videoId') == self.VIDEO_4
     assert self.run('return players.get("player1").nextVideoDetails') == None
