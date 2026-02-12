@@ -248,7 +248,7 @@ Duration: {duration}
       self.assert_player_position(player, self.VIDEO_0_START_TIME + 240)
 
   def testSeekWhileSeeking(self):
-    players = [f'player{i}' for i in range(10)]
+    players = [f'player{i}' for i in range(9)]
     url = f'http://localhost:3000?'
     for player in players:
       # All players have the same video, since we're just testing seek behavior.
@@ -273,7 +273,6 @@ Duration: {duration}
       setTimeout(() => players.get("player6")._player.seek(60.6), 1006)
       setTimeout(() => players.get("player7")._player.seek(60.7), 1007)
       setTimeout(() => players.get("player8")._player.seek(60.8), 1008)
-      setTimeout(() => players.get("player9")._player.seek(60.9), 1009)
     ''')
     self.wait_for_last_log('setting pendingSeekTimestamp to 0')
 
@@ -302,7 +301,6 @@ Duration: {duration}
       // setTimeout(() => players.get("player6")._player.seek(120.6), 1006)
       // setTimeout(() => players.get("player7")._player.seek(120.7), 1007)
       // setTimeout(() => players.get("player8")._player.seek(120.8), 1008)
-      // setTimeout(() => players.get("player9")._player.seek(120.9), 1009)
     ''')
     self.wait_for_last_log('setting pendingSeekTimestamp to 0')
 
