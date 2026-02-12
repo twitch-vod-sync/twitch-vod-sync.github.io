@@ -44,15 +44,15 @@ class UITests:
       import chromedriver_py
       options = webdriver.chrome.options.Options()
       options.add_argument('headless=new')
-      options.set_capability('goog:loggingPrefs', {'browser': 'ALL'})
+      options.add_argument("--window-size=2560,1440")
       service = webdriver.chrome.service.Service(
         executable_path=chromedriver_py.binary_path,
-        service_args=['--log-level=ALL'],
       )
       self.driver = webdriver.Chrome(options=options, service=service)
     else:
       options = webdriver.firefox.options.Options()
-      options.log.level = 'trace'
+      options.add_argument("--width=2560")
+      options.add_argument("--height=1440")
       service = webdriver.firefox.service.Service(
         executable_path=Path(__file__).with_name('geckodriver.exe'),
       )
