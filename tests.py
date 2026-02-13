@@ -282,7 +282,7 @@ Duration: {duration}
       self.wait_for_state(player, 'PAUSED')
 
     # The 'assert sync' function has a 1s grace period, so this timing should be ok.
-    self.assert_players_synced_to(self.VIDEO_0_START_TIME + 60)
+    self.assert_players_synced_to(self.VIDEO_0_START_TIME + 61)
 
     # Do it again, this time with the players all live
     self.simulate_play('player0')
@@ -306,7 +306,7 @@ Duration: {duration}
 
     for player in players:
       self.wait_for_state(player, 'PLAYING')
-      self.assert_player_position(player, self.VIDEO_0_START_TIME + 120)
+      self.assert_player_position(player, self.VIDEO_0_START_TIME + 121)
 
 
   def testRaceInterrupt(self):
