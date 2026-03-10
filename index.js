@@ -416,8 +416,9 @@ function searchVideo(event) {
     }
 
     showText(playerId, 'Loading channel videos...')
-    getBestVideo(m[1], getAveragePlayerTimestamp())
-    .then(bestVideo => {
+    getTwitchChannelVideos(m[1])
+    .then(videos => {
+      var bestVideo = getBestVideo(videos, getAveragePlayerTimestamp())
       if (bestVideo == null) {
         console.log('No video found, showing picker')
         showVideoPicker(playerId, videos)
@@ -433,40 +434,38 @@ function searchVideo(event) {
   showText(playerId, 'Could not parse input "' + formText + '"', /*isError*/true)
 }
 
-function getBestVideo(channel, currentTimestamp) {
+function getBestVideo(videos, currentTimestamp) {
   var [timelineStart, timelineEnd] = getTimelineBounds()
-  return getTwitchChannelVideos(channel)
-  .then(videos => {
-    var overlappingVideos = []
-    for (var video of videos) {
-      // We are looking to see if our video overlaps the timeline.
-      // First, check to see if the timeline surrounds our video's start time.
-      // Second, check to see if our video surrounds the timeline's start time.
-      if (timelineStart <= video.startTime && video.startTime <= timelineEnd) {
-        overlappingVideos.push(video)
-      } else if (video.startTime <= timelineStart && timelineStart <= video.endTime) {
-        overlappingVideos.push(video)
-      }
+  var overlappingVideos = []
+  for (var video of videos) {
+    // We are looking to see if our video overlaps the timeline.
+    // First, check to see if the timeline surrounds our video's start time.
+    // Second, check to see if our video surrounds the timeline's start time.
+    if (timelineStart <= video.startTime && video.startTime <= timelineEnd) {
+      overlappingVideos.push(video)
+    } else if (video.startTime <= timelineStart && timelineStart <= video.endTime) {
+      overlappingVideos.push(video)
     }
+  }
 
-    // If we have no timeline (or there was no overlap), show a video picker so the user can select what they want.
-    if (overlappingVideos.length === 0) return null
+  // If we have no timeline (or there was no overlap), error so the caller can take a smart action
+  // (e.g. showing a picker so the user can select what they want)
+  if (overlappingVideos.length === 0) return null
 
-    // In theory these should always come in sequential order from the Twitch APIs, but let's sort just to be sure.
-    overlappingVideos.sort((a, b) => a.startTime - b.startTime)
+  // In theory these should always come in sequential order from the Twitch APIs, but let's sort just to be sure.
+  overlappingVideos.sort((a, b) => a.startTime - b.startTime)
 
-    // Now that we've filtered the videos, pick the one that best suits the user's intention.
-    // First, check to see if there's a video which overlaps the current timestamp (there can only be one of these)
-    var overlapsPlayhead = overlappingVideos.find(video => (video.startTime < currentTimestamp && currentTimestamp < video.endTime))
-    if (overlapsPlayhead != null) return overlapsPlayhead
+  // Now that we've filtered the videos, pick the one that best suits the user's intention.
+  // First, check to see if there's a video which overlaps the current timestamp (there can only be one of these)
+  var overlapsPlayhead = overlappingVideos.find(video => (video.startTime < currentTimestamp && currentTimestamp < video.endTime))
+  if (overlapsPlayhead != null) return overlapsPlayhead
 
-    // If there's no video which matches the current playhead, then find the next video after the playhead
-    var upcomingVideo = overlappingVideos.find(video => (video.startTime > currentTimestamp))
-    if (upcomingVideo != null) return upcomingVideo
+  // If there's no video which matches the current playhead, then find the next video after the playhead
+  var upcomingVideo = overlappingVideos.find(video => (video.startTime > currentTimestamp))
+  if (upcomingVideo != null) return upcomingVideo
 
-    // Finally, use the first (earliest) video in the list.
-    return overlappingVideos[0]
-  })
+  // Finally, use the first (earliest) video in the list.
+  return overlappingVideos[0]
 }
 
 function showVideoPicker(playerId, videos) {
@@ -795,7 +794,7 @@ function refreshTimeline() {
       player.play()
     }
   }
-  
+
   // This is also a convenient moment to check if any players are about to end, and look for a next video.
   // There are two cases where we need to load another video after this one, and they are both handled by getBestVideo:
   // 1. If the video is a 'live VOD', and there is more content than when we loaded it originally
@@ -809,10 +808,11 @@ function refreshTimeline() {
         if (timestamp < player.endTime - 60000) return // Only search when we're 1 minute from the end of the video (or less)
 
         player.nextVideoDetails = {'id': 0} // Add a placeholder object so we only make this call once. (TODO: Is this correct? What if multiple VODs need reloading?)
-        
+
         // N.B. we're using the player's endTime here, as opposed to the current playhead.
-        getBestVideo(player.channel, player.endTime)
-        .then(videoDetails => {
+        getTwitchChannelVideos(player.channel)
+        .then(videos => {
+          var videoDetails = getBestVideo(videos, player.endTime)
           if (videoDetails == null) return // Should be impossible but who knows, maybe the twitch APIs fail.
           else if (videoDetails.endTime != player._endTime) player.nextVideoDetails = videoDetails // Case 1
           else if (videoDetails.id != player.videoId) player.nextVideoDetails = videoDetails // Case 2

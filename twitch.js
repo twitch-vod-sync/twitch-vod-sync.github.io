@@ -132,7 +132,7 @@ window.getTwitchChannelVideos = function(channelName) {
     return r.json()
   })
   .then(r => {
-    if (r.data.length === 0) return Promise.reject('Did not find any videos for twitch channel ' + channelName)
+    if (r.data.length === 0) return Promise.reject('Succesfully loaded channel ' + channelName + ' but could not find any past broadcasts')
     return r.data.map(video => parseVideo(video))
   })
 }
