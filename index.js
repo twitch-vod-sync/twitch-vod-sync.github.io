@@ -14,7 +14,7 @@ const ASYNC_ALIGN = 1500000000000
 // Will be nonzero after a seek, returns to zero once all videos have finished seeking
 var pendingSeekTimestamp = 0
 var pendingSeekSource = null // Will be the ID of the player ('player0') if the seek originated from a player. Will be 'keyboard' if from larr/rarr.
-var currentQuality = null
+var currentQuality = null // Keep track of the current requested video quality, so that we can downcycle if the user needs it.
 
 window.onload = function() {
   // There's a small chance we didn't get a 'page closing' event fired, so if this setting is still set and we have a token,
