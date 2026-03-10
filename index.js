@@ -418,10 +418,11 @@ function searchVideo(event) {
     showText(playerId, 'Loading channel videos...')
     getBestVideo(m[1], getAveragePlayerTimestamp())
     .then(bestVideo => {
-      console.log('Found best video for', playerId, bestVideo.id)
       if (bestVideo == null) {
+        console.log('No video found, showing picker')
         showVideoPicker(playerId, videos)
       } else {
+        console.log('Found best video for', playerId, bestVideo.id)
         loadVideos(playerId, [bestVideo], TWITCH)
       }
     })
@@ -821,3 +822,4 @@ function refreshTimeline() {
     }
   }
 }
+
