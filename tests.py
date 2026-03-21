@@ -210,6 +210,7 @@ Duration: {duration}
     player1offset = 60_000
     url = f'http://localhost:3000?player0={self.VIDEO_0}&offsetplayer0={player0offset}&player1={self.VIDEO_1}&offsetplayer1={player1offset}'
     self.driver.get(url)
+    time.sleep(10)
 
     # Wait for all players to load and reach the 'pause' state
     for player in ['player0', 'player1']:
@@ -423,7 +424,6 @@ if __name__ == '__main__':
         test[1]()
       except Exception:
         test_class.print_event_log()
-        # test_class.print_chrome_log()
         test_class.screenshot()
         print('!!!', test[0], 'failed:')
         traceback.print_exc()
