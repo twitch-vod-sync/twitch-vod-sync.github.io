@@ -571,7 +571,7 @@ function loadVideos(playerId, videos, playerType) {
 
         console.log(thisPlayer.id, 'was last to load, syncing all videos to', syncTo)
         seekPlayersTo(syncTo, PAUSED)
-      }, 1000)
+      }, 2000)
     }
   }
 }
