@@ -210,7 +210,6 @@ Duration: {duration}
     player1offset = 60_000
     url = f'http://localhost:3000?player0={self.VIDEO_0}&offsetplayer0={player0offset}&player1={self.VIDEO_1}&offsetplayer1={player1offset}'
     self.driver.get(url)
-    time.sleep(10)
 
     # Wait for all players to load and reach the 'pause' state
     for player in ['player0', 'player1']:
