@@ -85,8 +85,11 @@ class TwitchPlayer extends Player {
   onPlayerReady() {
     // Only hook events once the player has loaded, so we don't have to worry about events in the LOADING state.
     this._player.addEventListener('seek', (eventData) => {
-      // Twitch sends a seek event immediately after the video is ready, which isn't a seek we're expecting to process.
-      if (this.state === READY && (eventData.position === 0 || eventData.position === 0.01)) return
+      // Twitch sends a seek event after the video is ready, to jump to your 'last watched' timestamp.
+      if (this.state === READY) {
+        console.log('Ignored twitch seek event while in state READY', eventData.position)
+        return
+      }
       var seekMillis = Math.floor(eventData.position * 1000)
       this.eventSink('seek', seekMillis)
     })

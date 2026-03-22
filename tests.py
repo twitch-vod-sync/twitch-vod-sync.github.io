@@ -421,6 +421,7 @@ if __name__ == '__main__':
       print('---', test[0], 'started, attempt', i + 1)
       try:
         test[1]()
+        test_class.print_event_log()
       except Exception:
         test_class.print_event_log()
         test_class.screenshot()
