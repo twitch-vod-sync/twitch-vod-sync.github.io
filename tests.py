@@ -40,6 +40,7 @@ class UITests:
     self.tmp_folder = Path(os.environ.get('RUNNER_TEMP', Path.home() / 'AppData/Local/Temp'))
 
   def setup(self):
+    self.print_log = []
     if 'CI' in os.environ:
       import chromedriver_py
       options = webdriver.chrome.options.Options()
@@ -109,7 +110,6 @@ class UITests:
       }, 10)
       ''' % state, timeout_sec * 100, player)
 
-  print_log = []
   def print(self, *args):
     timestamp = datetime.now(timezone.utc).isoformat()
     message = '\t'.join([timestamp, *map(str, args)])
