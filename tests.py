@@ -405,6 +405,7 @@ if __name__ == '__main__':
   http_server.start()
 
   for test in tests:
+    failures = 0
     for i in range(loop_count):
       print('---', test[0], 'started, attempt', i + 1)
       test_class.setup()
@@ -414,8 +415,11 @@ if __name__ == '__main__':
         test_class.screenshot()
         print('!!!', test[0], 'failed:')
         traceback.print_exc()
+        failures = += 1
       finally:
         test_class.teardown()
 
+      if failures > 0:
+        sys.exit(1)
       print('===', test[0], 'passed')
   print('\nAll tests passed')
