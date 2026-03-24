@@ -412,6 +412,7 @@ if __name__ == '__main__':
       test_class.setup()
       try:
         test[1]()
+        print('===', test[0], 'passed')
       except Exception:
         test_class.screenshot()
         print('!!!', test[0], 'failed:')
@@ -420,7 +421,7 @@ if __name__ == '__main__':
       finally:
         test_class.teardown()
 
-      if failures > 0:
-        sys.exit(1)
-      print('===', test[0], 'passed')
+    if failures > 0:
+      print(failures, 'failures out of', loop_count, 'attempts')
+      sys.exit(1)
   print('\nAll tests passed')
