@@ -593,18 +593,20 @@ var raceStartTime = null
 function loadRace(raceDetails) {
   raceStartTime = raceDetails.startTime
 
-  // We load a video from the race for each player which is visible (down to a minimum of 4).
-  // This means the user can add more placeholders before loading a race to request more videos out of it.
-  // However, we won't overwrite any already-loaded videos (e.g. if the user already has an async loaded up).
-  var videosToLoad = Math.max(4, document.getElementById('players').childElementCount) - players.size
-
   // Add the race URL to the query params in case we haven't done twitch auth yet;
   // we might get redirected to twitch while loading videos and lose the race details.
   var params = new URLSearchParams(window.location.search)
   params.set('race', raceDetails.url)
   history.pushState(null, null, '?' + params.toString())
 
-  loadRaceVideos(raceDetails, videosToLoad)
+  // We load a video from the race for each player which is visible (down to a minimum of 4).
+  // This means the user can add more placeholders before loading a race to request more videos out of it.
+  // However, we won't overwrite any already-loaded videos (e.g. if the user already has an async loaded up).
+  var videosToLoad = Math.max(4, document.getElementById('players').childElementCount) - players.size
+  // We also need to pass down the channels who are already loaded, so we don't show them again.
+  var loadedVideos = new Set(window.players.values().map(p => p.videoId))
+
+  loadRaceVideos(raceDetails, videosToLoad, loadedVideos)
   .then(videos => {
     if (videos.length === 0) {
       console.error('Failed to load any videos from race', raceDetails.url)

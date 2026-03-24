@@ -60,6 +60,12 @@ class UITests:
       self.driver = webdriver.Firefox(options=options, service=service)
 
   def teardown(self):
+    event_log = self.driver.execute_script('return window.eventLog')
+    if event_log is None:
+      event_log = []
+    event_log += self.print_log
+    event_log.sort(key = lambda line: line.split('\t')[0])
+    print('\n'.join(event_log))
     self.driver.close()
 
   def screenshot(self):
@@ -116,23 +122,6 @@ class UITests:
     self.print_log.append(message)
     print(message)
 
-  def print_event_log(self):
-    event_log = self.driver.execute_script('return window.eventLog')
-    if event_log is None:
-      event_log = []
-    event_log += self.print_log
-    event_log.sort(key = lambda line: line.split('\t')[0])
-    print('\n'.join(event_log))
-
-  def print_chrome_log(self):
-    try:
-      for log in self.driver.get_log('browser'):
-        timestamp = datetime.fromtimestamp(log['timestamp'] / 1000).isoformat()
-        message = log['message'].encode('utf-8', errors='backslashreplace')
-        print(f'{timestamp}\t{message}')
-    except WebDriverException:
-      pass # Firefox, probably
-
   def run(self, script):
     return self.driver.execute_script(script)
 
@@ -144,12 +133,12 @@ class UITests:
 
   def simulate_play(self, player):
     self.print('Playing', player)
+    # This is using Selenium to *actually* click on the play button,
+    # because twitch was blocking "autoplay" because it thinks the player is hidden.
     player_iframe = self.driver.find_element(By.CSS_SELECTOR, f'div[id="{player}"] > iframe')
     self.driver.switch_to.frame(player_iframe)
     self.driver.find_element(By.CSS_SELECTOR, 'button[data-a-target="player-overlay-play-button"]').click()
     self.driver.switch_to.default_content()
-    # Having some trouble with this, twitch is blocking "autoplay" because it thinks the player is hidden.
-    # self.run(f'players.get("{player}")._player.play()')
 
   def simulate_pause(self, player):
     self.print('Pausing', player)
@@ -221,6 +210,7 @@ Duration: {duration}
   def testSeek(self):
     url = f'http://localhost:3000?player0={self.VIDEO_0}&player1={self.VIDEO_1}#scope=&access_token={self.access_token}&client_id={self.client_id}'
     self.driver.get(url)
+    self.wait_for_iframes()
 
     # Wait for all players to load and reach the 'pause' state
     # player1 is 2 minutes later than player2, so we should align to that
@@ -417,13 +407,11 @@ if __name__ == '__main__':
 
   for test in tests:
     for i in range(loop_count):
-      test_class.setup()
       print('---', test[0], 'started, attempt', i + 1)
+      test_class.setup()
       try:
         test[1]()
-        test_class.print_event_log()
       except Exception:
-        test_class.print_event_log()
         test_class.screenshot()
         print('!!!', test[0], 'failed:')
         traceback.print_exc()
