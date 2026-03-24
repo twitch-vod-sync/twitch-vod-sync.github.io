@@ -74,6 +74,11 @@ class UITests:
     self.driver.save_screenshot(path)
     print('Saved screenshot', path)
     return path
+    
+  def wait_for_iframes_to_load(self):
+    for iframe in self.driver.find_elements(By.TAG_NAME, 'iframe'):
+      wait(self.driver, 10).until(EC.frame_to_be_available_and_switch_to_it(iframe))
+      self.driver.switch_to.default_content()
 
   def wait_for_last_log(self, message, timeout_sec=10):
     self.driver.set_script_timeout(timeout_sec)
@@ -210,7 +215,7 @@ Duration: {duration}
   def testSeek(self):
     url = f'http://localhost:3000?player0={self.VIDEO_0}&player1={self.VIDEO_1}#scope=&access_token={self.access_token}&client_id={self.client_id}'
     self.driver.get(url)
-    self.wait_for_iframes()
+    self.wait_for_iframes_to_load()
 
     # Wait for all players to load and reach the 'pause' state
     # player1 is 2 minutes later than player2, so we should align to that
