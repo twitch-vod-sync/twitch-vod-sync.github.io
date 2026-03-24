@@ -415,7 +415,7 @@ if __name__ == '__main__':
         test_class.screenshot()
         print('!!!', test[0], 'failed:')
         traceback.print_exc()
-        failures = += 1
+        failures += 1
       finally:
         test_class.teardown()
 
