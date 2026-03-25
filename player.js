@@ -144,20 +144,22 @@ class TwitchPlayer extends Player {
     if (pendingSeekTimestamp > 0 && pendingSeekSource == this.id) return
 
     if (timestamp < this.startTime) {
-      console.log('Attempted to seek', this.id, 'before the startTime, seeking start instead', timestamp, this.startTime)
       var durationSeconds = 0.001 // I think seek(0) does something wrong, so.
+      console.log('Attempted to seek', this.id, 'before the startTime, seeking start instead', timestamp, this.startTime, durationSeconds)
       this.state = SEEKING_START
       this._player.pause()
       this._player.seek(durationSeconds)
     // If we try to seek past the end time (and the end time is known), instead pause the video near the end.
     } else if (this._endTime != null && timestamp >= this.endTime - VIDEO_END_BUFFER) {
       var durationSeconds = (this.endTime - this.startTime - VIDEO_END_BUFFER) / 1000.0
+      console.log('Attempted to seek', this.id, 'after the endTime, seeking (end - 15) instead', timestamp, this.endTime, durationSeconds)
       this.state = SEEKING_END
       this._player.pause()
       this._player.seek(durationSeconds)
     } else {
       var durationSeconds = (timestamp - this.startTime) / 1000.0
       if (durationSeconds === 0) durationSeconds = 0.001 // I think seek(0) does something wrong, so.
+      console.log('Seeking', this.id, 'to timestamp', timestamp, 'aka', durationSeconds, 'and target state', targetState)
 
       if (targetState === PAUSED) {
         // We don't want to pause videos which are already paused. It can cause weird behaviors if a seek is interspersed.
