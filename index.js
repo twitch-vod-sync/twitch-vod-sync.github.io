@@ -539,39 +539,33 @@ function loadVideos(playerId, videos, playerType) {
       thisPlayer.seekTo(timestamp, PLAYING)
     } else if (anyVideoIsPaused) {
       console.log(thisPlayer.id, 'loaded while all other videos were paused, aligning it to the current time')
-      // Delay to account for twitch seeking to 'last played' (which we don't want in this case)
       var timestamp = getAveragePlayerTimestamp()
-      window.setTimeout(() => {
-        thisPlayer.seekTo(timestamp, PAUSED)
-      }, 1000)
+      thisPlayer.seekTo(timestamp, PAUSED)
     } else if (!anyVideoStillLoading) {
-      // Slight delay so twitch can seek videos to their 'last played'.
-      window.setTimeout(() => {
-        // By default, we sync all videos to the earliest valid timestamp in all videos.
-        var syncTo = 0
-        for (var player of players.values()) {
-          if (player.startTime > syncTo) syncTo = player.startTime
-        }
-        console.log('Found earliest sync time', syncTo)
+      // By default, we sync all videos to the earliest valid timestamp in all videos.
+      var syncTo = 0
+      for (var player of players.values()) {
+        if (player.startTime > syncTo) syncTo = player.startTime
+      }
+      console.log('Found earliest sync time', syncTo)
 
-        if (raceStartTime > syncTo) {
-          // If we loaded from a race (and at least one race participant was started), switch to the race start time.
-          syncTo = raceStartTime
-          console.log('Loaded from a race, overwriting sync time to', raceStartTime)
-        } else {
-          // If we loaded from video IDs (or anything else), check if any video is > 1 minute past the start time, and sync to that.
-          for (var player of players.values()) {
-            var timestamp = player.getCurrentTimestamp()
-            if (timestamp > syncTo + 60000) {
-              console.log('Found a player with a saved playback state, adjusting sync time to', timestamp)
-              syncTo = timestamp
-            }
+      if (raceStartTime > syncTo) {
+        // If we loaded from a race, and the race start time is past the earliest sync, switch to the race start time.
+        syncTo = raceStartTime
+        console.log('Loaded from a race, overwriting sync time to', raceStartTime)
+      } else {
+        // If we loaded from video IDs (or anything else), check if any video is > 1 minute past the start time, and sync to that.
+        for (var player of players.values()) {
+          var timestamp = player.getCurrentTimestamp()
+          if (timestamp > syncTo + 60000) {
+            console.log('Found a player with a saved playback state, adjusting sync time to', timestamp)
+            syncTo = timestamp
           }
         }
+      }
 
-        console.log(thisPlayer.id, 'was last to load, syncing all videos to', syncTo)
-        seekPlayersTo(syncTo, PAUSED)
-      }, 2000)
+      console.log(thisPlayer.id, 'was last to load, syncing all videos to', syncTo)
+      seekPlayersTo(syncTo, PAUSED)
     }
   }
 }

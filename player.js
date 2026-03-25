@@ -86,8 +86,9 @@ class TwitchPlayer extends Player {
     // Only hook events once the player has loaded, so we don't have to worry about events in the LOADING state.
     this._player.addEventListener('seek', (eventData) => {
       // Twitch sends a seek event after the video is ready, to jump to your 'last watched' timestamp.
-      if (this.state === READY) {
-        console.log('Ignored twitch seek event while in state READY', eventData.position)
+      if (this.state === LOADING) {
+        console.log('Player', this.id, 'got initial twitch seek event, calling onready')
+        this.onready(this) // Callback into index.js, passing the player object
         return
       }
       var seekMillis = Math.floor(eventData.position * 1000)
@@ -106,8 +107,6 @@ class TwitchPlayer extends Player {
     // I did not end up using the 'playing' event -- for the most part, twitch pauses videos when the buffer runs out,
     // which is a sufficient signal to sync up the videos again (although they don't start playing automatically again).
     this._player.addEventListener('playing', () => this.eventSink('test_playing'))
-
-    this.onready(this) // Callback into index.js, passing the player object
   }
 
   get startTime() { return this._startTime + this.offset }
