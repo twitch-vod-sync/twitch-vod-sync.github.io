@@ -91,6 +91,10 @@ class TwitchPlayer extends Player {
         this.onready(this) // Callback into index.js, passing the player object
         return
       }
+      if (eventData.position = 0.01) {
+        console.log(this.id, 'theoretical fix for random twitch seeks')
+        return
+      }
       var seekMillis = Math.floor(eventData.position * 1000)
       this.eventSink('seek', seekMillis)
     })
