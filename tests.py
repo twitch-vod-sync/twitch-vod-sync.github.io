@@ -204,6 +204,7 @@ Duration: {duration}
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PAUSED')
     self.screenshot()
+    time.sleep(5)
 
     # player1 is later than player0, so we should align to that
     self.assert_players_synced_to((self.ASYNC_ALIGN + player1offset) / 1000)
