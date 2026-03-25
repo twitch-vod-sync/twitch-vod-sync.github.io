@@ -72,7 +72,7 @@ class UITests:
     self.screenshot_no += 1
     path = Path(self.tmp_folder / f'{self.screenshot_no:03}.png')
     self.driver.save_screenshot(path)
-    print('Saved screenshot', path)
+    self.print('Saved screenshot', path)
     return path
     
   def wait_for_last_log(self, message, timeout_sec=10):
@@ -230,7 +230,9 @@ Duration: {duration}
       self.wait_for_state(player, 'PLAYING')
 
     # Test a seek while playing which is beyond the buffer
+    self.screenshot()
     self.simulate_seek('player0', 240.0)
+    self.screenshot()
 
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PLAYING')
@@ -406,22 +408,22 @@ if __name__ == '__main__':
   http_server.start()
 
   for test in tests:
-    failures = 0
-    for i in range(loop_count):
-      print('---', test[0], 'started, attempt', i + 1)
+    failures = []
+    for i in range(1, loop_count + 1):
+      print('---', test[0], 'started, attempt', i)
       test_class.setup()
       try:
         test[1]()
-        print('===', test[0], 'passed')
+        print('===', test[0], 'attempt', i, 'passed')
       except Exception:
         test_class.screenshot()
-        print('!!!', test[0], 'failed:')
+        print('!!!', test[0], 'attempt', i, 'failed:')
         traceback.print_exc()
-        failures += 1
+        failures.append(i)
       finally:
         test_class.teardown()
 
-    if failures > 0:
-      print(failures, 'failures out of', loop_count, 'attempts')
+    if failures:
+      print('Failed attempts:', failures, 'out of', loop_count, 'total')
       sys.exit(1)
   print('\nAll tests passed')
