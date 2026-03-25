@@ -309,19 +309,16 @@ class TwitchPlayer extends Player {
             break
           } else {
             // In some cases, we already have the next video queued up, and want to load that up to play instead of going through the restart loop.
-            this._player.setVideo(null)
+            console.log(this.id, 'reached the end of the timeline with another video queued, starting', this.nextVideoDetails.id)
             this.state = LOADING
             // We need to return control to the main loop for Twitch to unload properly.
-            setTimeout(() => {
-              this._startTime = this.nextVideoDetails.startTime
-              this._endTime = this.nextVideoDetails.endTime
-              this.videoId = this.nextVideoDetails.id
-              this._player.setVideo(this.nextVideoDetails.id)
-              this.nextVideoDetails = null
-              // Twitch does not call our onPlayerLoaded callback, and we don't need to reattach the event listeners.
-              // Just fire the callback into the index.js onready function after a short delay.
-              setTimeout(() => this.onready(this), 1000)
-            }, 10)
+            this._startTime = this.nextVideoDetails.startTime
+            this._endTime = this.nextVideoDetails.endTime
+            this.videoId = this.nextVideoDetails.id
+            this._player.setVideo(this.nextVideoDetails.id)
+            this.nextVideoDetails = null
+            // Twitch does not call our onPlayerReady callback, but we will get an initial seek event.
+            // Since we've switched to the loading state, this will fire our onReady callback appropriately.
             break
           }
 
