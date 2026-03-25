@@ -87,7 +87,7 @@ class TwitchPlayer extends Player {
     this._player.addEventListener('seek', (eventData) => {
       // Twitch sends a seek event after the video is ready, to jump to your 'last watched' timestamp.
       if (this.state === LOADING) {
-        console.log('Player', this.id, 'got initial twitch seek event, calling onready')
+        console.log(this.id, 'got initial twitch seek to', eventData.position, 'calling onready')
         this.onready(this) // Callback into index.js, passing the player object
         return
       }
