@@ -94,37 +94,32 @@ class UITests:
 
   def wait_for_state(self, player, state, timeout_sec=30):
     try:
-      self.driver.set_script_timeout(timeout_sec + 1)
+      self.driver.set_script_timeout(timeout_sec)
       return self.driver.execute_async_script('''
-        var targetState = "%s"
-        var [maxLoops, player, callback] = arguments
+        var [targetState, player, callback] = arguments
         var interval = setInterval(() => {
           var currentState = players.has(player) ? players.get(player).state : null
           if (targetState.includes(String(currentState))) {
             var playbackState = players.get(player)._player.getPlayerState().playback
             if (playbackState === 'Buffering') {
-              console.warn('State reached but player still buffering')
+              console.log('WARNING', player, 'reached', String(targetState), 'but was still buffering')
             } else {
               clearInterval(interval)
-              console.log(player, 'has reached', String(targetState), 'within', arguments[0], 'loops. PlaybackState was', playbackState)
+              console.log(player, 'reached state', String(targetState), 'final PlaybackState was', playbackState)
               callback()
             }
           }
-          if (--maxLoops == 0) {
-            console.error(player, 'did not enter state', String(targetState), 'within', arguments[0], 'loops. Final state was', String(currentState))
-            clearInterval(interval)
-          }
         }, 10)
-        ''' % state, timeout_sec * 100, player)
+        ''', state, player)
     except TimeoutException:
       final_state = self.driver.execute_script(f'return players.get("{player}").state')
-      self.print('Script timed out', player, 'final state was', final_state)
+      self.print(player, 'timed out while waiting for state', state, 'final state was', final_state)
 
       player_iframe = self.driver.find_element(By.CSS_SELECTOR, f'div[id="{player}"] > iframe')
-      self.print(player_iframe)
       self.driver.switch_to.frame(player_iframe)
-      controls = self.driver.find_element(By.CSS_SELECTOR, 'button[data-a-target="player-controls"]')
-      self.print(controls)
+      controls = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-a-target="player-controls"]')
+      if len(controls) == 0:
+        self.print(f'Could not find player controls for {player0}')
       self.driver.switch_to.default_content()
       raise
 
