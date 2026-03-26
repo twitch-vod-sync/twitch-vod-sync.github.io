@@ -215,8 +215,6 @@ Duration: {duration}
     # Wait for all players to load and reach the 'pause' state
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PAUSED')
-    self.screenshot()
-    time.sleep(5)
 
     # player1 is later than player0, so we should align to that
     self.assert_players_synced_to((self.ASYNC_ALIGN + player1offset) / 1000)
@@ -244,9 +242,7 @@ Duration: {duration}
       self.wait_for_state(player, 'PLAYING')
 
     # Test a seek while playing which is beyond the buffer
-    self.screenshot()
     self.simulate_seek('player0', 240.0)
-    self.screenshot()
 
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PLAYING')
