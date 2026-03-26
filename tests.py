@@ -96,6 +96,19 @@ class UITests:
         }
       }''', message)
 
+  def wait_for_log(self, message, timeout_sec=10):
+    self.driver.set_script_timeout(timeout_sec)
+    return self.driver.execute_async_script('''
+      var [search, callback] = arguments
+      _console_log = console.log
+      console.log = (...args) => {
+        _console_log(...args)
+        if (args.join(' ').includes(search)) {
+          console.log = _console_log
+          callback(args)
+        }
+      }''', message)
+
   def wait_for_state(self, player, state, timeout_sec=30):
     try:
       self.driver.set_script_timeout(timeout_sec)
@@ -118,14 +131,14 @@ class UITests:
     except TimeoutException:
       final_state = self.driver.execute_script(f'return players.get("{player}").state.toString()')
       self.print(player, 'timed out while waiting for state', state, 'final state was', final_state)
-      if final_state == 'LOADING':
-        player_iframe = self.driver.find_element(By.CSS_SELECTOR, f'div[id="{player}"] > iframe')
-        self.driver.switch_to.frame(player_iframe)
-        controls = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-a-target="player-controls"]')
-        self.driver.switch_to.default_content()
-        if len(controls) == 0:
-          self.print(f'Could not find player controls for {player}, marking test as skipped')
-          raise TwitchEmbedFailedToLoadException(player)
+
+      player_iframe = self.driver.find_element(By.CSS_SELECTOR, f'div[id="{player}"] > iframe')
+      self.driver.switch_to.frame(player_iframe)
+      controls = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-a-target="player-controls"]')
+      self.driver.switch_to.default_content()
+      if len(controls) == 0:
+        self.print(f'Could not find player controls for {player}, marking test as skipped')
+        raise TwitchEmbedFailedToLoadException(player)
       raise
 
   def print(self, *args):
@@ -141,7 +154,7 @@ class UITests:
     time.sleep(1)
     self.print('Seeking', player, 'to', f'{duration:.1f}')
     self.run(f'players.get("{player}")._player.seek({duration:.1f})')
-    self.wait_for_last_log('setting pendingSeekTimestamp to 0')
+    self.wait_for_log('setting pendingSeekTimestamp to 0')
 
   def simulate_play(self, player):
     self.print('Playing', player)
@@ -444,3 +457,4 @@ if __name__ == '__main__':
     print(f'\n{num_failures} test runs failed')
   else:
     print('\nAll tests passed')
+  exit(num_failures)
