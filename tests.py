@@ -116,12 +116,12 @@ class UITests:
           }
         }, 10)
         ''' % state, timeout_sec * 100, player)
-    except selenium.common.exceptions.TimeoutException:
+    except TimeoutException:
       player_iframe = self.driver.find_element(By.CSS_SELECTOR, f'div[id="{player}"] > iframe')
-      print(player_iframe)
+      self.print(player_iframe)
       self.driver.switch_to.frame(player_iframe)
       controls = self.driver.find_element(By.CSS_SELECTOR, 'button[data-a-target="player-controls"]')
-      print(controls)
+      self.print(controls)
       self.driver.switch_to.default_content()
       raise
 
