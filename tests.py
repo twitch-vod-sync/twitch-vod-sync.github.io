@@ -117,6 +117,9 @@ class UITests:
         }, 10)
         ''' % state, timeout_sec * 100, player)
     except TimeoutException:
+      final_state = self.driver.execute_script(f'return players.get("{player}").state')
+      self.print('Script timed out', player, 'final state was', final_state)
+
       player_iframe = self.driver.find_element(By.CSS_SELECTOR, f'div[id="{player}"] > iframe')
       self.print(player_iframe)
       self.driver.switch_to.frame(player_iframe)
