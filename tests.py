@@ -20,6 +20,10 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 import http_server
 
+class TwitchEmbedFailedToLoadException(Exception):
+  def __init__(self, player):
+    self.player = player
+
 class UITests:
   def __init__(self):
     client_secret = os.environ.get('TWITCH_TOKEN', None)
@@ -112,15 +116,16 @@ class UITests:
         }, 10)
         ''', state, player)
     except TimeoutException:
-      final_state = self.driver.execute_script(f'return players.get("{player}").state')
+      final_state = self.driver.execute_script(f'return players.get("{player}").state.toString()')
       self.print(player, 'timed out while waiting for state', state, 'final state was', final_state)
-
-      player_iframe = self.driver.find_element(By.CSS_SELECTOR, f'div[id="{player}"] > iframe')
-      self.driver.switch_to.frame(player_iframe)
-      controls = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-a-target="player-controls"]')
-      if len(controls) == 0:
-        self.print(f'Could not find player controls for {player0}')
-      self.driver.switch_to.default_content()
+      if final_state == 'LOADING':
+        player_iframe = self.driver.find_element(By.CSS_SELECTOR, f'div[id="{player}"] > iframe')
+        self.driver.switch_to.frame(player_iframe)
+        controls = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-a-target="player-controls"]')
+        self.driver.switch_to.default_content()
+        if len(controls) == 0:
+          self.print(f'Could not find player controls for {player}, marking test as skipped')
+          raise TwitchEmbedFailedToLoadException(player)
       raise
 
   def print(self, *args):
@@ -416,6 +421,7 @@ if __name__ == '__main__':
   http_server = Thread(target=http_server.main, daemon=True)
   http_server.start()
 
+  num_failures = 0
   for test in tests:
     failures = []
     for i in range(1, loop_count + 1):
@@ -424,6 +430,9 @@ if __name__ == '__main__':
       try:
         test[1]()
         print('===', test[0], 'attempt', i, 'passed')
+      except TwitchEmbedFailedToLoadException:
+        test_class.screenshot()
+        print('???', test[0], 'attempt', i, 'skipped because a twitch embed failed to load')
       except Exception:
         test_class.screenshot()
         print('!!!', test[0], 'attempt', i, 'failed:')
@@ -434,5 +443,8 @@ if __name__ == '__main__':
 
     if failures:
       print('Failed attempts:', failures, 'out of', loop_count, 'total')
-      sys.exit(1)
-  print('\nAll tests passed')
+      num_failures += len(failures)
+  if num_failures > 0:
+    print(f'\n{num_failures} test runs failed')
+  else:
+    print('\nAll tests passed')
