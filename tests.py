@@ -93,28 +93,37 @@ class UITests:
       }''', message)
 
   def wait_for_state(self, player, state, timeout_sec=30):
-    self.driver.set_script_timeout(timeout_sec + 1)
-    return self.driver.execute_async_script('''
-      var targetState = "%s"
-      var [maxLoops, player, callback] = arguments
-      var interval = setInterval(() => {
-        var currentState = players.has(player) ? players.get(player).state : null
-        if (targetState.includes(String(currentState))) {
-          var playbackState = players.get(player)._player.getPlayerState().playback
-          if (playbackState === 'Buffering') {
-            console.warn('State reached but player still buffering')
-          } else {
-            clearInterval(interval)
-            console.log(player, 'has reached', String(targetState), 'within', arguments[0], 'loops. PlaybackState was', playbackState)
-            callback()
+    try:
+      self.driver.set_script_timeout(timeout_sec + 1)
+      return self.driver.execute_async_script('''
+        var targetState = "%s"
+        var [maxLoops, player, callback] = arguments
+        var interval = setInterval(() => {
+          var currentState = players.has(player) ? players.get(player).state : null
+          if (targetState.includes(String(currentState))) {
+            var playbackState = players.get(player)._player.getPlayerState().playback
+            if (playbackState === 'Buffering') {
+              console.warn('State reached but player still buffering')
+            } else {
+              clearInterval(interval)
+              console.log(player, 'has reached', String(targetState), 'within', arguments[0], 'loops. PlaybackState was', playbackState)
+              callback()
+            }
           }
-        }
-        if (--maxLoops == 0) {
-          console.error(player, 'did not enter state', String(targetState), 'within', arguments[0], 'loops. Final state was', String(currentState))
-          clearInterval(interval)
-        }
-      }, 10)
-      ''' % state, timeout_sec * 100, player)
+          if (--maxLoops == 0) {
+            console.error(player, 'did not enter state', String(targetState), 'within', arguments[0], 'loops. Final state was', String(currentState))
+            clearInterval(interval)
+          }
+        }, 10)
+        ''' % state, timeout_sec * 100, player)
+    except selenium.common.exceptions.TimeoutException:
+      player_iframe = self.driver.find_element(By.CSS_SELECTOR, f'div[id="{player}"] > iframe')
+      print(player_iframe)
+      self.driver.switch_to.frame(player_iframe)
+      controls = self.driver.find_element(By.CSS_SELECTOR, 'button[data-a-target="player-controls"]')
+      print(controls)
+      self.driver.switch_to.default_content()
+      raise
 
   def print(self, *args):
     timestamp = datetime.now(timezone.utc).isoformat()

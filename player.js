@@ -167,12 +167,12 @@ class TwitchPlayer extends Player {
 
       if (targetState === PAUSED) {
         // We don't want to pause videos which are already paused. It can cause weird behaviors if a seek is interspersed.
-        if (this.state !== PAUSED) this._player.pause()
+        if (this.state !== PAUSED && this.state !== READY) this._player.pause()
         this._player.seek(durationSeconds)
         this.state = SEEKING_PAUSE
       } else if (targetState === PLAYING) {
         this._player.seek(durationSeconds)
-        // We don't want to pause videos which are already playing. It can cause weird behaviors if a seek is interspersed.
+        // We don't want to play videos which are already playing. It can cause weird behaviors if a seek is interspersed.
         if (this.state !== PLAYING) this._player.play()
         this.state = SEEKING_PLAY
       }
