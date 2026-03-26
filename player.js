@@ -85,8 +85,12 @@ class TwitchPlayer extends Player {
   onPlayerReady() {
     // Only hook events once the player has loaded, so we don't have to worry about events in the LOADING state.
     this._player.addEventListener('seek', (eventData) => {
-      // Twitch sends a seek event immediately after the video is ready, which isn't a seek we're expecting to process.
-      if (this.state === READY && (eventData.position === 0 || eventData.position === 0.01)) return
+      // Twitch sends a seek event after the video is ready, to jump to your 'last watched' timestamp.
+      if (this.state === LOADING) {
+        console.log(this.id, 'got initial twitch seek to', eventData.position, 'calling onready')
+        this.onready(this) // Callback into index.js, passing the player object
+        return
+      }
       var seekMillis = Math.floor(eventData.position * 1000)
       this.eventSink('seek', seekMillis)
     })
@@ -103,8 +107,6 @@ class TwitchPlayer extends Player {
     // I did not end up using the 'playing' event -- for the most part, twitch pauses videos when the buffer runs out,
     // which is a sufficient signal to sync up the videos again (although they don't start playing automatically again).
     this._player.addEventListener('playing', () => this.eventSink('test_playing'))
-
-    this.onready(this) // Callback into index.js, passing the player object
   }
 
   get startTime() { return this._startTime + this.offset }
@@ -142,29 +144,31 @@ class TwitchPlayer extends Player {
     if (pendingSeekTimestamp > 0 && pendingSeekSource == this.id) return
 
     if (timestamp < this.startTime) {
-      console.log('Attempted to seek', this.id, 'before the startTime, seeking start instead', timestamp, this.startTime)
       var durationSeconds = 0.001 // I think seek(0) does something wrong, so.
+      console.log('Attempted to seek', this.id, 'before the startTime, seeking start instead', timestamp, this.startTime, durationSeconds)
       this.state = SEEKING_START
       this._player.pause()
       this._player.seek(durationSeconds)
     // If we try to seek past the end time (and the end time is known), instead pause the video near the end.
     } else if (this._endTime != null && timestamp >= this.endTime - VIDEO_END_BUFFER) {
       var durationSeconds = (this.endTime - this.startTime - VIDEO_END_BUFFER) / 1000.0
+      console.log('Attempted to seek', this.id, 'after the endTime, seeking (end - 15) instead', timestamp, this.endTime, durationSeconds)
       this.state = SEEKING_END
       this._player.pause()
       this._player.seek(durationSeconds)
     } else {
       var durationSeconds = (timestamp - this.startTime) / 1000.0
       if (durationSeconds === 0) durationSeconds = 0.001 // I think seek(0) does something wrong, so.
+      console.log('Seeking', this.id, 'to timestamp', timestamp, 'aka', durationSeconds, 'and target state', targetState)
 
       if (targetState === PAUSED) {
         // We don't want to pause videos which are already paused. It can cause weird behaviors if a seek is interspersed.
-        if (this.state !== PAUSED) this._player.pause()
+        if (this.state !== PAUSED && this.state !== READY) this._player.pause()
         this._player.seek(durationSeconds)
         this.state = SEEKING_PAUSE
       } else if (targetState === PLAYING) {
         this._player.seek(durationSeconds)
-        // We don't want to pause videos which are already playing. It can cause weird behaviors if a seek is interspersed.
+        // We don't want to play videos which are already playing. It can cause weird behaviors if a seek is interspersed.
         if (this.state !== PLAYING) this._player.play()
         this.state = SEEKING_PLAY
       }
@@ -305,19 +309,16 @@ class TwitchPlayer extends Player {
             break
           } else {
             // In some cases, we already have the next video queued up, and want to load that up to play instead of going through the restart loop.
-            this._player.setVideo(null)
+            console.log(this.id, 'reached the end of the timeline with another video queued, starting', this.nextVideoDetails.id)
             this.state = LOADING
             // We need to return control to the main loop for Twitch to unload properly.
-            setTimeout(() => {
-              this._startTime = this.nextVideoDetails.startTime
-              this._endTime = this.nextVideoDetails.endTime
-              this.videoId = this.nextVideoDetails.id
-              this._player.setVideo(this.nextVideoDetails.id)
-              this.nextVideoDetails = null
-              // Twitch does not call our onPlayerLoaded callback, and we don't need to reattach the event listeners.
-              // Just fire the callback into the index.js onready function after a short delay.
-              setTimeout(() => this.onready(this), 1000)
-            }, 10)
+            this._startTime = this.nextVideoDetails.startTime
+            this._endTime = this.nextVideoDetails.endTime
+            this.videoId = this.nextVideoDetails.id
+            this._player.setVideo(this.nextVideoDetails.id)
+            this.nextVideoDetails = null
+            // Twitch does not call our onPlayerReady callback, but we will get an initial seek event.
+            // Since we've switched to the loading state, this will fire our onReady callback appropriately.
             break
           }
 

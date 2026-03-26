@@ -17,23 +17,27 @@ window.getRacetimeRaceDetails = function(raceId) {
   })
 }
 
-window.loadRaceVideos = async function(race, count) {
+window.loadRaceVideos = async function(race, count, skipVideos) {
   var raceVideos = []
-  for (var i = 0; i < race.channels.length; i++) {
+  for (var channel of race.channels) {
     try {
-      var channelVideos = await getTwitchChannelVideos(race.channels[i])
+      var channelVideos = await getTwitchChannelVideos(channel)
     } catch (ex) {
       // This can fail (e.g. if a channel doesn't save VODs). If that happens, just continue to the next entrant.
       console.warn(ex)
       continue
     }
 
-    console.log('Loaded', channelVideos.length, 'race videos for channel', race.channels[i])
+    console.log('Loaded', channelVideos.length, 'race videos for channel', channel)
 
     for (var video of channelVideos) {
       if (video.startTime <= race.startTime && race.startTime <= video.endTime) {
-        raceVideos.push(video)
-        break
+        if (skipVideos.has(video.id)) {
+          console.log('Video', video.id, 'from channel', channel, 'was already loaded in the parent, not returning it')
+        } else {
+          raceVideos.push(video)
+        }
+        break // There should not be multiple videos overlapping the start point.
       }
     }
     

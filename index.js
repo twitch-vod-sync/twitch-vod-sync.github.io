@@ -539,39 +539,33 @@ function loadVideos(playerId, videos, playerType) {
       thisPlayer.seekTo(timestamp, PLAYING)
     } else if (anyVideoIsPaused) {
       console.log(thisPlayer.id, 'loaded while all other videos were paused, aligning it to the current time')
-      // Delay to account for twitch seeking to 'last played' (which we don't want in this case)
       var timestamp = getAveragePlayerTimestamp()
-      window.setTimeout(() => {
-        thisPlayer.seekTo(timestamp, PAUSED)
-      }, 1000)
+      thisPlayer.seekTo(timestamp, PAUSED)
     } else if (!anyVideoStillLoading) {
-      // Slight delay so twitch can seek videos to their 'last played'.
-      window.setTimeout(() => {
-        // By default, we sync all videos to the earliest valid timestamp in all videos.
-        var syncTo = 0
-        for (var player of players.values()) {
-          if (player.startTime > syncTo) syncTo = player.startTime
-        }
-        console.log('Found earliest sync time', syncTo)
+      // By default, we sync all videos to the earliest valid timestamp in all videos.
+      var syncTo = 0
+      for (var player of players.values()) {
+        if (player.startTime > syncTo) syncTo = player.startTime
+      }
+      console.log('Found earliest sync time', syncTo)
 
-        if (raceStartTime > syncTo) {
-          // If we loaded from a race (and at least one race participant was started), switch to the race start time.
-          syncTo = raceStartTime
-          console.log('Loaded from a race, overwriting sync time to', raceStartTime)
-        } else {
-          // If we loaded from video IDs (or anything else), check if any video is > 1 minute past the start time, and sync to that.
-          for (var player of players.values()) {
-            var timestamp = player.getCurrentTimestamp()
-            if (timestamp > syncTo + 60000) {
-              console.log('Found a player with a saved playback state, adjusting sync time to', timestamp)
-              syncTo = timestamp
-            }
+      if (raceStartTime > syncTo) {
+        // If we loaded from a race, and the race start time is past the earliest sync, switch to the race start time.
+        syncTo = raceStartTime
+        console.log('Loaded from a race, overwriting sync time to', raceStartTime)
+      } else {
+        // If we loaded from video IDs (or anything else), check if any video is > 1 minute past the start time, and sync to that.
+        for (var player of players.values()) {
+          var timestamp = player.getCurrentTimestamp()
+          if (timestamp > syncTo + 60000) {
+            console.log('Found a player with a saved playback state, adjusting sync time to', timestamp)
+            syncTo = timestamp
           }
         }
+      }
 
-        console.log(thisPlayer.id, 'was last to load, syncing all videos to', syncTo)
-        seekPlayersTo(syncTo, PAUSED)
-      }, 1000)
+      console.log(thisPlayer.id, 'was last to load, syncing all videos to', syncTo)
+      seekPlayersTo(syncTo, PAUSED)
     }
   }
 }
@@ -593,18 +587,20 @@ var raceStartTime = null
 function loadRace(raceDetails) {
   raceStartTime = raceDetails.startTime
 
-  // We load a video from the race for each player which is visible (down to a minimum of 4).
-  // This means the user can add more placeholders before loading a race to request more videos out of it.
-  // However, we won't overwrite any already-loaded videos (e.g. if the user already has an async loaded up).
-  var videosToLoad = Math.max(4, document.getElementById('players').childElementCount) - players.size
-
   // Add the race URL to the query params in case we haven't done twitch auth yet;
   // we might get redirected to twitch while loading videos and lose the race details.
   var params = new URLSearchParams(window.location.search)
   params.set('race', raceDetails.url)
   history.pushState(null, null, '?' + params.toString())
 
-  loadRaceVideos(raceDetails, videosToLoad)
+  // We load a video from the race for each player which is visible (down to a minimum of 4).
+  // This means the user can add more placeholders before loading a race to request more videos out of it.
+  // However, we won't overwrite any already-loaded videos (e.g. if the user already has an async loaded up).
+  var videosToLoad = Math.max(4, document.getElementById('players').childElementCount) - players.size
+  // We also need to pass down the channels who are already loaded, so we don't show them again.
+  var loadedVideos = new Set(window.players.values().map(p => p.videoId))
+
+  loadRaceVideos(raceDetails, videosToLoad, loadedVideos)
   .then(videos => {
     if (videos.length === 0) {
       console.error('Failed to load any videos from race', raceDetails.url)
