@@ -14,6 +14,7 @@ import requests
 from selenium import webdriver
 from selenium.webdriver import ActionChains
 from selenium.common.exceptions import JavascriptException, TimeoutException, WebDriverException
+from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
@@ -150,11 +151,18 @@ class UITests:
   def run(self, script):
     return self.driver.execute_script(script)
 
+  def focus_element(element):
+    ActionChains(self.driver).move_to_element(element).perform()
+
   def simulate_seek(self, player, duration):
     time.sleep(1)
     self.print('Seeking', player, 'to', f'{duration:.1f}')
+    player_iframe = self.driver.find_element(By.CSS_SELECTOR, f'div[id="{player}"] > iframe')
+    self.focus_element(player_iframe) # Focus the player to more accurately represent a user's interaction
     self.run(f'players.get("{player}")._player.seek({duration:.1f})')
     self.wait_for_log('setting pendingSeekTimestamp to 0')
+    body = self.driver.find_element(By.TAG_NAME, 'body')
+    self.focus_element(body) # Reselect the body after seeking so future seeks are not considered user-based.
 
   def simulate_play(self, player):
     self.print('Playing', player)
