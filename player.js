@@ -91,6 +91,7 @@ class TwitchPlayer extends Player {
         this.onready(this) // Callback into index.js, passing the player object
         return
       }
+      
       var seekMillis = Math.floor(eventData.position * 1000)
       this.eventSink('seek', seekMillis)
     })
@@ -206,6 +207,11 @@ class TwitchPlayer extends Player {
         case PAUSED:
         case BEFORE_START: // If we're waiting to start it's kinda like we're paused at 0.
         case AFTER_END: // If we're waiting at the end it's kinda like we're paused at 100.
+          if (document.activeElement.parentElement.id != this.id) {
+            console.log('Active element is', document.activeElement.parentElement.id, 'so we are ignoring the seek event to', this.id)
+            return
+          }
+
           var timestamp = this.startTime + seekMillis
           console.log('User has manually seeked', this.id, 'to', timestamp, 'seeking all other players')
           pendingSeekTimestamp = timestamp

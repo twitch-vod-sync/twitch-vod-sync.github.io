@@ -224,7 +224,13 @@ window.onload = function() {
 
       // Left and right seek based on the most recent seek (if it hasn't completed) or else the location of the first video (if any video is loaded)
       if (event.key == 'ArrowLeft' || event.key == 'ArrowRight') {
-        var seekTarget = pendingSeekTimestamp > 0 ? pendingSeekTimestamp : firstPlayingVideo.getCurrentTimestamp()
+        var seekTarget = pendingSeekTimestamp
+        if (seekTarget === 0) {
+          if (firstPlayingVideo != null) seekTarget = firstPlayingVideo.getCurrentTimestamp()
+          else if (firstPausedVideo != null) seekTarget = firstPausedVideo.getCurrentTimestamp()
+          else { return }
+        }
+        
         if (event.key == 'ArrowLeft')       pendingSeekTimestamp = seekTarget - 10000
         else if (event.key == 'ArrowRight') pendingSeekTimestamp = seekTarget + 10000
         console.log('User has manually seeked via', event.key, 'pendingSeekTimestamp is now', pendingSeekTimestamp)
@@ -750,17 +756,18 @@ function reloadTimeline() {
 
   var startLabel = document.createElement('div')
   labels.appendChild(startLabel)
-  startLabel.style = 'margin-left: 3px'
+  startLabel.style = 'margin-left: 3px; user-select: none'
   startLabel.innerText = new Date(timelineStart).toLocaleString(TIMELINE_DATE_FORMAT)
 
   var currentLabel = document.createElement('div')
   currentLabel.id = 'timelineCurrent'
+  currentLabel.style = 'user-select: none'
   labels.appendChild(currentLabel)
 
   var endLabel = document.createElement('div')
   labels.appendChild(endLabel)
   endLabel.id = 'timelineEnd'
-  endLabel.style = 'margin-right: 3px'
+  endLabel.style = 'margin-right: 3px; user-select: none'
   endLabel.innerText = new Date(timelineEnd).toLocaleString(TIMELINE_DATE_FORMAT)
 }
 
