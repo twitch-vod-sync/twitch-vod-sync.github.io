@@ -151,7 +151,7 @@ class UITests:
   def run(self, script):
     return self.driver.execute_script(script)
 
-  def focus_element(element):
+  def focus_element(self, element):
     ActionChains(self.driver).move_to_element(element).perform()
 
   def simulate_seek(self, player, duration):
