@@ -152,7 +152,7 @@ class UITests:
     return self.driver.execute_script(script)
 
   def focus_element(self, selector):
-    self.run(f'document.querySelector("{selector}").focus())
+    self.run(f'document.querySelector("{selector}").focus()')
 
   def simulate_seek(self, player, duration):
     time.sleep(1)
