@@ -149,15 +149,16 @@ class UITests:
     print(message)
 
   def run(self, script):
+    print(script)
     return self.driver.execute_script(script)
 
   def focus_element(self, selector):
-    self.run(f'document.querySelector("{selector}").focus()')
+    self.run(f'document.querySelector(\'{selector}\').focus()')
 
   def simulate_seek(self, player, duration):
     time.sleep(1)
     self.print('Seeking', player, 'to', f'{duration:.1f}')
-    self.focus_element('div[id="{player}"] > iframe') # Focus the player frame so that we consider the seek to be manual
+    self.focus_element(f'div[id="{player}"] > iframe') # Focus the player frame so that we consider the seek to be manual
     self.run(f'players.get("{player}")._player.seek({duration:.1f})')
     self.wait_for_log('setting pendingSeekTimestamp to 0')
     self.focus_element('body') # Re-focus to the body element so future seeks are not treated as manual seeks
