@@ -190,8 +190,8 @@ class TwitchPlayer extends Player {
           if (pendingSeekTimestamp > 0) {
             var seekTarget = this.startTime + seekMillis
             console.log(this.id, 'computed seek target', seekTarget, 'expected', pendingSeekTimestamp)
-            if (seekTarget != pendingSeekTimestamp) {
-              console.log(this.id, 'skipping spurious seek')
+            if (Math.abs(seekTarget - pendingSeekTimestamp) > 1000) {
+              console.log(this.id, 'skipping spurious seek, delta >1s')
               break
             }
           }
