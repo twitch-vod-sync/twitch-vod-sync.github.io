@@ -189,9 +189,9 @@ class TwitchPlayer extends Player {
         case SEEKING_PAUSE:
           if (pendingSeekTimestamp > 0) {
             var seekTarget = this.startTime + seekMillis
-            vars.log(this.id, 'computed seek target', seekTarget, 'expected', pendingSeekTimestamp)
+            console.log(this.id, 'computed seek target', seekTarget, 'expected', pendingSeekTimestamp)
             if (seekMillis != pendingSeekTimestamp) {
-              vars.log(this.id, 'skipping spurious seek')
+              console.log(this.id, 'skipping spurious seek')
               break
             }
           }
