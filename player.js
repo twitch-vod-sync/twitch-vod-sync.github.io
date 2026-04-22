@@ -85,6 +85,13 @@ class TwitchPlayer extends Player {
   onPlayerReady() {
     // Only hook events once the player has loaded, so we don't have to worry about events in the LOADING state.
     this._player.addEventListener('seek', (eventData) => {
+      // Twitch seems to (somewhat randomly) send seeks to 0.01. I'm not sure why -- I've seen them before load, during seek, or on play.
+      // For now, just ignoring all .01 seeks.
+      if (eventData.position == 0.01) {
+        console.log(this.id, 'ignoring spurious twitch seek to 0.01')
+        return
+      }
+
       // Twitch sends a seek event after the video is ready, to jump to your 'last watched' timestamp.
       if (this.state === LOADING) {
         console.log(this.id, 'got initial twitch seek to', eventData.position, 'calling onready')
@@ -187,14 +194,6 @@ class TwitchPlayer extends Player {
           this.state = PLAYING
           break
         case SEEKING_PAUSE:
-          if (pendingSeekTimestamp > 0) {
-            var seekTarget = this.startTime + seekMillis
-            console.log(this.id, 'computed seek target', seekTarget, 'expected', pendingSeekTimestamp)
-            if (Math.abs(seekTarget - pendingSeekTimestamp) > 1000) {
-              console.log(this.id, 'skipping spurious seek, delta >1s')
-              break
-            }
-          }
           this.state = PAUSED
           break
         case SEEKING_START:
