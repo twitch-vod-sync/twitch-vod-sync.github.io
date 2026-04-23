@@ -153,7 +153,7 @@ class TwitchPlayer extends Player {
     if (pendingSeekTimestamp > 0 && pendingSeekSource == this.id) return
 
     if (timestamp < this.startTime) {
-      var durationSeconds = 0.001 // I think seek(0) does something wrong, so.
+      var durationSeconds = 0.03 // I think seek(0) does something wrong, so seeking to a unique offset
       console.log('Attempted to seek', this.id, 'before the startTime, seeking start instead', timestamp, this.startTime, durationSeconds)
       this.state = SEEKING_START
       this._player.pause()
