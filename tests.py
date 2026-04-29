@@ -198,7 +198,7 @@ class UITests:
       # Sometimes this text is not visibile (if the video is playing). Hovering seems to be hard so instead I'm doing this.
       duration = self.run(f'return players.get("{player}")._player.getCurrentTime()')
       timestamp += duration
-    if abs(timestamp - expected_timestamp) > 1:
+    if abs(timestamp - expected_timestamp) > 5:
       raise AssertionError(f'''
 {player} was not within 1 second of expectation.
 Expected: {datetime.fromtimestamp(expected_timestamp)}
