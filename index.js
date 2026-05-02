@@ -14,6 +14,7 @@ const ASYNC_ALIGN = 1500000000000
 // Will be nonzero after a seek, returns to zero once all videos have finished seeking
 var pendingSeekTimestamp = 0
 var pendingSeekSource = null // Will be the ID of the player ('player0') if the seek originated from a player. Will be 'keyboard' if from larr/rarr.
+var pendingSeekTimeout = null
 var currentQuality = null // Keep track of the current requested video quality, so that we can downcycle if the user needs it.
 
 window.onload = function() {
@@ -657,6 +658,18 @@ function seekPlayersTo(timestamp, targetState) {
     if (player.state === LOADING) continue // We cannot seek a video that hasn't loaded yet.
     player.seekTo(timestamp, targetState)
   }
+
+  // Give up on the seek after 10 seconds (e.g. the network dies).
+  clearTimeout(pendingSeekTimeout)
+  pendingSeekTimeout = setTimeout(() => {
+    for (var player of players.values()) {
+      if ([SEEKING_PAUSE, SEEKING_PLAY, SEEKING_START, SEEKING_END].includes(player.state)) {
+        console.log(player.id, 'seek timed out in state', player.state, 'forcing state transition')
+        // Simulate a seek event from twitch (with a null seekMillis) to transition the player to a finished state.
+        player.eventSink('seek', 0)
+      }
+    }
+  }, 10000)
 }
 
 function getTimelineBounds() {

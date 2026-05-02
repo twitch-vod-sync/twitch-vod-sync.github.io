@@ -353,8 +353,12 @@ class TwitchPlayer extends Player {
 
       if (!anyPlayerStillSeeking) {
         console.log(this.id, 'was last to finish seeking to', pendingSeekTimestamp, 'setting pendingSeekTimestamp to 0')
-        pendingSeekTimestamp = 0
-        pendingSeekSource = null
+        clearTimeout(pendingSeekTimeout)
+        // Defer the completion by 100ms in case the seek finishes before a 'play' event arrives.
+        setTimeout(() => {
+          pendingSeekTimestamp = 0
+          pendingSeekSource = null
+        }, 100)
       }
     }
   }
