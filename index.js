@@ -463,9 +463,8 @@ function getBestVideo(videos, currentTimestamp) {
   overlappingVideos.sort((a, b) => a.startTime - b.startTime)
 
   // Now that we've filtered the videos, pick the one that best suits the user's intention.
-  // First, check to see if there's a video which overlaps the current timestamp (there can only be one of these).
-  // Note that the video's endTime can vary by up to a second due to API rounding.
-  var overlapsPlayhead = overlappingVideos.find(video => (video.startTime < currentTimestamp && currentTimestamp < video.endTime + 1000))
+  // First, check to see if there's a video which overlaps the current timestamp (there can only be one of these)
+  var overlapsPlayhead = overlappingVideos.find(video => (video.startTime < currentTimestamp && currentTimestamp < video.endTime))
   if (overlapsPlayhead != null) return overlapsPlayhead
 
   // If there's no video which matches the current playhead, then find the next video after the playhead
