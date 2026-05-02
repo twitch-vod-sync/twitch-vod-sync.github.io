@@ -664,9 +664,9 @@ function seekPlayersTo(timestamp, targetState) {
   pendingSeekTimeout = setTimeout(() => {
     for (var player of players.values()) {
       if ([SEEKING_PAUSE, SEEKING_PLAY, SEEKING_START, SEEKING_END].includes(player.state)) {
-        console.log(player.id, 'seek timed out in state', player.state, 'forcing state transition')
-        // Simulate a seek event from twitch (with a null seekMillis) to transition the player to a finished state.
-        player.eventSink('seek', 0)
+        console.log(player.id, 'seek timed out in state', player.state, 'retrying seek')
+        // This should only re-seek this player, and won't set another timeout, so it shouldn't loop forever.
+        player.seekTo(timestamp, targetState)
       }
     }
   }, 10000)
