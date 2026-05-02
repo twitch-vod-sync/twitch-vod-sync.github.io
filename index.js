@@ -463,8 +463,9 @@ function getBestVideo(videos, currentTimestamp) {
   overlappingVideos.sort((a, b) => a.startTime - b.startTime)
 
   // Now that we've filtered the videos, pick the one that best suits the user's intention.
-  // First, check to see if there's a video which overlaps the current timestamp (there can only be one of these)
-  var overlapsPlayhead = overlappingVideos.find(video => (video.startTime < currentTimestamp && currentTimestamp < video.endTime))
+  // First, check to see if there's a video which overlaps the current timestamp (there can only be one of these).
+  // Note that the video's endTime can vary by up to a second due to API rounding.
+  var overlapsPlayhead = overlappingVideos.find(video => (video.startTime < currentTimestamp && currentTimestamp < video.endTime + 1000))
   if (overlapsPlayhead != null) return overlapsPlayhead
 
   // If there's no video which matches the current playhead, then find the next video after the playhead
@@ -830,7 +831,7 @@ function refreshTimeline() {
         .then(videos => {
           var videoDetails = getBestVideo(videos, player.endTime)
           if (videoDetails == null) return // Should be impossible but who knows, maybe the twitch APIs fail.
-          else if (videoDetails.endTime != player._endTime) player.nextVideoDetails = videoDetails // Case 1
+          else if (Math.abs(videoDetails.endTime - player._endTime) > 1000) player.nextVideoDetails = videoDetails // Case 1:
           else if (videoDetails.id != player.videoId) player.nextVideoDetails = videoDetails // Case 2
         })
 
