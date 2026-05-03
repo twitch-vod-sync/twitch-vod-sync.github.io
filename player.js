@@ -94,8 +94,9 @@ class TwitchPlayer extends Player {
       
       // Twitch seems to (somewhat randomly) send seeks to 0.01.
       // Sometimes this is indicative of the initial load (above),
+      // or indicative of an embed reload (i.e. we're SEEKING_START)
       // but it's also sometimes just randomly happening.
-      if (eventData.position == 0.01) {
+      if (eventData.position == 0.01 && this.state !== SEEKING_START) {
         console.log(this.id, 'ignoring spurious twitch seek to 0.01')
         return
       }
