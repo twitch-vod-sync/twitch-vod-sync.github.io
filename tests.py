@@ -48,14 +48,10 @@ class UITests:
   def setup(self):
     self.print_log = []
     if 'CI' in os.environ:
-      import chromedriver_py
       options = webdriver.chrome.options.Options()
       options.add_argument('headless=new')
       options.add_argument("--window-size=2560,1440")
-      service = webdriver.chrome.service.Service(
-        executable_path=chromedriver_py.binary_path,
-      )
-      self.driver = webdriver.Chrome(options=options, service=service)
+      self.driver = webdriver.Chrome(options=options)
     else:
       options = webdriver.firefox.options.Options()
       options.add_argument("--width=2560")
@@ -192,18 +188,21 @@ class UITests:
     self.print('All players synced to within 1 second of', datetime.fromtimestamp(expected_timestamp))
 
   def assert_player_position(self, player, expected_timestamp):
-    with self.find_element_in_frame('p[data-a-target="player-seekbar-current-time"]', player) as seekbar:
-      duration = seekbar.text
     start_time = self.run(f'return players.get("{player}").startTime') / 1000
-    timestamp = start_time
-    if duration:
-      timestamp += int(duration[0:2]) * 3600 # Hours
-      timestamp += int(duration[3:5]) *   60 # Minutes
-      timestamp += int(duration[6:8]) *    1 # Seconds
-    else:
-      # Sometimes this text is not visibile (if the video is playing). Hovering seems to be hard so instead I'm doing this.
-      duration = self.run(f'return players.get("{player}")._player.getCurrentTime()')
-      timestamp += duration
+    timestamp = 0
+
+    with self.find_element_in_frame('p[data-a-target="player-seekbar-current-time"]', player) as seekbar:
+      if seekbar:
+        duration = seekbar.text
+        timestamp = start_time
+        timestamp += int(duration[0:2]) * 3600 # Hours
+        timestamp += int(duration[3:5]) *   60 # Minutes
+        timestamp += int(duration[6:8]) *    1 # Seconds
+    if timestamp == 0:
+      # Sometimes this text is not visible (if the video is playing). Hovering seems to be hard so instead I'm doing this.
+      # Note: This is also used by the mock player path which doesn't have a timeline bar.
+      timestamp = self.run(f'return players.get("{player}").getCurrentTimestamp()') / 1000
+
     if abs(timestamp - expected_timestamp) > 1:
       raise AssertionError(f'''
 {player} was not within 1 second of expectation.
@@ -211,7 +210,6 @@ Expected: {datetime.fromtimestamp(expected_timestamp)}
 Actual:   {datetime.fromtimestamp(timestamp)}
 Delta:    {timestamp - expected_timestamp} seconds
 startTime: {datetime.fromtimestamp(start_time)}
-Duration: {duration}
 ''')
 
   #############
@@ -427,16 +425,27 @@ Duration: {duration}
     assert self.run('return players.get("player1").videoId') == self.VIDEO_4
     assert self.run('return players.get("player1").nextVideoDetails') == None
 
+  ### Mock tests ###
+
+  def mockLoadVideo(self, **kwargs):
+    player_id = self.run('return players.size')
+    if player_id > 1:
+      self.run('window.addPlayer()') # Default is 2 players, so we need to grow the list
+    kwargs['id'] = player_id
+    kwargs['endTime'] = 100_000
+    self.run(f'loadVideos("player{player_id}", [{json.dumps(kwargs)}], MOCK)')
+
   def testMockPlayerLoad(self):
-    self.run('addPlayer()')
-    self.run('addPlayer()')
-    self.run('loadVideos("player0", [{"id": 0, "startTime": 0, "endTime": 100000}], MOCK)')
-    self.simulate_seek('player0', 20000)
-    self.run('loadVideos("player1", [{"id": 1, "startTime": 1000, "endTime": 100000}], MOCK)')
-    self.run('loadVideos("player2", [{"id": 2, "startTime": 2000, "endTime": 100000}], MOCK)')
-    self.run('loadVideos("player3", [{"id": 3, "startTime": 3000, "endTime": 100000}], MOCK)')
-    
-    self.assert_players_synced_to(20000)
+    self.driver.get('http://localhost:3000#scope=&access_token=mock_token')
+
+    self.mockLoadVideo(startTime=0)
+    time.sleep(1)
+
+    self.mockLoadVideo(startTime=1000)
+    self.mockLoadVideo(startTime=2000)
+    self.mockLoadVideo(startTime=3000)
+    time.sleep(1)
+    self.assert_players_synced_to(3)
 
 
 if __name__ == '__main__':

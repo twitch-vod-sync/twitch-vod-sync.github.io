@@ -3,7 +3,7 @@ function enumValue(name) { return Object.freeze({name: name, toString: () => nam
 // Player types
 const TWITCH  = enumValue('TWITCH')
 const YOUTUBE = enumValue('YOUTUBE')
-const MOCK    = enumValue('MOCK')
+var MOCK    = enumValue('MOCK')
 
 // Player states
 const LOADING       = enumValue('LOADING')
@@ -66,6 +66,9 @@ class Player {
     this.nextVideoDetails = null
   }
 
+  get startTime() { return this._startTime + this.offset }
+  get endTime() { return this._endTime + this.offset }
+
   seekToEnd() { this.seekTo(this.endTime) }
 }
 
@@ -120,9 +123,6 @@ class TwitchPlayer extends Player {
     // which is a sufficient signal to sync up the videos again (although they don't start playing automatically again).
     this._player.addEventListener('playing', () => this.eventSink('test_playing'))
   }
-
-  get startTime() { return this._startTime + this.offset }
-  get endTime() { return this._endTime + this.offset }
 
   getCurrentTimestamp() {
     var durationMillis = Math.floor(this._player.getCurrentTime() * 1000)
@@ -371,7 +371,19 @@ class MockPlayer extends Player {
   constructor(divId, videoDetails) {
     super(divId, videoDetails)
     
+    // Create a mock iframe (so we can focus correctly)
+    document.getElementById(divId).appendChild(document.createElement('iframe'))
+    
+    self.currentTimestamp = videoDetails['initial'] || 0
+
     // Mock players are ready after exactly 1 second
     setTimeout(() => this.onready(this), 1000)
+  }
+  
+  getCurrentTimestamp() { return self.currentTimestamp }
+  
+  seekTo(timestamp, targetState) {
+    self.currentTimestamp = timestamp
+    // targetState not used yet
   }
 }
