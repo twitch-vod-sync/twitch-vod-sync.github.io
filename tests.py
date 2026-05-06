@@ -6,6 +6,7 @@ import os
 import sys
 import time
 import traceback
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Thread
@@ -63,6 +64,16 @@ class UITests:
         executable_path=Path(__file__).with_name('geckodriver.exe'),
       )
       self.driver = webdriver.Firefox(options=options, service=service)
+
+  @contextmanager
+  def find_element_in_frame(self, selector, player):
+    player_iframe = self.driver.find_element(By.CSS_SELECTOR, f'div[id="{player}"] > iframe')
+    self.driver.switch_to.frame(player_iframe)
+    try:
+      elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+      yield elements[0] if elements else None
+    finally:
+      self.driver.switch_to.default_content()
 
   def teardown(self):
     event_log = self.driver.execute_script('return window.eventLog')
@@ -133,13 +144,10 @@ class UITests:
       final_state = self.driver.execute_script(f'return players.get("{player}").state.toString()')
       self.print(player, 'timed out while waiting for state', state, 'final state was', final_state)
 
-      player_iframe = self.driver.find_element(By.CSS_SELECTOR, f'div[id="{player}"] > iframe')
-      self.driver.switch_to.frame(player_iframe)
-      controls = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-a-target="player-controls"]')
-      self.driver.switch_to.default_content()
-      if len(controls) == 0:
-        self.print(f'Could not find player controls for {player}, marking test as skipped')
-        raise TwitchEmbedFailedToLoadException(player)
+      with self.find_element_in_frame('div[data-a-target="player-controls"]', player) as controls:
+        if not controls:
+          self.print(f'Could not find player controls for {player}, marking test as skipped')
+          raise TwitchEmbedFailedToLoadException(player)
       raise
 
   def print(self, *args):
@@ -184,10 +192,8 @@ class UITests:
     self.print('All players synced to within 1 second of', datetime.fromtimestamp(expected_timestamp))
 
   def assert_player_position(self, player, expected_timestamp):
-    player_iframe = self.driver.find_element(By.CSS_SELECTOR, f'div[id="{player}"] > iframe')
-    self.driver.switch_to.frame(player_iframe)
-    duration = self.driver.find_element(By.CSS_SELECTOR, 'p[data-a-target="player-seekbar-current-time"]').text
-    self.driver.switch_to.default_content()
+    with self.find_element_in_frame('p[data-a-target="player-seekbar-current-time"]', player) as seekbar:
+      duration = seekbar.text
     start_time = self.run(f'return players.get("{player}").startTime') / 1000
     timestamp = start_time
     if duration:
@@ -366,13 +372,13 @@ Duration: {duration}
     url = f'http://localhost:3000#scope=&access_token={self.access_token}&client_id={self.client_id}'
     self.driver.get(url)
 
-    time.sleep(5)
-    cc_buttons = self.driver.find_elements(By.CSS_SELECTOR, '[data-a-target="content-classification-gate-overlay-start-watching-button"]')
-    for button in cc_buttons:
-      button.click()
-
     players = self.run('return Array.from(players.keys())')
     for player in players:
+      # Dismiss content classification gates inside the player iframe
+      with self.find_element_in_frame('[data-a-target="content-classification-gate-overlay-start-watching-button"]', player) as button:
+        if button:
+          button.click()
+
       self.wait_for_state(player, 'PAUSED')
       self.assert_player_position(player, expected_timestamp)
 

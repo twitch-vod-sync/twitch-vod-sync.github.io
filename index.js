@@ -14,6 +14,7 @@ const ASYNC_ALIGN = 1500000000000
 // Will be nonzero after a seek, returns to zero once all videos have finished seeking
 var pendingSeekTimestamp = 0
 var pendingSeekSource = null // Will be the ID of the player ('player0') if the seek originated from a player. Will be 'keyboard' if from larr/rarr.
+var pendingSeekTimeout = null
 var currentQuality = null // Keep track of the current requested video quality, so that we can downcycle if the user needs it.
 
 window.onload = function() {
@@ -657,6 +658,18 @@ function seekPlayersTo(timestamp, targetState) {
     if (player.state === LOADING) continue // We cannot seek a video that hasn't loaded yet.
     player.seekTo(timestamp, targetState)
   }
+
+  // Give up on the seek after 10 seconds (e.g. the network dies).
+  clearTimeout(pendingSeekTimeout)
+  pendingSeekTimeout = setTimeout(() => {
+    for (var player of players.values()) {
+      if ([SEEKING_PAUSE, SEEKING_PLAY, SEEKING_START, SEEKING_END].includes(player.state)) {
+        console.log(player.id, 'seek timed out in state', player.state, 'retrying seek')
+        // This should only re-seek this player, and won't set another timeout, so it shouldn't loop forever.
+        player.seekTo(timestamp, targetState)
+      }
+    }
+  }, 10000)
 }
 
 function getTimelineBounds() {
@@ -817,7 +830,7 @@ function refreshTimeline() {
         .then(videos => {
           var videoDetails = getBestVideo(videos, player.endTime)
           if (videoDetails == null) return // Should be impossible but who knows, maybe the twitch APIs fail.
-          else if (videoDetails.endTime != player._endTime) player.nextVideoDetails = videoDetails // Case 1
+          else if (Math.abs(videoDetails.endTime - player._endTime) > 1000) player.nextVideoDetails = videoDetails // Case 1:
           else if (videoDetails.id != player.videoId) player.nextVideoDetails = videoDetails // Case 2
         })
 

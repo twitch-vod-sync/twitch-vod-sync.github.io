@@ -94,6 +94,15 @@ class TwitchPlayer extends Player {
         return
       }
       
+      // Twitch seems to (somewhat randomly) send seeks to 0.01.
+      // Sometimes this is indicative of the initial load (above),
+      // or indicative of an embed reload (i.e. we're SEEKING_START)
+      // but it's also sometimes just randomly happening.
+      if (eventData.position == 0.01 && this.state !== SEEKING_START) {
+        console.log(this.id, 'ignoring spurious twitch seek to 0.01')
+        return
+      }
+
       var seekMillis = Math.floor(eventData.position * 1000)
       this.eventSink('seek', seekMillis)
     })
@@ -347,8 +356,12 @@ class TwitchPlayer extends Player {
 
       if (!anyPlayerStillSeeking) {
         console.log(this.id, 'was last to finish seeking to', pendingSeekTimestamp, 'setting pendingSeekTimestamp to 0')
-        pendingSeekTimestamp = 0
-        pendingSeekSource = null
+        clearTimeout(pendingSeekTimeout)
+        // Defer the completion by 100ms in case the seek finishes before a 'play' event arrives.
+        setTimeout(() => {
+          pendingSeekTimestamp = 0
+          pendingSeekSource = null
+        }, 100)
       }
     }
   }
