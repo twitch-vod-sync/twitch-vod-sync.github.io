@@ -48,14 +48,10 @@ class UITests:
   def setup(self):
     self.print_log = []
     if 'CI' in os.environ:
-      import chromedriver_py
       options = webdriver.chrome.options.Options()
       options.add_argument('headless=new')
       options.add_argument("--window-size=2560,1440")
-      service = webdriver.chrome.service.Service(
-        executable_path=chromedriver_py.binary_path,
-      )
-      self.driver = webdriver.Chrome(options=options, service=service)
+      self.driver = webdriver.Chrome(options=options)
     else:
       options = webdriver.firefox.options.Options()
       options.add_argument("--width=2560")
