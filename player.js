@@ -1,8 +1,9 @@
 function enumValue(name) { return Object.freeze({name: name, toString: () => name}) }
 
 // Player types
-const TWITCH = enumValue('TWITCH')
+const TWITCH  = enumValue('TWITCH')
 const YOUTUBE = enumValue('YOUTUBE')
+const MOCK    = enumValue('MOCK')
 
 // Player states
 const LOADING       = enumValue('LOADING')
@@ -48,6 +49,7 @@ window.newPlayer = function(divId, videos, playerType) {
   var videoDetails = videos[0] // TODO: Support multiple videos here?
 
   if (playerType === TWITCH)  return new TwitchPlayer(divId, videoDetails)
+  if (playerType === MOCK)    return new MockPlayer(divId, videoDetails)
   throw new Exception('Unknown player type: ' + playerType.toString())
 }
 
@@ -349,5 +351,14 @@ class TwitchPlayer extends Player {
         pendingSeekSource = null
       }
     }
+  }
+}
+
+class MockPlayer extends Player {
+  constructor(divId, videoDetails) {
+    super(divId, videoDetails)
+    
+    // Mock players are ready after exactly 1 second
+    setTimeout(() => this.onready(this), 1000)
   }
 }

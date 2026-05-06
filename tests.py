@@ -421,6 +421,18 @@ Duration: {duration}
     assert self.run('return players.get("player1").videoId') == self.VIDEO_4
     assert self.run('return players.get("player1").nextVideoDetails') == None
 
+  def testMockPlayerLoad(self):
+    self.run('addPlayer()')
+    self.run('addPlayer()')
+    self.run('loadVideos("player0", [{"id": 0, "startTime": 0, "endTime": 100000}], MOCK)')
+    self.simulate_seek('player0', 20000)
+    self.run('loadVideos("player1", [{"id": 1, "startTime": 1000, "endTime": 100000}], MOCK)')
+    self.run('loadVideos("player2", [{"id": 2, "startTime": 2000, "endTime": 100000}], MOCK)')
+    self.run('loadVideos("player3", [{"id": 3, "startTime": 3000, "endTime": 100000}], MOCK)')
+    
+    self.assert_players_synced_to(20000)
+
+
 if __name__ == '__main__':
   loop_count = 1
   if os.environ.get('GITHUB_EVENT_NAME', None) == 'schedule':
