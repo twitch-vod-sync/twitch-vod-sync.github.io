@@ -374,16 +374,16 @@ class MockPlayer extends Player {
     // Create a mock iframe (so we can focus correctly)
     document.getElementById(divId).appendChild(document.createElement('iframe'))
     
-    self.currentTimestamp = videoDetails['initial'] || 0
+    this.currentTimestamp = videoDetails['initial'] || 0
 
     // Mock players are ready after exactly 1 second
     setTimeout(() => this.onready(this), 1000)
   }
   
-  getCurrentTimestamp() { return self.currentTimestamp }
+  getCurrentTimestamp() { return this.currentTimestamp }
   
   seekTo(timestamp, targetState) {
-    self.currentTimestamp = timestamp
-    // targetState not used yet
+    this.currentTimestamp = timestamp
+    this.state = targetState
   }
 }
