@@ -9,6 +9,10 @@ const MIN_PLAYERS = 2 // It's too much work to support this being dynamic, so I 
 // This is somewhere in 2017. It doesn't really matter; videos offsets can be positive, too.
 const ASYNC_ALIGN = 1500000000000
 
+// In the onready callback, we sometimes make a tradeoff between "honoring the current video position"
+// and "seeking based on the video that just loaded". This variable controls that threshold -- we can jump the videos by up to this many seconds.
+var SYNC_THRESHOLD = 60000
+
 // If the user has manually seeked, keep track of the timestamp they're seeking to. This allows the user to keep making relative seeks,
 // even while the previous seek is still pending.
 // Will be nonzero after a seek, returns to zero once all videos have finished seeking
@@ -553,15 +557,20 @@ function loadVideos(playerId, videos, playerType) {
     } else if (anyVideoStillLoading) {
       console.log(thisPlayer.id, 'loaded while another video is still loading, syncing to others but staying paused')
       thisPlayer.seekTo(averageTimestamp, PAUSED)
-    } else if (raceStartTime > earliestSync + 60000) {
+    } else if (anyVideoIsPaused && averageTimestamp + SYNC_THRESHOLD < thisPlayer.startTime) {
+      // If this video loaded notably past the current average timestamp, don't try to reseek the players.
+      // Instead, pull this player to the average timestamp, where it will be BEFORE_START.
+      console.log(thisPlayer.id, 'was last to load while others were paused at an earlier position, syncing to', averageTimestamp)
+      thisPlayer.seekTo(averageTimestamp, PAUSED)
+    } else if (raceStartTime > earliestSync + SYNC_THRESHOLD) {
       // Note that we do not seek to the race time if it takes us notably backwards, in case the user was watching one viewpoint.
       console.log(thisPlayer.id, 'was last to load from a race, overwriting sync time to', raceStartTime)
       seekPlayersTo(raceStartTime, PAUSED)
-    } else if (averageTimestamp > earliestSync + 60000) {
+    } else if (averageTimestamp > earliestSync + SYNC_THRESHOLD) {
       // If other videos have already seeked past the start, sync to their position.
       console.log(thisPlayer.id, 'was last to load, syncing all videos to average', averageTimestamp)
       seekPlayersTo(averageTimestamp, PAUSED)
-    } else if (initialTimestamp > earliestSync + 60000) {
+    } else if (initialTimestamp > earliestSync + SYNC_THRESHOLD) {
       // If this player has a cached position (e.g. Twitch's "last watched" time), honor it.
       console.log(thisPlayer.id, 'was last to load, syncing all videos to cached position', initialTimestamp)
       seekPlayersTo(initialTimestamp, PAUSED)

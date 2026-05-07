@@ -51,6 +51,7 @@ class UITests:
       options = webdriver.chrome.options.Options()
       options.add_argument('headless=new')
       options.add_argument("--window-size=2560,1440")
+      options.add_argument("--disable-dev-shm-usage")
       self.driver = webdriver.Chrome(options=options)
     else:
       options = webdriver.firefox.options.Options()
@@ -392,6 +393,10 @@ startTime: {datetime.fromtimestamp(start_time)}
 
     # Override the channel lookup function, since we need to test with highlights (for stability)
     self.run('window.getTwitchChannelVideos = function () { return window.getTwitchVideosDetails(["' + self.VIDEO_3 + '", "' + self.VIDEO_4 + '"]) }')
+
+    # The two test videos are 60s apart, which is exactly the default SYNC_THRESHOLD.
+    # Lower it slightly so the "loaded while videos are paused" branch fires for this test.
+    self.run('SYNC_THRESHOLD = 59000')
 
     self.print('Mock loading channel videos into player1')
     player1_form = self.driver.find_element(By.ID, 'player1-form')
