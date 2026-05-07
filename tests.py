@@ -440,9 +440,25 @@ startTime: {datetime.fromtimestamp(start_time)}
     if wait:
       time.sleep(1)
 
-  def testMockPlayerLoad(self):
+  def testMockLoadSameStart(self):
     self.driver.get('http://localhost:3000#scope=&access_token=mock_token')
     # Load all 4 videos at once, to simulate a "load from URL"
+    self.mockLoadVideo(startTime=5, wait=False)
+    self.mockLoadVideo(startTime=5, wait=False)
+    self.mockLoadVideo(startTime=5, wait=False)
+    self.mockLoadVideo(startTime=5)
+    self.assert_players_synced_to(5)
+
+  def testMockLoadAscending(self):
+    self.driver.get('http://localhost:3000#scope=&access_token=mock_token')
+    self.mockLoadVideo(startTime=0)
+    self.mockLoadVideo(startTime=1)
+    self.mockLoadVideo(startTime=2)
+    self.mockLoadVideo(startTime=3)
+    self.assert_players_synced_to(3)
+
+  def testMockLoadAscendingBatch(self):
+    self.driver.get('http://localhost:3000#scope=&access_token=mock_token')
     self.mockLoadVideo(startTime=0, wait=False)
     self.mockLoadVideo(startTime=1, wait=False)
     self.mockLoadVideo(startTime=2, wait=False)
@@ -457,13 +473,6 @@ startTime: {datetime.fromtimestamp(start_time)}
     self.mockLoadVideo(startTime=0)
     self.assert_players_synced_to(3)
 
-  def testMockLoadSameStart(self):
-    self.driver.get('http://localhost:3000#scope=&access_token=mock_token')
-    self.mockLoadVideo(startTime=5)
-    self.mockLoadVideo(startTime=5)
-    self.mockLoadVideo(startTime=5)
-    self.mockLoadVideo(startTime=5)
-    self.assert_players_synced_to(5)
 
   def testMockLoadWithTooEarlyInitial(self):
     self.driver.get('http://localhost:3000#scope=&access_token=mock_token')
@@ -489,7 +498,23 @@ startTime: {datetime.fromtimestamp(start_time)}
     self.mockLoadVideo(startTime=1, initial=70)
     self.mockLoadVideo(startTime=2)
     self.mockLoadVideo(startTime=3)
+    self.assert_players_synced_to(80)
+
+  def testMockLoadWithSameInitialTime(self):
+    self.driver.get('http://localhost:3000#scope=&access_token=mock_token')
+    self.mockLoadVideo(startTime=0, initial=70, wait=False)
+    self.mockLoadVideo(startTime=1, initial=70, wait=False)
+    self.mockLoadVideo(startTime=2, initial=70, wait=False)
+    self.mockLoadVideo(startTime=3, initial=70)
     self.assert_players_synced_to(70)
+
+  def testMockLoadWithMixedInitialTimesBatch(self):
+    self.driver.get('http://localhost:3000#scope=&access_token=mock_token')
+    self.mockLoadVideo(startTime=0, initial=80, wait=False)
+    self.mockLoadVideo(startTime=1, initial=70, wait=False)
+    self.mockLoadVideo(startTime=2, wait=False)
+    self.mockLoadVideo(startTime=3)
+    self.assert_players_synced_to(3)
 
   def testMockLoadInAsync(self):
     self.driver.get('http://localhost:3000#scope=&access_token=mock_token')
@@ -517,34 +542,34 @@ startTime: {datetime.fromtimestamp(start_time)}
   def testMockLoadWhileSeeked(self):
     self.driver.get('http://localhost:3000#scope=&access_token=mock_token')
     self.mockLoadVideo(startTime=0)
-    self.run('players.get("player0").seekTo(30000, PAUSED)')
+    self.run('players.get("player0").seekTo(70000, PAUSED)')
     self.mockLoadVideo(startTime=1)
     self.mockLoadVideo(startTime=2)
     self.mockLoadVideo(startTime=3)
-    self.assert_players_synced_to(30)
+    self.assert_players_synced_to(70)
 
   def testMockLoadRace(self):
     self.driver.get('http://localhost:3000#scope=&access_token=mock_token')
-    self.run('raceStartTime = 5000')
+    self.run('raceStartTime = 70000')
     self.mockLoadVideo(startTime=0, wait=False)
     self.mockLoadVideo(startTime=1, wait=False)
     self.mockLoadVideo(startTime=2, wait=False)
     self.mockLoadVideo(startTime=3)
-    self.assert_players_synced_to(5)
+    self.assert_players_synced_to(70)
 
   def testMockLoadOneThenRace(self):
     self.driver.get('http://localhost:3000#scope=&access_token=mock_token')
     self.mockLoadVideo(startTime=0)
-    self.run('raceStartTime = 5000')
+    self.run('raceStartTime = 70000')
     self.mockLoadVideo(startTime=1, wait=False)
     self.mockLoadVideo(startTime=2, wait=False)
     self.mockLoadVideo(startTime=3)
-    self.assert_players_synced_to(5)
+    self.assert_players_synced_to(70)
 
   def testMockLoadOneSeekThenRace(self):
     self.driver.get('http://localhost:3000#scope=&access_token=mock_token')
     self.mockLoadVideo(startTime=0)
-    # We only use initial offset times if they are after the race start time
+    # We only honor player times if they are significantly after the race start time
     self.run('players.get("player0").seekTo(80000, PAUSED)')
     self.run('raceStartTime = 5000')
     self.mockLoadVideo(startTime=1, wait=False)
@@ -554,11 +579,11 @@ startTime: {datetime.fromtimestamp(start_time)}
 
   def testMockLoadWithBeforeStart(self):
     self.driver.get('http://localhost:3000#scope=&access_token=mock_token')
-    self.mockLoadVideo(startTime=10)
-    self.run('players.get("player0").state = BEFORE_START')
-    self.mockLoadVideo(startTime=1, wait=False)
-    self.mockLoadVideo(startTime=2, wait=False)
-    self.mockLoadVideo(startTime=3, wait=False)
+    self.mockLoadVideo(startTime=0)
+    self.mockLoadVideo(startTime=1)
+    self.mockLoadVideo(startTime=10, wait=False)
+    self.run('players.get("player2").state = BEFORE_START')
+    self.mockLoadVideo(startTime=11)
     self.assert_players_synced_to(10)
 
 if __name__ == '__main__':
@@ -567,8 +592,8 @@ if __name__ == '__main__':
     loop_count = 20 # Require additional consistency for our nightly job vs ad-hoc pushes
   elif len(sys.argv) > 1 and sys.argv[1].isdigit():
     loop_count = int(sys.argv.pop(1))
-  elif len(sys.argv) > 2:
-    loop_count = int(sys.argv.pop(2))
+  elif len(sys.argv) > 2 and sys.argv[-1].isdigit():
+    loop_count = int(sys.argv.pop(-1))
 
   test_class = UITests()
   is_test = lambda method: inspect.ismethod(method) and method.__name__.startswith('test')

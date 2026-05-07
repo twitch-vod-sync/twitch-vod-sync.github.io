@@ -3,7 +3,7 @@ function enumValue(name) { return Object.freeze({name: name, toString: () => nam
 // Player types
 const TWITCH  = enumValue('TWITCH')
 const YOUTUBE = enumValue('YOUTUBE')
-var MOCK    = enumValue('MOCK')
+const MOCK    = enumValue('MOCK')
 
 // Player states
 const LOADING       = enumValue('LOADING')
@@ -92,8 +92,10 @@ class TwitchPlayer extends Player {
     this._player.addEventListener('seek', (eventData) => {
       // Twitch sends a seek event after the video is ready, to jump to your 'last watched' timestamp.
       if (this.state === LOADING) {
-        console.log(this.id, 'got initial twitch seek to', eventData.position, 'calling onready')
-        this.onready(this) // Callback into index.js, passing the player object
+        var initialTimestamp = this.startTime + Math.floor(eventData.position * 1000)
+        console.log(this.id, 'got initial twitch seek to', initialTimestamp, 'calling onready')
+        // Call back into index.js, passing the player object and initial seek from twitch
+        this.onready(this, initialTimestamp)
         return
       }
       
@@ -377,7 +379,7 @@ class MockPlayer extends Player {
     this.currentTimestamp = videoDetails['initial'] || 0
 
     // Mock players are ready after exactly 1 second
-    setTimeout(() => this.onready(this), 1000)
+    setTimeout(() => this.onready(this, this.currentTimestamp), 1000)
   }
   
   getCurrentTimestamp() { return this.currentTimestamp }
