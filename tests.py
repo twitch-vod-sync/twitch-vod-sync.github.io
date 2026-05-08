@@ -52,6 +52,7 @@ class UITests:
       options.add_argument('headless=new')
       options.add_argument("--window-size=2560,1440")
       options.add_argument("--disable-dev-shm-usage")
+      options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
       self.driver = webdriver.Chrome(options=options)
     else:
       options = webdriver.firefox.options.Options()
@@ -87,7 +88,17 @@ class UITests:
     self.driver.save_screenshot(path)
     self.print('Saved screenshot', path)
     return path
-    
+
+  def dump_network_logs(self):
+    try:
+      logs = self.driver.get_log('performance')
+      path = self.tmp_folder / f'network_log_{self.screenshot_no:03}.json'
+      with open(path, 'w') as f:
+        json.dump(logs, f)
+      print('Saved network log to', path)
+    except Exception as exc:
+      print('Network logs unavailable', exc)
+
   def wait_for_last_log(self, message, timeout_sec=10):
     self.driver.set_script_timeout(timeout_sec)
     return self.driver.execute_async_script('''
@@ -621,6 +632,7 @@ if __name__ == '__main__':
         print('===', test[0], 'attempt', i, 'passed')
       except TwitchEmbedFailedToLoadException:
         test_class.screenshot()
+        test_class.dump_network_logs()
         print('???', test[0], 'attempt', i, 'skipped because a twitch embed failed to load')
       except Exception:
         test_class.screenshot()
