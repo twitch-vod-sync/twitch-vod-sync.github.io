@@ -554,6 +554,8 @@ function loadVideos(playerId, videos, playerType) {
     } else if (anyVideoIsPlaying) {
       console.log(thisPlayer.id, 'loaded while another video was playing, syncing to others and starting')
       thisPlayer.seekTo(averageTimestamp, PLAYING)
+    } else if (anyVideoStillLoading && averageTimestamp == null) {
+      console.log(thisPlayer.id, 'loaded with all other videos in READY, deferring seek until all videos have loaded')
     } else if (anyVideoStillLoading) {
       console.log(thisPlayer.id, 'loaded while another video is still loading, syncing to others but staying paused')
       thisPlayer.seekTo(averageTimestamp, PAUSED)
