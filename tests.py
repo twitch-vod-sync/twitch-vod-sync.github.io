@@ -431,6 +431,7 @@ startTime: {datetime.fromtimestamp(start_time)}
     self.assert_players_synced_to(self.VIDEO_3_START_TIME + 220)
 
     assert self.run('return players.get("player1").videoId') == self.VIDEO_3
+    time.sleep(1)
     assert self.run('return players.get("player1").nextVideoDetails.id') == self.VIDEO_4
 
     # There's about 20 seconds left in the second video, so it should end (and refresh) within 30 seconds.
