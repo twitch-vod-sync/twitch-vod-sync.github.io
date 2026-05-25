@@ -605,9 +605,9 @@ function loadRace(raceDetails) {
   // However, we won't overwrite any already-loaded videos (e.g. if the user already has an async loaded up).
   var videosToLoad = Math.max(4, document.getElementById('players').childElementCount) - players.size
   // We also need to pass down the channels who are already loaded, so we don't show them again.
-  var loadedVideos = new Set(window.players.values().map(p => p.videoId))
+  var loadedChannels = new Set(window.players.values().map(p => p.channel))
 
-  loadRaceVideos(raceDetails, videosToLoad, loadedVideos)
+  loadRaceVideos(raceDetails, videosToLoad, loadedChannels)
   .then(videos => {
     if (videos.length === 0) {
       console.error('Failed to load any videos from race', raceDetails.url)

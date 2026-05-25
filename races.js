@@ -17,9 +17,10 @@ window.getRacetimeRaceDetails = function(raceId) {
   })
 }
 
-window.loadRaceVideos = async function(race, count, skipVideos) {
+window.loadRaceVideos = async function(race, count, skipChannels) {
   var raceVideos = []
   for (var channel of race.channels) {
+    if (skipChannels.has(channel)) continue
     try {
       var channelVideos = await getTwitchChannelVideos(channel)
     } catch (ex) {
@@ -32,11 +33,7 @@ window.loadRaceVideos = async function(race, count, skipVideos) {
 
     for (var video of channelVideos) {
       if (video.startTime <= race.startTime && race.startTime <= video.endTime) {
-        if (skipVideos.has(video.id)) {
-          console.log('Video', video.id, 'from channel', channel, 'was already loaded in the parent, not returning it')
-        } else {
-          raceVideos.push(video)
-        }
+        raceVideos.push(video)
         break // There should not be multiple videos overlapping the start point.
       }
     }
