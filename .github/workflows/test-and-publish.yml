@@ -42,7 +42,9 @@ jobs:
       uses: actions/upload-artifact@main
       if: always()
       with:
-        path: D:/a/_temp/*.png
+        path: |
+          D:/a/_temp/*.png
+          D:/a/_temp/*.json
         if-no-files-found: ignore
 
   publish:

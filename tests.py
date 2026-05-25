@@ -51,6 +51,8 @@ class UITests:
       options = webdriver.chrome.options.Options()
       options.add_argument('headless=new')
       options.add_argument("--window-size=2560,1440")
+      options.add_argument("--disable-dev-shm-usage")
+      options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
       self.driver = webdriver.Chrome(options=options)
     else:
       options = webdriver.firefox.options.Options()
@@ -86,7 +88,17 @@ class UITests:
     self.driver.save_screenshot(path)
     self.print('Saved screenshot', path)
     return path
-    
+
+  def dump_network_logs(self):
+    try:
+      logs = self.driver.get_log('performance')
+      path = self.tmp_folder / f'network_log_{self.screenshot_no:03}.json'
+      with open(path, 'w') as f:
+        json.dump(logs, f)
+      print('Saved network log to', path)
+    except Exception as exc:
+      print('Network logs unavailable', exc)
+
   def wait_for_last_log(self, message, timeout_sec=10):
     self.driver.set_script_timeout(timeout_sec)
     return self.driver.execute_async_script('''
@@ -393,6 +405,10 @@ startTime: {datetime.fromtimestamp(start_time)}
     # Override the channel lookup function, since we need to test with highlights (for stability)
     self.run('window.getTwitchChannelVideos = function () { return window.getTwitchVideosDetails(["' + self.VIDEO_3 + '", "' + self.VIDEO_4 + '"]) }')
 
+    # The two test videos are 60s apart, which is exactly the default SYNC_THRESHOLD.
+    # Lower it slightly so the "loaded while videos are paused" branch fires for this test.
+    self.run('SYNC_THRESHOLD = 59000')
+
     self.print('Mock loading channel videos into player1')
     player1_form = self.driver.find_element(By.ID, 'player1-form')
     player1_video_text = player1_form.find_element(By.NAME, 'video')
@@ -415,6 +431,7 @@ startTime: {datetime.fromtimestamp(start_time)}
     self.assert_players_synced_to(self.VIDEO_3_START_TIME + 220)
 
     assert self.run('return players.get("player1").videoId') == self.VIDEO_3
+    time.sleep(1)
     assert self.run('return players.get("player1").nextVideoDetails.id') == self.VIDEO_4
 
     # There's about 20 seconds left in the second video, so it should end (and refresh) within 30 seconds.
@@ -440,9 +457,25 @@ startTime: {datetime.fromtimestamp(start_time)}
     if wait:
       time.sleep(1)
 
-  def testMockPlayerLoad(self):
+  def testMockLoadSameStart(self):
     self.driver.get('http://localhost:3000#scope=&access_token=mock_token')
     # Load all 4 videos at once, to simulate a "load from URL"
+    self.mockLoadVideo(startTime=5, wait=False)
+    self.mockLoadVideo(startTime=5, wait=False)
+    self.mockLoadVideo(startTime=5, wait=False)
+    self.mockLoadVideo(startTime=5)
+    self.assert_players_synced_to(5)
+
+  def testMockLoadAscending(self):
+    self.driver.get('http://localhost:3000#scope=&access_token=mock_token')
+    self.mockLoadVideo(startTime=0)
+    self.mockLoadVideo(startTime=1)
+    self.mockLoadVideo(startTime=2)
+    self.mockLoadVideo(startTime=3)
+    self.assert_players_synced_to(3)
+
+  def testMockLoadAscendingBatch(self):
+    self.driver.get('http://localhost:3000#scope=&access_token=mock_token')
     self.mockLoadVideo(startTime=0, wait=False)
     self.mockLoadVideo(startTime=1, wait=False)
     self.mockLoadVideo(startTime=2, wait=False)
@@ -457,13 +490,6 @@ startTime: {datetime.fromtimestamp(start_time)}
     self.mockLoadVideo(startTime=0)
     self.assert_players_synced_to(3)
 
-  def testMockLoadSameStart(self):
-    self.driver.get('http://localhost:3000#scope=&access_token=mock_token')
-    self.mockLoadVideo(startTime=5)
-    self.mockLoadVideo(startTime=5)
-    self.mockLoadVideo(startTime=5)
-    self.mockLoadVideo(startTime=5)
-    self.assert_players_synced_to(5)
 
   def testMockLoadWithTooEarlyInitial(self):
     self.driver.get('http://localhost:3000#scope=&access_token=mock_token')
@@ -489,7 +515,23 @@ startTime: {datetime.fromtimestamp(start_time)}
     self.mockLoadVideo(startTime=1, initial=70)
     self.mockLoadVideo(startTime=2)
     self.mockLoadVideo(startTime=3)
+    self.assert_players_synced_to(80)
+
+  def testMockLoadWithSameInitialTime(self):
+    self.driver.get('http://localhost:3000#scope=&access_token=mock_token')
+    self.mockLoadVideo(startTime=0, initial=70, wait=False)
+    self.mockLoadVideo(startTime=1, initial=70, wait=False)
+    self.mockLoadVideo(startTime=2, initial=70, wait=False)
+    self.mockLoadVideo(startTime=3, initial=70)
     self.assert_players_synced_to(70)
+
+  def testMockLoadWithMixedInitialTimesBatch(self):
+    self.driver.get('http://localhost:3000#scope=&access_token=mock_token')
+    self.mockLoadVideo(startTime=0, initial=80, wait=False)
+    self.mockLoadVideo(startTime=1, initial=70, wait=False)
+    self.mockLoadVideo(startTime=2, wait=False)
+    self.mockLoadVideo(startTime=3)
+    self.assert_players_synced_to(3)
 
   def testMockLoadInAsync(self):
     self.driver.get('http://localhost:3000#scope=&access_token=mock_token')
@@ -517,34 +559,34 @@ startTime: {datetime.fromtimestamp(start_time)}
   def testMockLoadWhileSeeked(self):
     self.driver.get('http://localhost:3000#scope=&access_token=mock_token')
     self.mockLoadVideo(startTime=0)
-    self.run('players.get("player0").seekTo(30000, PAUSED)')
+    self.run('players.get("player0").seekTo(70000, PAUSED)')
     self.mockLoadVideo(startTime=1)
     self.mockLoadVideo(startTime=2)
     self.mockLoadVideo(startTime=3)
-    self.assert_players_synced_to(30)
+    self.assert_players_synced_to(70)
 
   def testMockLoadRace(self):
     self.driver.get('http://localhost:3000#scope=&access_token=mock_token')
-    self.run('raceStartTime = 5000')
+    self.run('raceStartTime = 70000')
     self.mockLoadVideo(startTime=0, wait=False)
     self.mockLoadVideo(startTime=1, wait=False)
     self.mockLoadVideo(startTime=2, wait=False)
     self.mockLoadVideo(startTime=3)
-    self.assert_players_synced_to(5)
+    self.assert_players_synced_to(70)
 
   def testMockLoadOneThenRace(self):
     self.driver.get('http://localhost:3000#scope=&access_token=mock_token')
     self.mockLoadVideo(startTime=0)
-    self.run('raceStartTime = 5000')
+    self.run('raceStartTime = 70000')
     self.mockLoadVideo(startTime=1, wait=False)
     self.mockLoadVideo(startTime=2, wait=False)
     self.mockLoadVideo(startTime=3)
-    self.assert_players_synced_to(5)
+    self.assert_players_synced_to(70)
 
   def testMockLoadOneSeekThenRace(self):
     self.driver.get('http://localhost:3000#scope=&access_token=mock_token')
     self.mockLoadVideo(startTime=0)
-    # We only use initial offset times if they are after the race start time
+    # We only honor player times if they are significantly after the race start time
     self.run('players.get("player0").seekTo(80000, PAUSED)')
     self.run('raceStartTime = 5000')
     self.mockLoadVideo(startTime=1, wait=False)
@@ -554,11 +596,11 @@ startTime: {datetime.fromtimestamp(start_time)}
 
   def testMockLoadWithBeforeStart(self):
     self.driver.get('http://localhost:3000#scope=&access_token=mock_token')
-    self.mockLoadVideo(startTime=10)
-    self.run('players.get("player0").state = BEFORE_START')
-    self.mockLoadVideo(startTime=1, wait=False)
-    self.mockLoadVideo(startTime=2, wait=False)
-    self.mockLoadVideo(startTime=3, wait=False)
+    self.mockLoadVideo(startTime=0)
+    self.mockLoadVideo(startTime=1)
+    self.mockLoadVideo(startTime=10, wait=False)
+    self.run('players.get("player2").state = BEFORE_START')
+    self.mockLoadVideo(startTime=11)
     self.assert_players_synced_to(10)
 
 if __name__ == '__main__':
@@ -567,8 +609,8 @@ if __name__ == '__main__':
     loop_count = 20 # Require additional consistency for our nightly job vs ad-hoc pushes
   elif len(sys.argv) > 1 and sys.argv[1].isdigit():
     loop_count = int(sys.argv.pop(1))
-  elif len(sys.argv) > 2:
-    loop_count = int(sys.argv.pop(2))
+  elif len(sys.argv) > 2 and sys.argv[-1].isdigit():
+    loop_count = int(sys.argv.pop(-1))
 
   test_class = UITests()
   is_test = lambda method: inspect.ismethod(method) and method.__name__.startswith('test')
@@ -591,6 +633,7 @@ if __name__ == '__main__':
         print('===', test[0], 'attempt', i, 'passed')
       except TwitchEmbedFailedToLoadException:
         test_class.screenshot()
+        test_class.dump_network_logs()
         print('???', test[0], 'attempt', i, 'skipped because a twitch embed failed to load')
       except Exception:
         test_class.screenshot()
