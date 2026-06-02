@@ -118,7 +118,11 @@ class TwitchPlayer extends Player {
       this._endTime = this._startTime + durationMillis
       this.eventSink('play')
     })
-    this._player.addEventListener('pause', () => this.eventSink('pause'))
+    this._player.addEventListener('pause', () => {
+      // Twitch has started sending 'paused' instead of 'ended' some times.
+      if (this.getCurrentTimestamp() > this.endTime) this.eventSink('ended')
+      else this.eventSink('pause')
+    })
     this._player.addEventListener('ended', () => this.eventSink('ended'))
 
     // I did not end up using the 'playing' event -- for the most part, twitch pauses videos when the buffer runs out,
@@ -225,6 +229,14 @@ class TwitchPlayer extends Player {
             return
           }
 
+          if (this.state == AFTER_END && timestamp >= this.endTime - VIDEO_END_BUFFER) {
+            console.log('Ignoring assumed right-arrow seek while in AFTER_END state')
+            break
+          } else if (this.state == BEFORE_START && timestamp <= this.startTime + VIDEO_END_BUFFER) {
+            console.log('Ignoring assumed right-arrow seek while in BEFORE_START state')
+            break
+          }
+
           var timestamp = this.startTime + seekMillis
           console.log('User has manually seeked', this.id, 'to', timestamp, 'seeking all other players')
           pendingSeekTimestamp = timestamp
@@ -287,7 +299,7 @@ class TwitchPlayer extends Player {
           for (var player of players.values()) {
             if (player.state === SEEKING_PLAY) player.state = SEEKING_PAUSE
             if (player.state === PLAYING)      player.state = PAUSED // We change the state to PAUSED before pausing so that it's clear it's not a manual pause.
-            if (player.id != this.id)    player.pause() // Note: We don't want to pause the current player, since it might be waiting for a seek event.
+            if (player.id != this.id)          player.pause() // Note: We don't want to pause the current player, since it might be waiting for a seek event.
           }
           break
 
