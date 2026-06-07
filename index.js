@@ -452,7 +452,7 @@ function getBestVideo(videos, currentTimestamp) {
     // We are looking to see if our video overlaps the timeline.
     // First, check to see if the timeline surrounds our video's start time.
     // Second, check to see if our video surrounds the timeline's start time.
-    if (timelineStart <= video.startTime && video.startTime <= timelineEnd) {
+    if (timelineStart <= video.startTime && video.startTime <= timelineEnd) { // TODO: Broken in async mode?
       overlappingVideos.push(video)
     } else if (video.startTime <= timelineStart && timelineStart <= video.endTime) {
       overlappingVideos.push(video)
