@@ -294,6 +294,8 @@ startTime: {datetime.fromtimestamp(start_time)}
     self.driver.get(url)
 
     # Wait for all players to load and reach the 'pause' state
+    if 'CI' in os.environ:
+      time.sleep(15) # CI is being oddly slow when loading all these players
     for player in players:
       self.wait_for_state(player, 'PAUSED')
 
@@ -322,8 +324,6 @@ startTime: {datetime.fromtimestamp(start_time)}
 
     # The 'assert sync' function has a 1s grace period, so this timing should be ok.
     self.assert_players_synced_to(self.VIDEO_0_START_TIME + 61)
-
-    return # This test is catching an actual bug which I might be fixing but the second half is still spooky.
 
     # Do it again, this time with the players all live
     self.simulate_play('player0')
