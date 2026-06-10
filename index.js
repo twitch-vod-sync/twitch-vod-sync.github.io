@@ -822,7 +822,7 @@ function refreshTimeline() {
       if (player.nextVideoDetails != null) continue // Already found a next video.
       if (timestamp < player.endTime - 60000) continue // Only search when we're 1 minute from the end of the video (or less)
 
-      player.nextVideoDetails = {'id': 0} // Add a placeholder object so we only make this call once. (TODO: Is this correct? What if multiple VODs need reloading?)
+      player.nextVideoDetails = {'id': 0} // Add a placeholder object so we only make this call once.
 
       getTwitchChannelVideos(player.channel)
       .then(videos => {
