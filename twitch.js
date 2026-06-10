@@ -133,7 +133,8 @@ window.getTwitchChannelVideos = function(channelName) {
   })
   .then(r => {
     if (r.data.length === 0) return Promise.reject('Succesfully loaded channel ' + channelName + ' but could not find any past broadcasts')
-    return r.data.map(video => parseVideo(video))
+    // Twitch APIs state that they return newest first, sort just to be sure.
+    return r.data.map(video => parseVideo(video)).sort((a, b) => b.startTime - a.startTime)
   })
 }
 })()
