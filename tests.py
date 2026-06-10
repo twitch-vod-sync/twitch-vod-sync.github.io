@@ -333,15 +333,17 @@ startTime: {datetime.fromtimestamp(start_time)}
     time.sleep(1)
     self.print('Seeking all players to 120.0')
     self.run('''
-      setTimeout(() => players.get("player0")._player.seek(120.0), 1000)
-      setTimeout(() => players.get("player1")._player.seek(120.1), 1001)
-      setTimeout(() => players.get("player2")._player.seek(120.2), 1002)
-      setTimeout(() => players.get("player3")._player.seek(120.3), 1003)
-      setTimeout(() => players.get("player4")._player.seek(120.4), 1004)
-      // setTimeout(() => players.get("player5")._player.seek(120.5), 1005)
-      // setTimeout(() => players.get("player6")._player.seek(120.6), 1006)
-      // setTimeout(() => players.get("player7")._player.seek(120.7), 1007)
-      // setTimeout(() => players.get("player8")._player.seek(120.8), 1008)
+      function focusFrame(player) { document.querySelector('div[id="' + player + '"] > iframe').focus() }
+
+      setTimeout(() => { focusFrame('player0'); players.get('player0')._player.seek(120.0) }, 1000)
+      setTimeout(() => { focusFrame('player1'); players.get('player1')._player.seek(120.1) }, 1001)
+      setTimeout(() => { focusFrame('player2'); players.get('player2')._player.seek(120.2) }, 1002)
+      setTimeout(() => { focusFrame('player3'); players.get('player3')._player.seek(120.3) }, 1003)
+      setTimeout(() => { focusFrame('player4'); players.get('player4')._player.seek(120.4) }, 1004)
+      // setTimeout(() => { focusFrame('player5'); players.get('player5')._player.seek(120.5) }, 1005)
+      // setTimeout(() => { focusFrame('player6'); players.get('player6')._player.seek(120.6) }, 1006)
+      // setTimeout(() => { focusFrame('player7'); players.get('player7')._player.seek(120.7) }, 1007)
+      // setTimeout(() => { focusFrame('player8'); players.get('player8')._player.seek(120.8) }, 1008)
     ''')
     self.wait_for_last_log('setting pendingSeekTimestamp to 0')
 
