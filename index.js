@@ -496,6 +496,7 @@ function showVideoPicker(playerId, videos) {
 }
 
 var players = new Map()
+var nextColorIndex = 0
 function loadVideos(playerId, videos, playerType) {
   document.getElementById(playerId + '-form').style.display = 'none'
   var div = document.getElementById(playerId)
@@ -506,6 +507,9 @@ function loadVideos(playerId, videos, playerType) {
   history.pushState(null, null, '?' + params.toString())
 
   var player = window.newPlayer(div.id, videos, playerType)
+  // Stable color index so the timeline row color follows this player across rearrangements
+  // (rather than the color staying tied to a visual slot or getting reused after a remove).
+  player.colorIndex = nextColorIndex++
   players.set(div.id, player)
   if (params.has('offset' + div.id)) {
     player.offset = parseInt(params.get('offset' + div.id))
@@ -744,7 +748,7 @@ function reloadTimeline() {
   for (var player of players.values()) {
     var rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
     graphic.appendChild(rect)
-    rect.setAttribute('fill', TIMELINE_COLORS[i % TIMELINE_COLORS.length])
+    rect.setAttribute('fill', TIMELINE_COLORS[player.colorIndex % TIMELINE_COLORS.length])
     rect.setAttribute('height', rowHeight + '%')
     rect.setAttribute('y', i * rowHeight + '%')
 
