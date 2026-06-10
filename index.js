@@ -179,7 +179,6 @@ window.onload = function() {
           player.offset += (ASYNC_ALIGN - pausedTimestamp)
         }
         // The videos will now respond to 'seek' and 'pause' events and adjust their offsets accordingly.
-        // TODO: Label the timeline with ASYNC MODE since otherwise people won't know wtf happened when they push 'A'
 
       } else {
         // Once the user hits 'a' again, we normalize the offsets so that the earliest video is at the "true" time,
@@ -793,8 +792,12 @@ function refreshTimeline() {
   var perc = 100.0 * (timestamp - timelineStart) / (timelineEnd - timelineStart)
   if (cursor != null) cursor.setAttribute('x', perc + '%')
 
+  var anyVideoInAsync = Array.from(players.values()).some(p => p.state === ASYNC)
+
   var currentLabel = document.getElementById('timelineCurrent')
-  if (currentLabel != null) currentLabel.innerText = new Date(timestamp).toLocaleString(TIMELINE_DATE_FORMAT)
+  if (currentLabel != null) {
+    currentLabel.innerText = anyVideoInAsync ? 'ASYNC MODE' : new Date(timestamp).toLocaleString(TIMELINE_DATE_FORMAT)
+  }
 
   // In some cases, the video end times might be updated when we load the player(s), in which case the end timestamp will be wrong.
   var endLabel = document.getElementById('timelineEnd')
