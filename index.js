@@ -65,6 +65,8 @@ window.onload = function() {
     params = new URLSearchParams(window.localStorage.getItem('queryParams'))
     console.log('Loaded query params from storage:', params.toString())
     window.localStorage.removeItem('queryParams')
+    // Restore the URL so downstream code can interact with it (e.g. for offsets)
+    history.replaceState(null, null, '?' + params.toString())
   } else {
     params = new URLSearchParams(window.location.search)
     console.log('Loaded query params from url:', params.toString())
@@ -101,15 +103,22 @@ window.onload = function() {
   window.addPlayer()
 
   // Once auth is sorted out, load any videos from the query parameters
-  for (let [playerId, videoIds] of params.entries()) {
+  for (let [playerId, videoId] of params.entries()) {
     // There may be other params, this loop is only for player0, player1, etc
-    if (playerId.startsWith('player') && videoIds.length > 0) {
+    if (playerId.startsWith('player') && videoId.length > 0) {
       while (document.getElementById(playerId) == null) window.addPlayer()
 
-      var promise = FEATURES.DO_TWITCH_AUTH ? getTwitchVideosDetails(videoIds.split('-')) : getStubVideosDetails(videoIds.split('-'))
+      var promise = FEATURES.DO_TWITCH_AUTH ? getTwitchVideosDetails([videoId]) : getStubVideosDetails([videoId])
       promise
       .then(videos => loadVideos(playerId, videos, TWITCH))
-      .catch(r => showText(playerId, 'Could not process video "' + videoIds + '":\n' + r, /*isError*/true))
+      .then(player => {
+        // Handle offset here (instead of in loadVideos) since we know videos haven't been reordered yet.
+        if (params.has('offset' + playerId)) {
+          player.offset = parseInt(params.get('offset' + playerId))
+          syncPlayerParamsToURL()
+        }
+      })
+      .catch(r => showText(playerId, 'Could not process video "' + videoId + '":\n' + r, /*isError*/true))
     }
   }
 
@@ -150,6 +159,10 @@ window.onload = function() {
       FEATURES.HIDE_ENDING_TIMES = !FEATURES.HIDE_ENDING_TIMES
       reloadTimeline()
 
+    } else if (event.key == 'r' || event.key == 'R') {
+      if (anyVideoInAsync) return // Different modes are incompatible
+      toggleRearrangeMode()
+
     } else if (event.key == 'q' || event.key == 'Q') {
       var qualities = new Set()
       for (var player of players.values()) {
@@ -166,6 +179,7 @@ window.onload = function() {
       for (var player of players.values()) player.setQuality(currentQuality)
 
     } else if (event.key == 'a') {
+      if (isRearrangeMode()) return // Different modes are incompatible
       // On the first press, bring all videos into 'async mode', where they can be adjusted freely.
       // We need to start by aligning all videos based on their current time.
       if (!anyVideoInAsync) {
@@ -198,15 +212,7 @@ window.onload = function() {
         }
 
         // Save offsets into the URL (to allow sharing)
-        var params = new URLSearchParams(window.location.search);
-        for (var player of players.values()) {
-          // When Twitch auth is disabled, we emit all offsets so that the resulting URL is coded to also not trigger auth.
-          // When Twitch auth is enabled, we omit the smallest offset (there must be one) to not trigger the above.
-          if (!FEATURES.DO_TWITCH_AUTH || player.offset != 0) {
-            params.set('offset' + player.id, player.offset)
-          }
-        }
-        history.pushState(null, null, '?' + params.toString())
+        syncPlayerParamsToURL()
 
         reloadTimeline() // Reload now that the videos have comparable start and end times
 
@@ -248,9 +254,14 @@ function addPlayer() {
   var playersDiv = document.getElementById('players')
 
   var newPlayer = document.createElement('div')
-  newPlayer.id = 'player' + playersDiv.childElementCount
+  // Player IDs are not necessarily contiguous. However, race loading expects to find IDs in order,
+  // so we make sure to add the new player at the lowest available ID.
+  for (var i = 0; document.getElementById('player' + i) != null; i++) {}
+  newPlayer.id = 'player' + i
   playersDiv.appendChild(newPlayer)
-  newPlayer.style = 'flex: 1 0 50%; display: flex; flex-direction: column; justify-content: center; align-items: center'
+  newPlayer.style = 'flex: 1 0 50%; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative'
+  newPlayer.style.order = playersDiv.childElementCount - 1
+  exitRearrangeMode() // Adding a tile implies the user is done rearranging.
 
   var form = document.createElement('form')
   newPlayer.appendChild(form)
@@ -313,31 +324,26 @@ function showText(playerId, message, isError) {
 }
 
 function removePlayer() {
-  var playersDiv = document.getElementById('players')
-  var playerToRemove = playersDiv.childNodes[playersDiv.childElementCount - 1]
+  exitRearrangeMode() // Removing a tile implies the user is done rearranging.
+  var playerDivs = getPlayerDivsInVisualOrder()
+  var playerToRemove = playerDivs.at(-1)
   // If we're removing the final player, wipe out both divs so that addPlayer can just create sequential IDs
-  if (playersDiv.childElementCount <= MIN_PLAYERS
-    && !players.has('player1')
-    && players.has('player0')) {
-    playersDiv.childNodes[1].remove()
-    playerToRemove = playersDiv.childNodes[0]
+  if (playerDivs.length <= MIN_PLAYERS && players.size === 1) {
+    playerToRemove = document.getElementById(players.keys().next().value)
+    var emptyDiv = playerDivs.find(d => d !== playerToRemove)
+    emptyDiv.remove()
   }
 
   // Untrack the player and update the timeline
   players.delete(playerToRemove.id)
   reloadTimeline()
 
-  // Update displayed query params to remove this video
-  var params = new URLSearchParams(window.location.search);
-  params.delete(playerToRemove.id)
-  params.delete('offset' + playerToRemove.id)
-  history.pushState(null, null, '?' + params.toString())
-
-  // Remove the div (which also unloads the embed)
+  // Remove the div (which also unloads the embed), then sync the URL.
   playerToRemove.remove()
+  syncPlayerParamsToURL()
 
   // Restore back up to the minimum number of players (2)
-  while (playersDiv.childElementCount < MIN_PLAYERS) window.addPlayer()
+  while (document.getElementById('players').childElementCount < MIN_PLAYERS) window.addPlayer()
 }
 
 function resizePlayers() {
@@ -496,20 +502,17 @@ function showVideoPicker(playerId, videos) {
 }
 
 var players = new Map()
+var nextColorIndex = 0
 function loadVideos(playerId, videos, playerType) {
   document.getElementById(playerId + '-form').style.display = 'none'
   var div = document.getElementById(playerId)
 
-  // Update displayed query params for this new video
-  var params = new URLSearchParams(window.location.search)
-  params.set(div.id, videos.map(v => v.id).join('-'))
-  history.pushState(null, null, '?' + params.toString())
-
   var player = window.newPlayer(div.id, videos, playerType)
+  player.color = TIMELINE_COLORS[nextColorIndex % TIMELINE_COLORS.length]
+  nextColorIndex++ // Cycle through colors so removing/re-adding a player still picks a new color.
+
   players.set(div.id, player)
-  if (params.has('offset' + div.id)) {
-    player.offset = parseInt(params.get('offset' + div.id))
-  }
+  syncPlayerParamsToURL()
 
   player.onready = (thisPlayer, initialTimestamp) => {
     initialTimestamp = initialTimestamp || 0
@@ -572,6 +575,8 @@ function loadVideos(playerId, videos, playerType) {
       seekPlayersTo(earliestSync, PAUSED)
     }
   }
+
+  return player
 }
 
 // Mirror of getTwitchVideosDetails(videoIds), except it doesn't need Twitch auth (and so has a bunch of stub/fake data)
@@ -741,10 +746,13 @@ function reloadTimeline() {
   var [timelineStart, timelineEnd] = getTimelineBounds()
   var rowHeight = 100.0 / players.size
   var i = 0
-  for (var player of players.values()) {
+  // Draw timeline rows in the same visual order as the player tiles, so rearranging the players also rearranges the timeline.
+  for (var playerDiv of getPlayerDivsInVisualOrder()) {
+    var player = players.get(playerDiv.id)
+    if (player == null) continue // Skip empty players in the timeline
     var rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
     graphic.appendChild(rect)
-    rect.setAttribute('fill', TIMELINE_COLORS[i % TIMELINE_COLORS.length])
+    rect.setAttribute('fill', player.color)
     rect.setAttribute('height', rowHeight + '%')
     rect.setAttribute('y', i * rowHeight + '%')
 
@@ -782,6 +790,18 @@ function reloadTimeline() {
 }
 
 function refreshTimeline() {
+  var currentLabel = document.getElementById('timelineCurrent')
+
+  var anyVideoInAsync = Array.from(players.values()).some(p => p.state === ASYNC)
+  if (anyVideoInAsync) {
+    if (currentLabel != null) currentLabel.innerText = 'ASYNC MODE'
+    return
+  }
+  if (isRearrangeMode()) {
+    if (currentLabel != null) currentLabel.innerText = 'REARRANGE MODE'
+    return
+  }
+
   // If the user seeked, use their intended seek as the timeline marker (so it looks like we react fast)
   var timestamp = pendingSeekTimestamp > 0 ? pendingSeekTimestamp : getAveragePlayerTimestamp()
   if (timestamp == null) return // No videos are ready, leave the cursor where it is
@@ -792,11 +812,8 @@ function refreshTimeline() {
   var perc = 100.0 * (timestamp - timelineStart) / (timelineEnd - timelineStart)
   if (cursor != null) cursor.setAttribute('x', perc + '%')
 
-  var anyVideoInAsync = Array.from(players.values()).some(p => p.state === ASYNC)
-
-  var currentLabel = document.getElementById('timelineCurrent')
   if (currentLabel != null) {
-    currentLabel.innerText = anyVideoInAsync ? 'ASYNC MODE' : new Date(timestamp).toLocaleString(TIMELINE_DATE_FORMAT)
+    currentLabel.innerText = new Date(timestamp).toLocaleString(TIMELINE_DATE_FORMAT)
   }
 
   // In some cases, the video end times might be updated when we load the player(s), in which case the end timestamp will be wrong.
