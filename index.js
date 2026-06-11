@@ -101,15 +101,15 @@ window.onload = function() {
   window.addPlayer()
 
   // Once auth is sorted out, load any videos from the query parameters
-  for (let [playerId, videoIds] of params.entries()) {
+  for (let [playerId, videoId] of params.entries()) {
     // There may be other params, this loop is only for player0, player1, etc
-    if (playerId.startsWith('player') && videoIds.length > 0) {
+    if (playerId.startsWith('player') && videoId.length > 0) {
       while (document.getElementById(playerId) == null) window.addPlayer()
 
-      var promise = FEATURES.DO_TWITCH_AUTH ? getTwitchVideosDetails(videoIds.split('-')) : getStubVideosDetails(videoIds.split('-'))
+      var promise = FEATURES.DO_TWITCH_AUTH ? getTwitchVideosDetails([videoId]) : getStubVideosDetails([videoId])
       promise
       .then(videos => loadVideos(playerId, videos, TWITCH))
-      .catch(r => showText(playerId, 'Could not process video "' + videoIds + '":\n' + r, /*isError*/true))
+      .catch(r => showText(playerId, 'Could not process video "' + videoId + '":\n' + r, /*isError*/true))
     }
   }
 
@@ -201,15 +201,7 @@ window.onload = function() {
         }
 
         // Save offsets into the URL (to allow sharing)
-        var params = new URLSearchParams(window.location.search);
-        for (var player of players.values()) {
-          // When Twitch auth is disabled, we emit all offsets so that the resulting URL is coded to also not trigger auth.
-          // When Twitch auth is enabled, we omit the smallest offset (there must be one) to not trigger the above.
-          if (!FEATURES.DO_TWITCH_AUTH || player.offset != 0) {
-            params.set('offset' + player.id, player.offset)
-          }
-        }
-        history.pushState(null, null, '?' + params.toString())
+        syncPlayerParamsToURL()
 
         reloadTimeline() // Reload now that the videos have comparable start and end times
 
@@ -319,14 +311,13 @@ function showText(playerId, message, isError) {
 
 function removePlayer() {
   exitRearrangeMode() // Removing a tile implies the user is done rearranging.
-  var playersDiv = document.getElementById('players')
-  var playerToRemove = playersDiv.childNodes[playersDiv.childElementCount - 1]
+  var playerDivs = getPlayerDivsInVisualOrder()
+  var playerToRemove = playerDivs.at(-1)
   // If we're removing the final player, wipe out both divs so that addPlayer can just create sequential IDs
-  if (playersDiv.childElementCount <= MIN_PLAYERS
-    && !players.has('player1')
-    && players.has('player0')) {
-    playersDiv.childNodes[1].remove()
-    playerToRemove = playersDiv.childNodes[0]
+  if (playerDivs.length <= MIN_PLAYERS && players.size === 1) {
+    playerToRemove = document.getElementById(players.keys().next().value)
+    var emptyDiv = playerDivs.find(d => d !== playerToRemove)
+    emptyDiv.remove()
   }
 
   // Untrack the player and update the timeline
@@ -334,16 +325,13 @@ function removePlayer() {
   reloadTimeline()
 
   // Update displayed query params to remove this video
-  var params = new URLSearchParams(window.location.search);
-  params.delete(playerToRemove.id)
-  params.delete('offset' + playerToRemove.id)
-  history.pushState(null, null, '?' + params.toString())
+  syncPlayerParamsToURL()
 
   // Remove the div (which also unloads the embed)
   playerToRemove.remove()
 
   // Restore back up to the minimum number of players (2)
-  while (playersDiv.childElementCount < MIN_PLAYERS) window.addPlayer()
+  while (document.getElementById('players').childElementCount < MIN_PLAYERS) window.addPlayer()
 }
 
 function resizePlayers() {
@@ -507,19 +495,20 @@ function loadVideos(playerId, videos, playerType) {
   document.getElementById(playerId + '-form').style.display = 'none'
   var div = document.getElementById(playerId)
 
-  // Update displayed query params for this new video
-  var params = new URLSearchParams(window.location.search)
-  params.set(div.id, videos.map(v => v.id).join('-'))
-  history.pushState(null, null, '?' + params.toString())
-
   var player = window.newPlayer(div.id, videos, playerType)
-  // Stable color index so the timeline row color follows this player across rearrangements
-  // (rather than the color staying tied to a visual slot or getting reused after a remove).
-  player.colorIndex = nextColorIndex++
   players.set(div.id, player)
+
+  // Cycle through colors so removing/re-adding a player still picks a new color.
+  player.color = TIMELINE_COLORS[nextColorIndex % TIMELINE_COLORS.length]
+  nextColorIndex++
+
+  // Read offset from the URL before we sync (otherwise our sync would clobber it with the default of 0).
+  var params = new URLSearchParams(window.location.search)
   if (params.has('offset' + div.id)) {
     player.offset = parseInt(params.get('offset' + div.id))
   }
+
+  syncPlayerParamsToURL()
 
   player.onready = (thisPlayer, initialTimestamp) => {
     initialTimestamp = initialTimestamp || 0
@@ -754,9 +743,10 @@ function reloadTimeline() {
   // Draw timeline rows in the same visual order as the player tiles, so rearranging the players also rearranges the timeline.
   for (var playerDiv of getPlayerDivsInVisualOrder()) {
     var player = players.get(playerDiv.id)
+    if (player == null) continue // Skip empty players in the timeline
     var rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
     graphic.appendChild(rect)
-    rect.setAttribute('fill', TIMELINE_COLORS[player.colorIndex % TIMELINE_COLORS.length])
+    rect.setAttribute('fill', player.color)
     rect.setAttribute('height', rowHeight + '%')
     rect.setAttribute('y', i * rowHeight + '%')
 

@@ -10,28 +10,44 @@ function setRearrangeMode(enabled) {
     // Add a border color matching the (stable) color of each video. Non-video players get a gray border.
     for (var playerDiv of playersDiv.childNodes) {
       var player = players.get(playerDiv.id)
-      var color = (player != null) ? TIMELINE_COLORS[player.colorIndex % TIMELINE_COLORS.length] : '#ccc'
+      var color = (player != null) ? player.color : '#ccc'
       addRearrangeOverlay(playerDiv, color)
     }
   } else {
-    for (var playerDiv of playersDiv.childNodes) {
-      var overlay = playerDiv.querySelector(':scope > .rearrange-overlay')
-      if (overlay != null) overlay.remove()
-    }
+    // .remove() mutates the live HTMLCollection, so just keep popping until it's empty.
+    var overlays = playersDiv.getElementsByClassName('rearrange-overlay')
+    while (overlays.length > 0) overlays[0].remove()
 
-    // TODO: URL order somehow
+    syncPlayerParamsToURL()
     reloadTimeline()
   }
 }
 
 window.getPlayerDivsInVisualOrder = function() {
-  var playerDivs = Array.from(players.values()).map(player => document.getElementById(player.id))
+  var playerDivs = Array.from(document.getElementById('players').childNodes)
   playerDivs.sort((a, b) => parseInt(a.style.order) - parseInt(b.style.order))
   return playerDivs
 }
 
+// Single source of truth for generating the stable URL, which re-organizes query params to match the visual order.
+window.syncPlayerParamsToURL = function() {
+  var params = new URLSearchParams()
+  var playerDivs = getPlayerDivsInVisualOrder()
+  for (var i = 0; i < playerDivs.length; i++) {
+    var player = players.get(playerDivs[i].id)
+    if (player == null) continue;
+    params.set('player' + i, player.videoId)
+    // When Twitch auth is disabled, we emit all offsets so the resulting URL stays in non-auth mode.
+    // When Twitch auth is enabled, we omit zero offsets (there must be at least one) to avoid flipping to non-auth mode.
+    if (!FEATURES.DO_TWITCH_AUTH || player.offset != 0) {
+      params.set('offsetplayer' + i, player.offset)
+    }
+  }
+  history.pushState(null, null, '?' + params.toString())
+}
+
 window.addRearrangeOverlay = function(playerDiv, color) {
-  if (playerDiv.querySelector(':scope > .rearrange-overlay') != null) return // TODO: I think there's a less CSS-y way of doing this check.
+  if (playerDiv.getElementsByClassName('rearrange-overlay').length > 0) return // Already has an overlay; nothing to do.
 
   var overlay = document.createElement('div')
   overlay.className = 'rearrange-overlay'
