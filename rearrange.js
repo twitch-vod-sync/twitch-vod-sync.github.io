@@ -31,18 +31,39 @@ window.getPlayerDivsInVisualOrder = function() {
 
 // Single source of truth for generating the stable URL, which re-organizes query params to match the visual order.
 window.syncPlayerParamsToURL = function() {
-  var params = new URLSearchParams()
-  var playerDivs = getPlayerDivsInVisualOrder()
-  for (var i = 0; i < playerDivs.length; i++) {
-    var player = players.get(playerDivs[i].id)
-    if (player == null) continue;
-    params.set('player' + i, player.videoId)
-    // When Twitch auth is disabled, we emit all offsets so the resulting URL stays in non-auth mode.
-    // When Twitch auth is enabled, we omit zero offsets (there must be at least one) to avoid flipping to non-auth mode.
-    if (!FEATURES.DO_TWITCH_AUTH || player.offset != 0) {
-      params.set('offsetplayer' + i, player.offset)
+  var params = new URLSearchParams(window.location.search)
+
+  // Build a final map of intended player data, starting with the existing URL entries.
+  var intendedPlayers = new Map()
+  for (var [key, value] of Array.from(params.entries())) {
+    if (key.startsWith('player') || key.startsWith('offsetplayer')) {
+      intendedPlayers.set(key, parseInt(value))
+      params.delete(key) // Drop from the query; we'll re-add later
     }
   }
+
+  // Next, pull in the loaded players. Overwrites URL state in case a player just finished loading.
+  for (var player of players.values()) {
+    intendedPlayers.set(player.id, player.videoId)
+    intendedPlayers.set('offset' + player.id, player.offset)
+  }
+
+  // Rebuild positional params in visual order from the merged map.
+  var i = 0
+  for (var playerDiv of getPlayerDivsInVisualOrder()) {
+    var videoId = intendedPlayers.get(playerDiv.id)
+    if (videoId == null) continue
+
+    params.append('player' + i, videoId)
+    // When Twitch auth is disabled, we emit all offsets so the resulting URL stays in non-auth mode.
+    // When Twitch auth is enabled, we omit zero offsets (there must be at least one) to avoid flipping to non-auth mode.
+    var offset = intendedPlayers.get('offset' + playerDiv.id) || 0
+    if (!FEATURES.DO_TWITCH_AUTH || offset !== 0) {
+      params.append('offsetplayer' + i, offset)
+    }
+    i++
+  }
+
   history.pushState(null, null, '?' + params.toString())
 }
 

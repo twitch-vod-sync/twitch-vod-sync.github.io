@@ -111,6 +111,13 @@ window.onload = function() {
       var promise = FEATURES.DO_TWITCH_AUTH ? getTwitchVideosDetails([videoId]) : getStubVideosDetails([videoId])
       promise
       .then(videos => loadVideos(playerId, videos, TWITCH))
+      .then(player => {
+        // Handle offset here (instead of in loadVideos) since we know videos haven't been reordered yet.
+        if (params.has('offset' + playerId)) {
+          player.offset = parseInt(params.get('offset' + playerId))
+          syncPlayerParamsToURL()
+        }
+      })
       .catch(r => showText(playerId, 'Could not process video "' + videoId + '":\n' + r, /*isError*/true))
     }
   }
@@ -329,11 +336,9 @@ function removePlayer() {
   players.delete(playerToRemove.id)
   reloadTimeline()
 
-  // Update displayed query params to remove this video
-  syncPlayerParamsToURL()
-
-  // Remove the div (which also unloads the embed)
+  // Remove the div (which also unloads the embed), then sync the URL.
   playerToRemove.remove()
+  syncPlayerParamsToURL()
 
   // Restore back up to the minimum number of players (2)
   while (document.getElementById('players').childElementCount < MIN_PLAYERS) window.addPlayer()
@@ -507,12 +512,6 @@ function loadVideos(playerId, videos, playerType) {
   player.color = TIMELINE_COLORS[nextColorIndex % TIMELINE_COLORS.length]
   nextColorIndex++
 
-  // Read offset from the URL before we sync (otherwise our sync would clobber it with the default of 0).
-  var params = new URLSearchParams(window.location.search)
-  if (params.has('offset' + div.id)) {
-    player.offset = parseInt(params.get('offset' + div.id))
-  }
-
   syncPlayerParamsToURL()
 
   player.onready = (thisPlayer, initialTimestamp) => {
@@ -576,6 +575,8 @@ function loadVideos(playerId, videos, playerType) {
       seekPlayersTo(earliestSync, PAUSED)
     }
   }
+
+  return player
 }
 
 // Mirror of getTwitchVideosDetails(videoIds), except it doesn't need Twitch auth (and so has a bunch of stub/fake data)
