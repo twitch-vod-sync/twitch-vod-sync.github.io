@@ -3,6 +3,7 @@
 var rearrangeMode = false
 window.toggleRearrangeMode = function() { setRearrangeMode(!rearrangeMode) }
 window.exitRearrangeMode = function() { if (rearrangeMode) setRearrangeMode(false) }
+window.isRearrangeMode = function() { return rearrangeMode }
 function setRearrangeMode(enabled) {
   rearrangeMode = enabled
   var playersDiv = document.getElementById('players')
@@ -74,7 +75,7 @@ window.addRearrangeOverlay = function(playerDiv, color) {
   overlay.className = 'rearrange-overlay'
   overlay.style = 'position: absolute; inset: 0; z-index: 10; cursor: grab; border: 2px solid transparent; display: flex'
   overlay.style.borderColor = color
-  overlay.style.backgroundColor = color
+//  overlay.style.backgroundColor = color
   overlay.draggable = true
 
   overlay.addEventListener('dragstart', (e) => {

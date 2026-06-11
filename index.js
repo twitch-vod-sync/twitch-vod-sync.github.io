@@ -160,6 +160,7 @@ window.onload = function() {
       reloadTimeline()
 
     } else if (event.key == 'r' || event.key == 'R') {
+      if (anyVideoInAsync) return // Different modes are incompatible
       toggleRearrangeMode()
 
     } else if (event.key == 'q' || event.key == 'Q') {
@@ -178,6 +179,7 @@ window.onload = function() {
       for (var player of players.values()) player.setQuality(currentQuality)
 
     } else if (event.key == 'a') {
+      if (isRearrangeMode()) return // Different modes are incompatible
       // On the first press, bring all videos into 'async mode', where they can be adjusted freely.
       // We need to start by aligning all videos based on their current time.
       if (!anyVideoInAsync) {
@@ -790,6 +792,18 @@ function reloadTimeline() {
 }
 
 function refreshTimeline() {
+  var currentLabel = document.getElementById('timelineCurrent')
+
+  var anyVideoInAsync = Array.from(players.values()).some(p => p.state === ASYNC)
+  if (anyVideoInAsync) {
+    if (currentLabel != null) currentLabel.innerText = 'ASYNC MODE'
+    return
+  }
+  if (isRearrangeMode()) {
+    if (currentLabel != null) currentLabel.innerText = 'REARRANGE MODE'
+    return
+  }
+
   // If the user seeked, use their intended seek as the timeline marker (so it looks like we react fast)
   var timestamp = pendingSeekTimestamp > 0 ? pendingSeekTimestamp : getAveragePlayerTimestamp()
   if (timestamp == null) return // No videos are ready, leave the cursor where it is
@@ -800,11 +814,8 @@ function refreshTimeline() {
   var perc = 100.0 * (timestamp - timelineStart) / (timelineEnd - timelineStart)
   if (cursor != null) cursor.setAttribute('x', perc + '%')
 
-  var anyVideoInAsync = Array.from(players.values()).some(p => p.state === ASYNC)
-
-  var currentLabel = document.getElementById('timelineCurrent')
   if (currentLabel != null) {
-    currentLabel.innerText = anyVideoInAsync ? 'ASYNC MODE' : new Date(timestamp).toLocaleString(TIMELINE_DATE_FORMAT)
+    currentLabel.innerText = new Date(timestamp).toLocaleString(TIMELINE_DATE_FORMAT)
   }
 
   // In some cases, the video end times might be updated when we load the player(s), in which case the end timestamp will be wrong.
