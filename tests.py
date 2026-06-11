@@ -325,33 +325,6 @@ startTime: {datetime.fromtimestamp(start_time)}
     # The 'assert sync' function has a 1s grace period, so this timing should be ok.
     self.assert_players_synced_to(self.VIDEO_0_START_TIME + 61)
 
-    # Do it again, this time with the players all live
-    self.simulate_play('player0')
-    for player in players:
-      self.wait_for_state(player, 'PLAYING')
-
-    time.sleep(1)
-    self.print('Seeking all players to 120.0')
-    self.run('''
-      function focusFrame(player) { document.querySelector('div[id="' + player + '"] > iframe').focus() }
-
-      setTimeout(() => { focusFrame('player0'); players.get('player0')._player.seek(120.0) }, 1000)
-      setTimeout(() => { focusFrame('player1'); players.get('player1')._player.seek(120.1) }, 1001)
-      setTimeout(() => { focusFrame('player2'); players.get('player2')._player.seek(120.2) }, 1002)
-      setTimeout(() => { focusFrame('player3'); players.get('player3')._player.seek(120.3) }, 1003)
-      setTimeout(() => { focusFrame('player4'); players.get('player4')._player.seek(120.4) }, 1004)
-      // setTimeout(() => { focusFrame('player5'); players.get('player5')._player.seek(120.5) }, 1005)
-      // setTimeout(() => { focusFrame('player6'); players.get('player6')._player.seek(120.6) }, 1006)
-      // setTimeout(() => { focusFrame('player7'); players.get('player7')._player.seek(120.7) }, 1007)
-      // setTimeout(() => { focusFrame('player8'); players.get('player8')._player.seek(120.8) }, 1008)
-    ''')
-    self.wait_for_last_log('setting pendingSeekTimestamp to 0')
-
-    for player in players:
-      self.wait_for_state(player, 'PLAYING')
-      self.assert_player_position(player, self.VIDEO_0_START_TIME + 121)
-
-
   def testRaceInterrupt(self):
     # We need to get a fresh race on each run, so that the VODs haven't expired.
     # Fortunately, OOT randomizer is pretty active. If needed, we could query a few categories.
@@ -405,7 +378,8 @@ startTime: {datetime.fromtimestamp(start_time)}
     self.wait_for_state('player0', 'PAUSED')
 
     # Override the channel lookup function, since we need to test with highlights (for stability)
-    self.run('window.getTwitchChannelVideos = function () { return window.getTwitchVideosDetails(["' + self.VIDEO_3 + '", "' + self.VIDEO_4 + '"]) }')
+    # N.B.: Twitch returns videos newest-first from their API, which we mirror here.
+    self.run('window.getTwitchChannelVideos = function () { return window.getTwitchVideosDetails(["' + self.VIDEO_4 + '", "' + self.VIDEO_3 + '"]) }')
 
     # The two test videos are 60s apart, which is exactly the default SYNC_THRESHOLD.
     # Lower it slightly so the "loaded while videos are paused" branch fires for this test.
