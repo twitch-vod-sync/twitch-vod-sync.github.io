@@ -150,6 +150,9 @@ window.onload = function() {
       FEATURES.HIDE_ENDING_TIMES = !FEATURES.HIDE_ENDING_TIMES
       reloadTimeline()
 
+    } else if (event.key == 'r' || event.key == 'R') {
+      toggleRearrangeMode()
+
     } else if (event.key == 'q' || event.key == 'Q') {
       var qualities = new Set()
       for (var player of players.values()) {
@@ -251,6 +254,8 @@ function addPlayer() {
   newPlayer.id = 'player' + playersDiv.childElementCount
   playersDiv.appendChild(newPlayer)
   newPlayer.style = 'flex: 1 0 50%; display: flex; flex-direction: column; justify-content: center; align-items: center'
+  addRearrangeOverlay(newPlayer)
+  exitRearrangeMode() // Adding a tile implies the user is done rearranging.
 
   var form = document.createElement('form')
   newPlayer.appendChild(form)
@@ -313,6 +318,7 @@ function showText(playerId, message, isError) {
 }
 
 function removePlayer() {
+  exitRearrangeMode() // Removing a tile implies the user is done rearranging.
   var playersDiv = document.getElementById('players')
   var playerToRemove = playersDiv.childNodes[playersDiv.childElementCount - 1]
   // If we're removing the final player, wipe out both divs so that addPlayer can just create sequential IDs
