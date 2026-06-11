@@ -1,9 +1,6 @@
 (() => {
 
 var rearrangeMode = false
-window.toggleRearrangeMode = function() { setRearrangeMode(!rearrangeMode) }
-window.exitRearrangeMode = function() { if (rearrangeMode) setRearrangeMode(false) }
-window.isRearrangeMode = function() { return rearrangeMode }
 function setRearrangeMode(enabled) {
   rearrangeMode = enabled
   var playersDiv = document.getElementById('players')
@@ -22,6 +19,51 @@ function setRearrangeMode(enabled) {
     syncPlayerParamsToURL()
     reloadTimeline()
   }
+}
+
+window.toggleRearrangeMode = function() { setRearrangeMode(!rearrangeMode) }
+window.exitRearrangeMode = function() { if (rearrangeMode) setRearrangeMode(false) }
+window.isRearrangeMode = function() { return rearrangeMode }
+
+function addRearrangeOverlay(playerDiv, color) {
+  if (playerDiv.getElementsByClassName('rearrange-overlay').length > 0) return // Already has an overlay; nothing to do.
+
+  var overlay = document.createElement('div')
+  overlay.className = 'rearrange-overlay'
+  overlay.style = 'position: absolute; inset: 0; z-index: 10; cursor: grab; border: 2px solid transparent; display: flex'
+  overlay.style.borderColor = color
+  overlay.draggable = true
+
+  overlay.addEventListener('dragstart', (e) => {
+    e.dataTransfer.setData('text/plain', playerDiv.id)
+    e.dataTransfer.effectAllowed = 'move'
+    overlay.style.cursor = 'grabbing'
+    overlay.style.opacity = '0.5'
+  })
+  overlay.addEventListener('dragend', () => {
+    overlay.style.cursor = 'grab'
+    overlay.style.opacity = '1'
+  })
+  overlay.addEventListener('dragover', (e) => {
+    e.preventDefault() // Required to allow a drop.
+    e.dataTransfer.dropEffect = 'move'
+  })
+  overlay.addEventListener('dragenter', () => { overlay.style.borderWidth = '5px' })
+  overlay.addEventListener('dragleave', () => { overlay.style.borderWidth = '2px' })
+  overlay.addEventListener('drop', (e) => {
+    e.preventDefault()
+    overlay.style.borderWidth = '2px'
+    var sourceId = e.dataTransfer.getData('text/plain')
+    if (!sourceId || sourceId === playerDiv.id) return
+    var sourceDiv = document.getElementById(sourceId)
+    if (sourceDiv != null) {
+      var tmp = sourceDiv.style.order
+      sourceDiv.style.order = playerDiv.style.order
+      playerDiv.style.order = tmp
+    }
+  })
+
+  playerDiv.appendChild(overlay)
 }
 
 window.getPlayerDivsInVisualOrder = function() {
@@ -66,48 +108,6 @@ window.syncPlayerParamsToURL = function() {
   }
 
   history.pushState(null, null, '?' + params.toString())
-}
-
-window.addRearrangeOverlay = function(playerDiv, color) {
-  if (playerDiv.getElementsByClassName('rearrange-overlay').length > 0) return // Already has an overlay; nothing to do.
-
-  var overlay = document.createElement('div')
-  overlay.className = 'rearrange-overlay'
-  overlay.style = 'position: absolute; inset: 0; z-index: 10; cursor: grab; border: 2px solid transparent; display: flex'
-  overlay.style.borderColor = color
-//  overlay.style.backgroundColor = color
-  overlay.draggable = true
-
-  overlay.addEventListener('dragstart', (e) => {
-    e.dataTransfer.setData('text/plain', playerDiv.id)
-    e.dataTransfer.effectAllowed = 'move'
-    overlay.style.cursor = 'grabbing'
-    overlay.style.opacity = '0.5'
-  })
-  overlay.addEventListener('dragend', () => {
-    overlay.style.cursor = 'grab'
-    overlay.style.opacity = '1'
-  })
-  overlay.addEventListener('dragover', (e) => {
-    e.preventDefault() // Required to allow a drop.
-    e.dataTransfer.dropEffect = 'move'
-  })
-  overlay.addEventListener('dragenter', () => { overlay.style.borderWidth = '5px' })
-  overlay.addEventListener('dragleave', () => { overlay.style.borderWidth = '2px' })
-  overlay.addEventListener('drop', (e) => {
-    e.preventDefault()
-    overlay.style.borderWidth = '2px'
-    var sourceId = e.dataTransfer.getData('text/plain')
-    if (!sourceId || sourceId === playerDiv.id) return
-    var sourceDiv = document.getElementById(sourceId)
-    if (sourceDiv != null) {
-      var tmp = sourceDiv.style.order
-      sourceDiv.style.order = playerDiv.style.order
-      playerDiv.style.order = tmp
-    }
-  })
-
-  playerDiv.appendChild(overlay)
 }
 
 })()

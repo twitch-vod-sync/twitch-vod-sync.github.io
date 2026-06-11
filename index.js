@@ -508,12 +508,10 @@ function loadVideos(playerId, videos, playerType) {
   var div = document.getElementById(playerId)
 
   var player = window.newPlayer(div.id, videos, playerType)
-  players.set(div.id, player)
-
-  // Cycle through colors so removing/re-adding a player still picks a new color.
   player.color = TIMELINE_COLORS[nextColorIndex % TIMELINE_COLORS.length]
-  nextColorIndex++
+  nextColorIndex++ // Cycle through colors so removing/re-adding a player still picks a new color.
 
+  players.set(div.id, player)
   syncPlayerParamsToURL()
 
   player.onready = (thisPlayer, initialTimestamp) => {
