@@ -253,8 +253,8 @@ function addPlayer() {
   var newPlayer = document.createElement('div')
   newPlayer.id = 'player' + playersDiv.childElementCount
   playersDiv.appendChild(newPlayer)
-  newPlayer.style = 'flex: 1 0 50%; display: flex; flex-direction: column; justify-content: center; align-items: center'
-  addRearrangeOverlay(newPlayer)
+  newPlayer.style = 'flex: 1 0 50%; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative'
+  newPlayer.style.order = playersDiv.childElementCount - 1
   exitRearrangeMode() // Adding a tile implies the user is done rearranging.
 
   var form = document.createElement('form')
@@ -751,7 +751,9 @@ function reloadTimeline() {
   var [timelineStart, timelineEnd] = getTimelineBounds()
   var rowHeight = 100.0 / players.size
   var i = 0
-  for (var player of players.values()) {
+  // Draw timeline rows in the same visual order as the player tiles, so rearranging the players also rearranges the timeline.
+  for (var playerDiv of getPlayerDivsInVisualOrder()) {
+    var player = players.get(playerDiv.id)
     var rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
     graphic.appendChild(rect)
     rect.setAttribute('fill', TIMELINE_COLORS[player.colorIndex % TIMELINE_COLORS.length])
