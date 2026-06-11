@@ -65,6 +65,8 @@ window.onload = function() {
     params = new URLSearchParams(window.localStorage.getItem('queryParams'))
     console.log('Loaded query params from storage:', params.toString())
     window.localStorage.removeItem('queryParams')
+    // Restore the URL so downstream code can interact with it (e.g. for offsets)
+    history.replaceState(null, null, '?' + params.toString())
   } else {
     params = new URLSearchParams(window.location.search)
     console.log('Loaded query params from url:', params.toString())
@@ -243,7 +245,10 @@ function addPlayer() {
   var playersDiv = document.getElementById('players')
 
   var newPlayer = document.createElement('div')
-  newPlayer.id = 'player' + playersDiv.childElementCount
+  // Player IDs are not necessarily contiguous. However, race loading expects to find IDs in order,
+  // so we make sure to add the new player at the lowest available ID.
+  for (var i = 0; document.getElementById('player' + i) != null; i++) {}
+  newPlayer.id = 'player' + i
   playersDiv.appendChild(newPlayer)
   newPlayer.style = 'flex: 1 0 50%; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative'
   newPlayer.style.order = playersDiv.childElementCount - 1
