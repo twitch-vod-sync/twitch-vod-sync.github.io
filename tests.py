@@ -378,8 +378,9 @@ startTime: {datetime.fromtimestamp(start_time)}
     self.wait_for_state('player0', 'PAUSED')
 
     # Override the channel lookup function, since we need to test with highlights (for stability)
-    # N.B.: Twitch returns videos newest-first from their API, which we mirror here.
-    self.run('window.getTwitchChannelVideos = function () { return window.getTwitchVideosDetails(["' + self.VIDEO_4 + '", "' + self.VIDEO_3 + '"]) }')
+    # N.B.: getTwitchVideosDetails (the /videos?id= endpoint) does not guarantee order.
+    # We deliberately return them oldest-first (backwards from what we need in getBestVideo) to prove we handle it.
+    self.run('window.getTwitchChannelVideos = function () { return window.getTwitchVideosDetails(["' + self.VIDEO_3 + '", "' + self.VIDEO_4 + '"]) }')
 
     # The two test videos are 60s apart, which is exactly the default SYNC_THRESHOLD.
     # Lower it slightly so the "loaded while videos are paused" branch fires for this test.

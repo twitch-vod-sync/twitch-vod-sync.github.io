@@ -449,9 +449,8 @@ function searchVideo(event) {
 
 function getBestVideo(videos, currentTimestamp) {
   var [timelineStart, timelineEnd] = getTimelineBounds()
-  // Twitch returns videos newest-first, so reverse to find the earliest video.
   var overlappingVideos = []
-  for (var video of videos.toReversed()) {
+  for (var video of videos) {
     // We are looking to see if our video overlaps the timeline.
     // First, check to see if the timeline surrounds our video's start time.
     // Second, check to see if our video surrounds the timeline's start time.
@@ -465,6 +464,9 @@ function getBestVideo(videos, currentTimestamp) {
   // If we have no timeline (or there was no overlap), error so the caller can take a smart action
   // (e.g. showing a picker so the user can select what they want)
   if (overlappingVideos.length === 0) return null
+
+  // Twitch APIs do not actually return videos in any particular order. Sort earliest -> latest.
+  overlappingVideos.sort((a, b) => a.startTime - b.startTime)
 
   // Now that we've filtered the videos, pick the one that best suits the user's intention.
   // First, check to see if there's a video which overlaps the current timestamp (there can only be one of these)
