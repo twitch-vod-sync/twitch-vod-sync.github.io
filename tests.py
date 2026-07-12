@@ -430,6 +430,8 @@ startTime: {datetime.fromtimestamp(start_time)}
     kwargs['endTime'] = kwargs['startTime'] + 100_000
     if 'initial' in kwargs:
       kwargs['initial'] *= 1000
+    # Ensure the player is actually loaded (via its form) before trying to load videos into it.
+    WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.ID, f'player{player_id}-form')))
     self.run(f'loadVideos("player{player_id}", [{json.dumps(kwargs)}], MOCK)')
     if wait:
       time.sleep(1)
