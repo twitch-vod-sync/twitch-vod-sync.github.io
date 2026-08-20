@@ -128,6 +128,7 @@ window.onload = function() {
     if (m != null) {
       getRacetimeRaceDetails(m[1])
       .then(raceDetails => loadRace(raceDetails))
+      .catch(r => showText('player0', 'Could not load racetime.gg race "' + m[1] + '":\n' + r, /*isError*/true))
     }
   }
 
@@ -655,6 +656,9 @@ console.log = function(...args) {
   eventLog.push(logEvent.join('\t'))
   if (location.hostname == 'localhost') console_log(logEvent.join(' ')) // Also emit to console in local testing for easier debugging
 }
+
+// Log uncaught errors
+window.addEventListener('error', e => console.log((e.error && e.error.stack) || e.message))
 
 function seekPlayersTo(timestamp, targetState) {
   console.log('Seeking all players to', timestamp, 'and state', targetState)
