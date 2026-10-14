@@ -115,6 +115,7 @@ class TwitchPlayer extends Player {
       // Twitch loads the "true" video duration once it starts playing. We use that to update our end time,
       // since there's a chance that the video is a live VOD, and its duration doesn't match what the API returned.
       var durationMillis = Math.floor(this._player.getDuration() * 1000)
+      console.log(this.id, 'updated end time from', this._endTime, 'to', this._startTime + durationMillis)
       this._endTime = this._startTime + durationMillis
       this.eventSink('play')
     })

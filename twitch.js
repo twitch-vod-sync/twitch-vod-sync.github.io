@@ -78,6 +78,10 @@ function parseVideo(videoDetails) {
   if (m[4] != null) millis += Number(m[4])      * 60 * 1000 // Minutes
   if (m[2] != null) millis += Number(m[2]) * 60 * 60 * 1000 // Hours
 
+  if (videoDetails.thumbnail_url == 'https://vod-secure.twitch.tv/_404/404_processing_%{width}x%{height}.png') {
+    console.log(videoDetails.id, 'appears to be a live vod')
+  }
+
   var parts = videoDetails.thumbnail_url.split('/')
   var hash = parts[4]
   var unique = parts[5]

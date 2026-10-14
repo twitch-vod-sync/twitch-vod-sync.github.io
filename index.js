@@ -659,6 +659,7 @@ console.log = function(...args) {
 
 // Log uncaught errors
 window.addEventListener('error', e => console.log((e.error && e.error.stack) || e.message))
+window.addEventListener('unhandledrejection', e => console.log(e.reason.stack || e.reason))
 
 function seekPlayersTo(timestamp, targetState) {
   console.log('Seeking all players to', timestamp, 'and state', targetState)
@@ -849,12 +850,14 @@ function refreshTimeline() {
       if (timestamp < player.endTime - 60000) continue // Only search when we're 1 minute from the end of the video (or less)
 
       player.nextVideoDetails = {'id': 0} // Add a placeholder object so we only make this call once.
+      console.log(player.id, 'nearing end time, searching for next video')
 
       getTwitchChannelVideos(player.channel)
       .then(videos => {
         // Case 1: Check if the current video's end time has shifted significantly.
         var current = videos.find(video => video.id == player.videoId)
         if (current != null && Math.abs(current.endTime - player._endTime) > 1000) {
+          console.log(player.id, 'found additional duration on the current video', current.endTime - player._endTime)
           player.nextVideoDetails = current
           return
         }
@@ -863,6 +866,7 @@ function refreshTimeline() {
         // Twitch returns videos newest-first, so reverse to find the earliest match.
         for (var video of videos.toReversed()) {
           if (video.startTime > player._endTime && video.startTime <= timelineEnd) {
+            console.log(player.id, 'found a new video that fits the timeline', video)
             player.nextVideoDetails = video
             return
           }
