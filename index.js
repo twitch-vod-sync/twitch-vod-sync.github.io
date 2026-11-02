@@ -610,7 +610,8 @@ function loadRace(raceDetails) {
   // However, we won't overwrite any already-loaded videos (e.g. if the user already has an async loaded up).
   var videosToLoad = Math.max(4, document.getElementById('players').childElementCount) - players.size
   // We also need to pass down the channels who are already loaded, so we don't show them again.
-  var loadedChannels = new Set(window.players.values().map(p => p.channel))
+  // Note: Twitch's API returns channel names as lowercase, but the embedded player has correct casing.
+  var loadedChannels = new Set(window.players.values().map(p => p.channel.toLowerCase()))
 
   loadRaceVideos(raceDetails, videosToLoad, loadedChannels)
   .then(videos => {
