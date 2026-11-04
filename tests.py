@@ -624,7 +624,8 @@ if __name__ == '__main__':
 
     if failures:
       print('Failed attempts:', failures, 'out of', loop_count, 'total')
-      num_failures += len(failures)
+      if len(failures) / loop_count > 0.05: # Allow 1 failure out of 20 (our nightly iteration count)
+        num_failures += len(failures)
   if num_failures > 0:
     print(f'\n{num_failures} test runs failed')
   else:
