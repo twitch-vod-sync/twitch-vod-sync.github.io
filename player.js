@@ -131,6 +131,9 @@ class TwitchPlayer extends Player {
     this._player.addEventListener('playing', () => this.eventSink('test_playing'))
   }
 
+  getVolume() { return this._player.getMuted() ? 0 : this._player.getVolume() }
+  setVolume(volume) { this._player.setVolume(volume) }
+
   getCurrentTimestamp() {
     var durationMillis = Math.floor(this._player.getCurrentTime() * 1000)
     return this._startTime + this.offset + durationMillis

@@ -135,8 +135,10 @@ window.onload = function() {
   window.addEventListener('resize', resizePlayers)
 
   // This function updates the timeline cursor and label so they stay up to date with the current videos
-  // It also runs any of our "live" checks, i.e. anything which needs to be updated without user action
   window.setInterval(() => refreshTimeline(), 100)
+  // This function runs our "live" checks, i.e. things that aren't associated with an explicit user action,
+  // or that don't have a corresponding callback.
+  window.setInterval(() => livePlayerChecks(), 100)
 
   // Handle space, left, and right as global listeners, in case you don't actually have a stream selected
   // Each of these just calls an event (play, pause, seek) on one of the players, so it'll fall through into the default handler.
@@ -526,6 +528,9 @@ function loadVideos(playerId, videos, playerType) {
     console.log(thisPlayer.id, 'has loaded')
     reloadTimeline() // Note: This will get called several times in a row if we're loading multiple videos from query params. Whatever.
 
+    var volume = JSON.parse(window.localStorage.getItem('volume'))
+    thisPlayer.setVolume(volume[thisPlayer.channel] || 0)
+
     // Check to see if we're the last player to load (from initial load)
     thisPlayer.state = READY
 
@@ -831,8 +836,10 @@ function refreshTimeline() {
   // In some cases, the video end times might be updated when we load the player(s), in which case the end timestamp will be wrong.
   var endLabel = document.getElementById('timelineEnd')
   if (endLabel != null) endLabel.innerText = new Date(timelineEnd).toLocaleString(TIMELINE_DATE_FORMAT)
+}
 
-  // This is also a convenient moment to check if any players are waiting to start because we seeked before their starttime.
+function livePlayerChecks() {
+  // Check if any players are waiting to start because we seeked before their starttime.
   for (var player of players.values()) {
     if (player.state === BEFORE_START && timestamp >= player.startTime) {
       console.log(player.id, 'was waiting to start, and the current timestamp just passed its startpoint, so we started it')
@@ -841,7 +848,7 @@ function refreshTimeline() {
     }
   }
 
-  // This is also a convenient moment to check if any players are about to end, and look for a next video.
+  // Check if any players are about to end, and look for a next video.
   // There are two cases where we need to load another video after this one, and they are both handled by getBestVideo:
   // 1. If the video is a 'live VOD', and there is more content than when we loaded it originally
   // 2. If the stream went down, and there's another VOD which also overlaps the timeline
@@ -849,10 +856,11 @@ function refreshTimeline() {
   if (FEATURES.DO_TWITCH_AUTH) {
     // Compute timeline end directly from the raw video timestamps, to ensure this feature still works in ASYNC mode.
     var timelineEnd = Math.max(...Array.from(players.values(), p => p._endTime))
+    var timestamp = pendingSeekTimestamp > 0 ? pendingSeekTimestamp : getAveragePlayerTimestamp()
 
     for (let player of players.values()) {
       if (player.nextVideoDetails != null) continue // Already found a next video.
-      if (timestamp < player.endTime - 60000) continue // Only search when we're 1 minute from the end of the video (or less)
+      if (timestamp != null && timestamp < player.endTime - 60000) continue // Only search when we're 1 minute from the end of the video (or less)
 
       player.nextVideoDetails = {'id': 0} // Add a placeholder object so we only make this call once.
       console.log(player.id, 'nearing end time, searching for next video')
@@ -879,5 +887,17 @@ function refreshTimeline() {
       })
     }
   }
+
+  // Check for any player volume changes (which do not fire a twitch callback)
+  // Not all channels are the same volume, so users may wish to customize and align them.
+  // Since most streamers won't change settings between streams, we save this volume level for any future videos.
+  var volume = JSON.parse(window.localStorage.getItem('volume'))
+  var activeVolume = Object.assign({}, volume)
+  for (var player of player.values()) {
+    // Only save the volume if it's been customized, i.e. is unmuted.
+    var playerVolume = player.getVolume()
+    if (playerVolume != 0) activeVolume[player.channel] = playerVolume
+  }
+  if (volume != activeVolume) window.localStorage.setItem('volume', JSON.stringify(playerVolume))
 }
 
