@@ -856,10 +856,11 @@ function livePlayerChecks() {
   if (FEATURES.DO_TWITCH_AUTH) {
     // Compute timeline end directly from the raw video timestamps, to ensure this feature still works in ASYNC mode.
     var timelineEnd = Math.max(...Array.from(players.values(), p => p._endTime))
+    var timestamp = pendingSeekTimestamp > 0 ? pendingSeekTimestamp : getAveragePlayerTimestamp()
 
     for (let player of players.values()) {
       if (player.nextVideoDetails != null) continue // Already found a next video.
-      if (timestamp < player.endTime - 60000) continue // Only search when we're 1 minute from the end of the video (or less)
+      if (timestamp != null && timestamp < player.endTime - 60000) continue // Only search when we're 1 minute from the end of the video (or less)
 
       player.nextVideoDetails = {'id': 0} // Add a placeholder object so we only make this call once.
       console.log(player.id, 'nearing end time, searching for next video')
