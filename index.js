@@ -848,18 +848,6 @@ function livePlayerChecks() {
     }
   }
 
-  // Check for any player volume changes (which do not fire a twitch callback)
-  // Not all channels are the same volume, so users may wish to customize and align them.
-  // Since most streamers won't change settings between streams, we save this volume level for any future videos.
-  var volume = JSON.parse(window.localStorage.getItem('volume'))
-  var activeVolume = Object.assign({}, volume)
-  for (var player of player.values()) {
-    // Only save the volume if it's been customized, i.e. is unmuted.
-    var playerVolume = player.getVolume()
-    if (playerVolume != 0) activeVolume[player.channel] = playerVolume
-  }
-  if (volume != activeVolume) window.localStorage.setItem('volume', JSON.stringify(playerVolume))
-
   // Check if any players are about to end, and look for a next video.
   // There are two cases where we need to load another video after this one, and they are both handled by getBestVideo:
   // 1. If the video is a 'live VOD', and there is more content than when we loaded it originally
@@ -898,5 +886,17 @@ function livePlayerChecks() {
       })
     }
   }
+
+  // Check for any player volume changes (which do not fire a twitch callback)
+  // Not all channels are the same volume, so users may wish to customize and align them.
+  // Since most streamers won't change settings between streams, we save this volume level for any future videos.
+  var volume = JSON.parse(window.localStorage.getItem('volume'))
+  var activeVolume = Object.assign({}, volume)
+  for (var player of player.values()) {
+    // Only save the volume if it's been customized, i.e. is unmuted.
+    var playerVolume = player.getVolume()
+    if (playerVolume != 0) activeVolume[player.channel] = playerVolume
+  }
+  if (volume != activeVolume) window.localStorage.setItem('volume', JSON.stringify(playerVolume))
 }
 
