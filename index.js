@@ -432,14 +432,18 @@ function searchVideo(event) {
     showText(playerId, 'Loading channel videos...')
     getTwitchChannelVideos(m[1])
     .then(videos => {
-      var bestVideo = getBestVideo(videos, getAveragePlayerTimestamp())
-      if (bestVideo == null) {
-        console.log('No video found, showing picker')
-        showVideoPicker(playerId, videos)
-      } else {
-        console.log('Found best video for', playerId, bestVideo.id)
-        loadVideos(playerId, [bestVideo], TWITCH)
+      // Disable 'best video' resolution while in async, because the times won't line up anyways.
+      if (players.get(playerId).state !== ASYNC) {
+        var bestVideo = getBestVideo(videos, getAveragePlayerTimestamp())
+        if (bestVideo != null) {
+          console.log('Found best video for', playerId, bestVideo.id)
+          loadVideos(playerId, [bestVideo], TWITCH)
+          return
+        }
       }
+
+      console.log('No best video identified, showing picker')
+      showVideoPicker(playerId, videos)
     })
     .catch(r => showText(playerId, 'Could not process channel "' + m[1] + '":\n' + r, /*isError*/true))
     return
