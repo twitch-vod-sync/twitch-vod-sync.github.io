@@ -831,8 +831,10 @@ function refreshTimeline() {
   // In some cases, the video end times might be updated when we load the player(s), in which case the end timestamp will be wrong.
   var endLabel = document.getElementById('timelineEnd')
   if (endLabel != null) endLabel.innerText = new Date(timelineEnd).toLocaleString(TIMELINE_DATE_FORMAT)
+}
 
-  // This is also a convenient moment to check if any players are waiting to start because we seeked before their starttime.
+function foo() {
+  // Check if any players are waiting to start because we seeked before their starttime.
   for (var player of players.values()) {
     if (player.state === BEFORE_START && timestamp >= player.startTime) {
       console.log(player.id, 'was waiting to start, and the current timestamp just passed its startpoint, so we started it')
@@ -841,7 +843,19 @@ function refreshTimeline() {
     }
   }
 
-  // This is also a convenient moment to check if any players are about to end, and look for a next video.
+  // Check for any player volume changes (which do not fire a twitch callback)
+  // Not all channels are the same volume, so users may wish to customize and align them.
+  // Since most streamers won't change settings between streams, we save this volume level for any future videos.
+  var volume = JSON.parse(window.localStorage.getItem('volume'))
+  var activeVolume = Object.assign({}, volume)
+  for (var player of player.values()) {
+    // Only save the volume if it's been customized, i.e. is unmuted.
+    var playerVolume = player.getVolume()
+    if (playerVolume != 0) activeVolume[player.channel] = playerVolume
+  }
+  if (volume != activeVolume) window.localStorage.setItem('volume', JSON.stringify(playerVolume))
+
+  // Check if any players are about to end, and look for a next video.
   // There are two cases where we need to load another video after this one, and they are both handled by getBestVideo:
   // 1. If the video is a 'live VOD', and there is more content than when we loaded it originally
   // 2. If the stream went down, and there's another VOD which also overlaps the timeline
