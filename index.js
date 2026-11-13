@@ -136,8 +136,8 @@ window.onload = function() {
 
   // This function updates the timeline cursor and label so they stay up to date with the current videos
   window.setInterval(() => refreshTimeline(), 100)
-  // This function runs our "live" checks, i.e. things that don't line up with a native callback
-  // We might choose to shorten the interval on this in the future if parts of the app aren't "responsive" enough.
+  // This function runs our "live" checks, i.e. things that aren't associated with an explicit user action,
+  // or that don't have a corresponding callback.
   window.setInterval(() => livePlayerChecks(), 100)
 
   // Handle space, left, and right as global listeners, in case you don't actually have a stream selected
