@@ -135,8 +135,10 @@ window.onload = function() {
   window.addEventListener('resize', resizePlayers)
 
   // This function updates the timeline cursor and label so they stay up to date with the current videos
-  // It also runs any of our "live" checks, i.e. anything which needs to be updated without user action
   window.setInterval(() => refreshTimeline(), 100)
+  // This function runs our "live" checks, i.e. things that don't line up with a native callback
+  // We might choose to shorten the interval on this in the future if parts of the app aren't "responsive" enough.
+  window.setInterval(() => livePlayerChecks(), 100)
 
   // Handle space, left, and right as global listeners, in case you don't actually have a stream selected
   // Each of these just calls an event (play, pause, seek) on one of the players, so it'll fall through into the default handler.
@@ -836,7 +838,7 @@ function refreshTimeline() {
   if (endLabel != null) endLabel.innerText = new Date(timelineEnd).toLocaleString(TIMELINE_DATE_FORMAT)
 }
 
-function foo() {
+function livePlayerChecks() {
   // Check if any players are waiting to start because we seeked before their starttime.
   for (var player of players.values()) {
     if (player.state === BEFORE_START && timestamp >= player.startTime) {
