@@ -528,7 +528,7 @@ function loadVideos(playerId, videos, playerType) {
     console.log(thisPlayer.id, 'has loaded')
     reloadTimeline() // Note: This will get called several times in a row if we're loading multiple videos from query params. Whatever.
 
-    var volume = JSON.parse(window.localStorage.get('volume'))
+    var volume = JSON.parse(window.localStorage.getItem('volume'))
     thisPlayer.setVolume(volume[thisPlayer.channel] || 0)
 
     // Check to see if we're the last player to load (from initial load)
