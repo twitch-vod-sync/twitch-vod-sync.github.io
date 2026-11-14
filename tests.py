@@ -469,6 +469,34 @@ startTime: {datetime.fromtimestamp(start_time)}
     self.mockLoadVideo(startTime=0)
     self.assert_players_synced_to(3)
 
+  def testMockSearchChannel(self):
+    for state in [None, 'PAUSED', 'ASYNC']:
+      self.driver.get('http://localhost:3000#scope=&access_token=mock_token')
+      self.mockLoadVideo(startTime=0)
+      if state is not None:
+        self.mockLoadVideo(startTime=1)
+        self.run(f'players.get("player1").state = {state}')
+      self.run('''
+        window.getTwitchChannelVideos = () => Promise.resolve([
+          {id: "channel_video", channel: "test_channel_name", startTime: 2000, endTime: 102000}
+        ])
+        window.newPlayer = (divId, videos) => new MockPlayer(divId, videos[0])
+        var form = document.getElementById("player1-form")
+        form.elements.video.value = "test_channel_name"
+        form.requestSubmit()
+      ''')
+      if state == 'ASYNC':
+        WebDriverWait(self.driver, 10).until(
+          EC.presence_of_element_located((By.ID, 'player1-grid')))
+        assert self.run('return players.get("player1").videoId') == 1
+        assert self.run('return players.get("player1").state.name') == 'ASYNC'
+      else:
+        WebDriverWait(self.driver, 10).until(
+          lambda _: self.run('return players.get("player1")?.videoId') == 'channel_video')
+        WebDriverWait(self.driver, 10).until(
+          lambda _: self.run('return players.get("player1").state.name') == 'PAUSED')
+        self.assert_players_synced_to(2)
+
 
   def testMockLoadWithTooEarlyInitial(self):
     self.driver.get('http://localhost:3000#scope=&access_token=mock_token')

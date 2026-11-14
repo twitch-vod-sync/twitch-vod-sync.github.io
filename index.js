@@ -433,7 +433,7 @@ function searchVideo(event) {
     getTwitchChannelVideos(m[1])
     .then(videos => {
       // Disable 'best video' resolution while in async, because the times won't line up anyways.
-      if (players.get(playerId).state !== ASYNC) {
+      if (players.get(playerId)?.state !== ASYNC) {
         var bestVideo = getBestVideo(videos, getAveragePlayerTimestamp())
         if (bestVideo != null) {
           console.log('Found best video for', playerId, bestVideo.id)
