@@ -13,7 +13,6 @@ from threading import Thread
 
 import requests
 from selenium import webdriver
-from selenium.webdriver import ActionChains
 from selenium.common.exceptions import JavascriptException, TimeoutException, WebDriverException
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
@@ -176,7 +175,13 @@ class UITests:
     self.print('Seeking', player, 'to', f'{duration:.1f}')
     self.focus_element(f'div[id="{player}"] > iframe') # Focus the player frame so that we consider the seek to be manual
     self.run(f'players.get("{player}")._player.seek({duration:.1f})')
-    self.wait_for_log('setting pendingSeekTimestamp to 0')
+
+    state = self.run(f'return players.get("{player}").state.name')
+    if state == 'ASYNC':
+      self.wait_for_log(f'User has manually seeked {player} while in async mode')
+    else:
+      self.wait_for_log('setting pendingSeekTimestamp to 0')
+
     self.focus_element('body') # Re-focus to the body element so future seeks are not treated as manual seeks
 
   def simulate_play(self, player):
@@ -283,6 +288,37 @@ startTime: {datetime.fromtimestamp(start_time)}
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PLAYING')
       self.assert_player_position(player, self.VIDEO_0_START_TIME + 240)
+
+  def testAsync(self):
+    url = f'http://localhost:3000?player0={self.VIDEO_0}&player1={self.VIDEO_1}#scope=&access_token={self.access_token}&client_id={self.client_id}'
+    self.driver.get(url)
+
+    # Wait for all players to load and reach the 'pause' state
+    # player1 is 2 minutes later than player2, so we should align to that
+    for player in ['player0', 'player1']:
+      self.wait_for_state(player, 'PAUSED')
+    self.assert_players_synced_to(self.VIDEO_1_START_TIME)
+
+    # Enter ASYNC mode
+    timeline = self.driver.find_element(By.ID, 'timeline')
+    ActionChains(self.driver).click(timeline).send_keys('a').perform()
+    for player in ['player0', 'player1']:
+      self.wait_for_state(player, 'ASYNC')
+
+    self.simulate_seek('player1', 60.0) # Aligns the video in both players
+
+    # Exit ASYNC mode
+    timeline = self.driver.find_element(By.ID, 'timeline')
+    ActionChains(self.driver).click(timeline).send_keys('a').perform()
+    for player in ['player0', 'player1']:
+      self.wait_for_state(player, 'PLAYING')
+
+    # Seek player0, then confirm that player1 has the new alignment
+    self.simulate_seek('player0', 180.0)
+    for player in ['player0', 'player1']:
+      self.wait_for_state(player, 'PLAYING')
+    player1_time = self.run('return players.get("player1")._player.getCurrentTime()')
+    assert abs(player1_time - 120) < 1, f'player1 was at {player1_time}s, expected 120s'
 
   def testSeekWhileSeeking(self):
     players = [f'player{i}' for i in range(9)]
