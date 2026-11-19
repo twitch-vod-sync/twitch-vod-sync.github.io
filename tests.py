@@ -299,6 +299,8 @@ startTime: {datetime.fromtimestamp(start_time)}
       self.wait_for_state(player, 'PAUSED')
     self.assert_players_synced_to(self.VIDEO_1_START_TIME)
 
+    time.sleep(1) # Working around an issue with getCurrentTimestamp() update latency
+
     # Enter ASYNC mode
     timeline = self.driver.find_element(By.ID, 'timeline')
     ActionChains(self.driver).click(timeline).send_keys('a').perform()
@@ -317,6 +319,9 @@ startTime: {datetime.fromtimestamp(start_time)}
     self.simulate_seek('player0', 180.0)
     for player in ['player0', 'player1']:
       self.wait_for_state(player, 'PLAYING')
+
+    time.sleep(1) # Working around an issue with getCurrentTimestamp() update latency
+
     player1_time = self.run('return players.get("player1")._player.getCurrentTime()')
     assert abs(player1_time - 120) < 1, f'player1 was at {player1_time}s, expected 120s'
 
