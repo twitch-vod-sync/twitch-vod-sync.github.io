@@ -84,6 +84,7 @@ class TwitchPlayer extends Player {
       muted: true,
     }
     this._player = new Twitch.Player(divId, options)
+    this._lastSeek = null
     this._player.addEventListener('ready', () => this.onPlayerReady())
   }
 
@@ -109,6 +110,7 @@ class TwitchPlayer extends Player {
       }
 
       var seekMillis = Math.floor(eventData.position * 1000)
+      this._lastSeek = {position: eventData.position, currentTime: this._player.getCurrentTime()}
       this.eventSink('seek', seekMillis)
     })
     this._player.addEventListener('play',  () => {
@@ -132,7 +134,10 @@ class TwitchPlayer extends Player {
   }
 
   getCurrentTimestamp() {
-    var durationMillis = Math.floor(this._player.getCurrentTime() * 1000)
+    var currentTime = this._player.getCurrentTime()
+    // After some paused seeks, Twitch keeps reporting the pre-seek time until playback starts.
+    if (this._lastSeek != null && currentTime === this._lastSeek.currentTime) currentTime = this._lastSeek.position
+    var durationMillis = Math.floor(currentTime * 1000)
     return this._startTime + this.offset + durationMillis
   }
 
@@ -230,6 +235,7 @@ class TwitchPlayer extends Player {
             return
           }
 
+          var timestamp = this.startTime + seekMillis
           if (this.state == AFTER_END && timestamp >= this.endTime - VIDEO_END_BUFFER) {
             console.log('Ignoring assumed right-arrow seek while in AFTER_END state')
             break
@@ -238,7 +244,6 @@ class TwitchPlayer extends Player {
             break
           }
 
-          var timestamp = this.startTime + seekMillis
           console.log('User has manually seeked', this.id, 'to', timestamp, 'seeking all other players')
           pendingSeekTimestamp = timestamp
           pendingSeekSource = this.id
@@ -349,6 +354,7 @@ class TwitchPlayer extends Player {
             this.videoId = this.nextVideoDetails.id
             this._player.setVideo(this.nextVideoDetails.id)
             this.nextVideoDetails = null
+            this._lastSeek = null
             // Twitch does not call our onPlayerReady callback, but we will get an initial seek event.
             // Since we've switched to the loading state, this will fire our onReady callback appropriately.
             break
