@@ -133,6 +133,9 @@ class TwitchPlayer extends Player {
     this._player.addEventListener('playing', () => this.eventSink('test_playing'))
   }
 
+  getVolume() { return this._player.getMuted() ? 0 : this._player.getVolume() }
+  setVolume(volume) { this._player.setVolume(volume) }
+
   getCurrentTimestamp() {
     var currentTime = this._player.getCurrentTime()
     // After some paused seeks, Twitch keeps reporting the pre-seek time until playback starts.
