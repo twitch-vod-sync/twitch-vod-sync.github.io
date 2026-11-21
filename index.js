@@ -432,8 +432,16 @@ function searchVideo(event) {
     showText(playerId, 'Loading channel videos...')
     getTwitchChannelVideos(m[1])
     .then(videos => {
+      var anyVideoInAsync = false
+      for (var player of players.values()) {
+        if (player.state === ASYNC) {
+          anyVideoInAsync = true
+          break
+        }
+      }
+
       // Disable 'best video' resolution while in async, because the times won't line up anyways.
-      if (players.get(playerId).state !== ASYNC) {
+      if (!anyVideoInAsync) {
         var bestVideo = getBestVideo(videos, getAveragePlayerTimestamp())
         if (bestVideo != null) {
           console.log('Found best video for', playerId, bestVideo.id)
@@ -804,11 +812,13 @@ function reloadTimeline() {
 function refreshTimeline() {
   var currentLabel = document.getElementById('timelineCurrent')
 
-  var anyVideoInAsync = Array.from(players.values()).some(p => p.state === ASYNC)
-  if (anyVideoInAsync) {
-    if (currentLabel != null) currentLabel.innerText = 'ASYNC MODE'
-    return
+  for (var player of players.values()) {
+    if (player.state === ASYNC) {
+      if (currentLabel != null) currentLabel.innerText = 'ASYNC MODE'
+      return
+    }
   }
+
   if (isRearrangeMode()) {
     if (currentLabel != null) currentLabel.innerText = 'REARRANGE MODE'
     return
